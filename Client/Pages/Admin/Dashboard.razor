@@ -4,6 +4,9 @@
 @using LaborControl.Web.Models
 @using LaborControl.Web.Services
 @inject NavigationManager Navigation
+@inject ApiService ApiService
+@inject HttpClient Http
+@inject AuthService AuthService
 
 <div class="space-y-6">
     <!-- Welcome Header -->
@@ -158,10 +161,53 @@
 </div>
 
 @code {
-    private int clientsCount = 24;
-    private int rfidChipsCount = 147;
-    private int tasksCount = 12;
-    private int sitesCount = 8;
+    private int? clientsCount;
+    private int? rfidChipsCount;
+    private int? tasksCount;
+    private int? sitesCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var clients = await ApiService.GetClientsAsync();
+            clientsCount = clients?.Count ?? 0;
+
+            var rfidChips = await ApiService.GetRfidChipsAsync();
+            rfidChipsCount = rfidChips?.Count ?? 0;
+
+            // Récupérer les totaux de tâches et sites via des appels HTTP
+            var httpClient = await GetAuthenticatedClientAsync();
+
+            var tasksResponse = await httpClient.GetAsync("api/tasks/count");
+            if (tasksResponse.IsSuccessStatusCode)
+            {
+                tasksCount = await tasksResponse.Content.ReadFromJsonAsync<int>();
+            }
+
+            var sitesResponse = await httpClient.GetAsync("api/sites/count");
+            if (sitesResponse.IsSuccessStatusCode)
+            {
+                sitesCount = await sitesResponse.Content.ReadFromJsonAsync<int>();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Gérer les erreurs de chargement
+            Console.WriteLine($"Erreur de chargement : {ex.Message}");
+        }
+    }
+
+    private async Task<HttpClient> GetAuthenticatedClientAsync()
+    {
+        var token = await AuthService.GetTokenAsync();
+        if (!string.IsNullOrEmpty(token))
+        {
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        }
+        return Http;
+    }
 
     private void GoToClients() => Navigation.NavigateTo("/admin-lc/clients");
     private void GoToCollaborators() => Navigation.NavigateTo("/admin-lc/collaborators");
