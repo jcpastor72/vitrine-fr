@@ -84,40 +84,20 @@
             <!-- Key Info Grid -->
             <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="border-l-4 border-blue-500 pl-4">
-                    <p class="text-xs text-gray-600 font-semibold uppercase">Ville</p>
-                    <p class="text-lg font-bold text-gray-900 mt-1">@(string.IsNullOrEmpty(client.City) ? "—" : client.City)</p>
-                </div>
-                <div class="border-l-4 border-purple-500 pl-4">
-                    <p class="text-xs text-gray-600 font-semibold uppercase">Code APE</p>
-                    <p class="text-lg font-bold text-gray-900 mt-1">@(string.IsNullOrEmpty(client.ApeCode) ? "—" : client.ApeCode)</p>
-                </div>
-                <div class="border-l-4 border-green-500 pl-4">
                     <p class="text-xs text-gray-600 font-semibold uppercase">Sites</p>
                     <p class="text-lg font-bold text-gray-900 mt-1">@(client.Sites?.Count ?? 0)</p>
                 </div>
-                <div class="border-l-4 border-orange-500 pl-4">
+                <div class="border-l-4 border-purple-500 pl-4">
+                    <p class="text-xs text-gray-600 font-semibold uppercase">Actifs</p>
+                    <p class="text-lg font-bold text-gray-900 mt-1">@(client.Assets?.Count ?? 0)</p>
+                </div>
+                <div class="border-l-4 border-green-500 pl-4">
                     <p class="text-xs text-gray-600 font-semibold uppercase">Utilisateurs</p>
                     <p class="text-lg font-bold text-gray-900 mt-1">@(client.Users?.Count ?? 0)</p>
                 </div>
-            </div>
-
-            <!-- Contact Info Row -->
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200">
-                <div>
-                    <p class="text-xs text-gray-600 font-semibold uppercase">Adresse</p>
-                    <p class="text-sm font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.Address) ? "—" : client.Address)</p>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-600 font-semibold uppercase">Code Postal</p>
-                    <p class="text-sm font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.PostalCode) ? "—" : client.PostalCode)</p>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-600 font-semibold uppercase">Téléphone</p>
-                    <p class="text-sm font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.ContactPhone) ? "—" : client.ContactPhone)</p>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-600 font-semibold uppercase">Contact Principal</p>
-                    <p class="text-sm font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.ContactName) ? "—" : client.ContactName)</p>
+                <div class="border-l-4 border-orange-500 pl-4">
+                    <p class="text-xs text-gray-600 font-semibold uppercase">Commandes</p>
+                    <p class="text-lg font-bold text-gray-900 mt-1">@(client.Orders?.Count ?? 0)</p>
                 </div>
             </div>
         </div>
@@ -156,60 +136,220 @@
                 @if (activeTab == "general")
                 {
                     <div class="space-y-6">
-                        <div class="grid md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="text-sm text-gray-600 font-semibold">Nom du client</label>
-                                <p class="text-lg font-medium text-gray-900 mt-1">@client.Name</p>
+                        <!-- Informations entreprise (depuis API SIRET) -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                                📋 Informations légales (données SIRET non modifiables)
+                            </h3>
+                            <div class="grid md:grid-cols-2 gap-6 bg-gray-50 rounded-lg p-4">
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">Raison sociale</label>
+                                    <p class="text-lg font-medium text-gray-900 mt-1">@client.Name</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">SIRET</label>
+                                    <p class="text-lg font-mono font-medium text-gray-900 mt-1">
+                                        @if (!string.IsNullOrEmpty(client.Siret))
+                                        {
+                                            @(client.Siret.Length == 14 ?
+                                              $"{client.Siret.Substring(0, 3)} {client.Siret.Substring(3, 3)} {client.Siret.Substring(6, 3)} {client.Siret.Substring(9, 5)}" :
+                                              client.Siret)
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </p>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">Code APE/NAF</label>
+                                    <p class="text-lg font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.ApeCode) ? "—" : client.ApeCode)</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">Secteur d'activité</label>
+                                    <p class="text-lg font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.BusinessSector) ? "—" : client.BusinessSector)</p>
+                                </div>
                             </div>
-                            <div>
-                                <label class="text-sm text-gray-600 font-semibold">Plan d'abonnement</label>
-                                <p class="text-lg font-medium text-gray-900 mt-1">@client.SubscriptionPlan</p>
-                            </div>
-                            <div>
-                                <label class="text-sm text-gray-600 font-semibold">Ville</label>
-                                <p class="text-lg font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.City) ? "—" : client.City)</p>
-                            </div>
-                            <div>
-                                <label class="text-sm text-gray-600 font-semibold">Activité (APE)</label>
-                                <p class="text-lg font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.BusinessSector) ? "—" : client.BusinessSector)</p>
-                            </div>
-                            <div>
-                                <label class="text-sm text-gray-600 font-semibold">Date de création</label>
-                                <p class="text-lg font-medium text-gray-900 mt-1">@client.CreatedAt.ToString("dd/MM/yyyy à HH:mm")</p>
-                            </div>
-                            <div>
-                                <label class="text-sm text-gray-600 font-semibold">Statut</label>
-                                <div class="mt-1">
-                                    @if (client.IsArchived)
+                        </div>
+
+                        <!-- Coordonnées -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                                📍 Coordonnées
+                            </h3>
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div class="md:col-span-2">
+                                    <label class="text-sm text-gray-600 font-semibold">Adresse complète</label>
+                                    <p class="text-lg font-medium text-gray-900 mt-1">
+                                        @if (!string.IsNullOrEmpty(client.Address))
+                                        {
+                                            @client.Address<br />
+                                            @client.PostalCode @client.City
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </p>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">Ville</label>
+                                    <p class="text-lg font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.City) ? "—" : client.City)</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">Code postal</label>
+                                    <p class="text-lg font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.PostalCode) ? "—" : client.PostalCode)</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">Site web</label>
+                                    @if (!string.IsNullOrEmpty(client.Website))
                                     {
-                                        <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-800">
-                                            📦 Archivé
-                                        </span>
+                                        <a href="@(client.Website.StartsWith("http") ? client.Website : $"https://{client.Website}")"
+                                           target="_blank"
+                                           class="text-lg font-medium text-blue-600 hover:text-blue-800 mt-1 inline-flex items-center">
+                                            @client.Website
+                                            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                        </a>
                                     }
                                     else
                                     {
-                                        <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
-                                            ✓ Actif
-                                        </span>
+                                        <p class="text-lg font-medium text-gray-900 mt-1">—</p>
                                     }
                                 </div>
                             </div>
+                        </div>
 
-                            @if (client.IsArchived && client.ArchivedAt.HasValue)
-                            {
+                        <!-- Contact principal -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                                👤 Contact principal
+                            </h3>
+                            <div class="grid md:grid-cols-2 gap-6">
                                 <div>
-                                    <label class="text-sm text-gray-600 font-semibold">Date d'archivage</label>
-                                    <p class="text-lg font-medium text-gray-900 mt-1">@client.ArchivedAt.Value.ToString("dd/MM/yyyy à HH:mm")</p>
+                                    <label class="text-sm text-gray-600 font-semibold">Nom du contact</label>
+                                    <p class="text-lg font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.ContactName) ? "—" : client.ContactName)</p>
                                 </div>
-                            }
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">Email</label>
+                                    @if (!string.IsNullOrEmpty(client.ContactEmail))
+                                    {
+                                        <a href="mailto:@client.ContactEmail" class="text-lg font-medium text-blue-600 hover:text-blue-800 mt-1 inline-block">
+                                            @client.ContactEmail
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <p class="text-lg font-medium text-gray-900 mt-1">—</p>
+                                    }
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">Téléphone</label>
+                                    @if (!string.IsNullOrEmpty(client.ContactPhone))
+                                    {
+                                        <a href="tel:@client.ContactPhone" class="text-lg font-medium text-blue-600 hover:text-blue-800 mt-1 inline-block">
+                                            @client.ContactPhone
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <p class="text-lg font-medium text-gray-900 mt-1">—</p>
+                                    }
+                                </div>
+                            </div>
+                        </div>
 
-                            @if (!string.IsNullOrEmpty(client.ArchivalReason))
-                            {
-                                <div class="md:col-span-2">
-                                    <label class="text-sm text-gray-600 font-semibold">Motif d'archivage</label>
-                                    <p class="text-lg font-medium text-gray-900 mt-1">@client.ArchivalReason</p>
+                        <!-- Informations abonnement -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                                💳 Abonnement et statut
+                            </h3>
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">Plan d'abonnement</label>
+                                    <p class="text-lg font-medium text-gray-900 mt-1">
+                                        @{
+                                            var planEmoji = client.SubscriptionPlan switch
+                                            {
+                                                "Starter" => "🚀",
+                                                "Professional" => "💼",
+                                                "Enterprise" => "🏢",
+                                                _ => "📦"
+                                            };
+                                        }
+                                        @planEmoji @client.SubscriptionPlan
+                                    </p>
                                 </div>
-                            }
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">Date de création</label>
+                                    <p class="text-lg font-medium text-gray-900 mt-1">@client.CreatedAt.ToString("dd/MM/yyyy à HH:mm")</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-600 font-semibold">Statut du compte</label>
+                                    <div class="mt-1 flex gap-2">
+                                        @if (client.IsActive)
+                                        {
+                                            <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
+                                                ✓ Compte actif
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">
+                                                ✗ Compte inactif
+                                            </span>
+                                        }
+                                        @if (client.IsArchived)
+                                        {
+                                            <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-800">
+                                                📦 Archivé
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+
+                                @if (client.IsArchived && client.ArchivedAt.HasValue)
+                                {
+                                    <div>
+                                        <label class="text-sm text-gray-600 font-semibold">Date d'archivage</label>
+                                        <p class="text-lg font-medium text-gray-900 mt-1">@client.ArchivedAt.Value.ToString("dd/MM/yyyy à HH:mm")</p>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrEmpty(client.ArchivalReason))
+                                {
+                                    <div class="md:col-span-2">
+                                        <label class="text-sm text-gray-600 font-semibold">Motif d'archivage</label>
+                                        <p class="text-lg font-medium text-gray-900 mt-1">@client.ArchivalReason</p>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Résumé statistiques -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                                📊 Vue d'ensemble
+                            </h3>
+                            <div class="grid md:grid-cols-4 gap-4">
+                                <div class="bg-blue-50 rounded-lg p-4">
+                                    <p class="text-2xl font-bold text-blue-700">@(client.Sites?.Count ?? 0)</p>
+                                    <p class="text-sm text-blue-600">Sites</p>
+                                </div>
+                                <div class="bg-purple-50 rounded-lg p-4">
+                                    <p class="text-2xl font-bold text-purple-700">@(client.Assets?.Count ?? 0)</p>
+                                    <p class="text-sm text-purple-600">Actifs</p>
+                                </div>
+                                <div class="bg-green-50 rounded-lg p-4">
+                                    <p class="text-2xl font-bold text-green-700">@(client.RfidChips?.Count ?? 0)</p>
+                                    <p class="text-sm text-green-600">Puces RFID</p>
+                                </div>
+                                <div class="bg-orange-50 rounded-lg p-4">
+                                    <p class="text-2xl font-bold text-orange-700">@(client.Users?.Count ?? 0)</p>
+                                    <p class="text-sm text-orange-600">Utilisateurs</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 }

@@ -7,14 +7,9 @@
 
 <div class="space-y-6">
     <!-- Header -->
-    <div class="flex justify-between items-center">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900">Gestion des Clients</h1>
-            <p class="text-gray-600 mt-2">Consultez et gérez toutes les fiches clients</p>
-        </div>
-        <button @onclick="CreateNewClient" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
-            ➕ Nouveau client
-        </button>
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900">Gestion des Clients</h1>
+        <p class="text-gray-600 mt-2">Consultez et gérez toutes les fiches clients</p>
     </div>
 
     @if (!string.IsNullOrEmpty(errorMessage))
@@ -32,15 +27,15 @@
             <div class="text-sm text-gray-600">Clients totaux</div>
         </div>
         <div class="bg-blue-50 rounded-lg shadow p-4">
-            <div class="text-2xl font-bold text-blue-700">@starterCount</div>
+            <div class="text-2xl font-bold text-blue-700">@GetPlanCount("Starter")</div>
             <div class="text-sm text-blue-600">Plan Starter</div>
         </div>
         <div class="bg-purple-50 rounded-lg shadow p-4">
-            <div class="text-2xl font-bold text-purple-700">@professionalCount</div>
+            <div class="text-2xl font-bold text-purple-700">@GetPlanCount("Professional")</div>
             <div class="text-sm text-purple-600">Plan Pro</div>
         </div>
         <div class="bg-green-50 rounded-lg shadow p-4">
-            <div class="text-2xl font-bold text-green-700">@enterpriseCount</div>
+            <div class="text-2xl font-bold text-green-700">@GetPlanCount("Enterprise")</div>
             <div class="text-sm text-green-600">Plan Enterprise</div>
         </div>
     </div>
@@ -60,10 +55,7 @@
         <div class="bg-white rounded-lg shadow p-8 text-center">
             <p class="text-2xl mb-2">👥</p>
             <p class="text-gray-600 font-medium">Aucun client trouvé</p>
-            <p class="text-gray-500 text-sm mt-2">Commencez à créer des clients pour les gérer ici.</p>
-            <button @onclick="CreateNewClient" class="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
-                Créer le premier client
-            </button>
+            <p class="text-gray-500 text-sm mt-2">Les clients enregistrés apparaîtront ici.</p>
         </div>
     }
     else
@@ -131,9 +123,6 @@
     private List<Client>? clients;
     private bool isLoading = true;
     private string errorMessage = string.Empty;
-    private int starterCount = 5;
-    private int professionalCount = 8;
-    private int enterpriseCount = 3;
 
     protected override async Task OnInitializedAsync()
     {
@@ -153,14 +142,10 @@
         }
     }
 
-    private void CreateNewClient()
+    private int GetPlanCount(string planName)
     {
-        Navigation.NavigateTo("/admin-lc/clients/new");
-    }
-
-    private void EditClient(Guid clientId)
-    {
-        Navigation.NavigateTo($"/admin-lc/clients/{clientId}/edit");
+        if (clients == null) return 0;
+        return clients.Count(c => c.SubscriptionPlan == planName);
     }
 
     private void ViewClientDetails(Guid clientId)

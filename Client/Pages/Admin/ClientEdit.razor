@@ -1,5 +1,4 @@
 @page "/admin-lc/clients/{ClientId:guid}/edit"
-@page "/admin-lc/clients/new"
 @layout AdminLayout
 @using LaborControl.Web.Models
 @using LaborControl.Web.Services
@@ -13,7 +12,7 @@
             class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition font-medium">
             ← Retour
         </button>
-        <h1 class="text-3xl font-bold text-gray-900">@(IsNewClient ? "Créer un client" : "Modifier le client")</h1>
+        <h1 class="text-3xl font-bold text-gray-900">Modifier le client</h1>
         <div></div>
     </div>
 
@@ -25,7 +24,7 @@
         </div>
     }
 
-    @if (!IsNewClient && client == null)
+    @if (client == null)
     {
         if (isLoading)
         {
@@ -91,7 +90,7 @@
                 </div>
 
                 <!-- Statut (lecture seule pour édition) -->
-                @if (!IsNewClient && client != null)
+                @if (client != null)
                 {
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Statut</label>
@@ -134,7 +133,7 @@
                     }
                     else
                     {
-                        <span>@(IsNewClient ? "Créer le client" : "Enregistrer les modifications")</span>
+                        <span>Enregistrer les modifications</span>
                     }
                 </button>
             </div>
@@ -144,14 +143,13 @@
 
 @code {
     [Parameter]
-    public Guid? ClientId { get; set; }
+    public Guid ClientId { get; set; }
 
     private Client? client;
     private ClientFormModel clientForm = new();
     private bool isLoading = true;
     private bool isSubmitting = false;
     private string errorMessage = string.Empty;
-    private bool IsNewClient => ClientId == null || ClientId == Guid.Empty;
 
     private bool IsFormValid =>
         !string.IsNullOrWhiteSpace(clientForm.Name) &&
@@ -159,15 +157,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (IsNewClient)
-        {
-            clientForm = new ClientFormModel { Name = "", SubscriptionPlan = "" };
-            isLoading = false;
-        }
-        else
-        {
-            await LoadClient();
-        }
+        await LoadClient();
     }
 
     private async Task LoadClient()
@@ -177,9 +167,9 @@
             isLoading = true;
             errorMessage = string.Empty;
 
-            if (ClientId.HasValue)
+            if (ClientId != Guid.Empty)
             {
-                client = await ApiService.GetClientAsync(ClientId.Value);
+                client = await ApiService.GetClientAsync(ClientId);
 
                 if (client == null)
                 {
@@ -209,14 +199,7 @@
 
     private void GoBack()
     {
-        if (IsNewClient)
-        {
-            Navigation.NavigateTo("/admin-lc/clients");
-        }
-        else
-        {
-            Navigation.NavigateTo($"/admin-lc/clients/{ClientId}");
-        }
+        Navigation.NavigateTo($"/admin-lc/clients/{ClientId}");
     }
 
     private async Task SaveClient()
@@ -231,49 +214,22 @@
             isSubmitting = true;
             errorMessage = string.Empty;
 
-            if (IsNewClient)
+            if (client != null)
             {
-                var newClient = new Client
-                {
-                    Id = Guid.NewGuid(),
-                    Name = clientForm.Name,
-                    SubscriptionPlan = clientForm.SubscriptionPlan,
-                    City = clientForm.City,
-                    BusinessSector = clientForm.BusinessSector,
-                    CreatedAt = DateTime.Now,
-                    IsArchived = false
-                };
+                client.Name = clientForm.Name;
+                client.SubscriptionPlan = clientForm.SubscriptionPlan;
+                client.City = clientForm.City;
+                client.BusinessSector = clientForm.BusinessSector;
 
-                var success = await ApiService.CreateClientAsync(newClient);
+                var success = await ApiService.UpdateClientAsync(ClientId, client);
 
                 if (success)
                 {
-                    Navigation.NavigateTo("/admin-lc/clients");
+                    Navigation.NavigateTo($"/admin-lc/clients/{ClientId}");
                 }
                 else
                 {
-                    errorMessage = "Erreur lors de la création du client";
-                }
-            }
-            else
-            {
-                if (client != null)
-                {
-                    client.Name = clientForm.Name;
-                    client.SubscriptionPlan = clientForm.SubscriptionPlan;
-                    client.City = clientForm.City;
-                    client.BusinessSector = clientForm.BusinessSector;
-
-                    var success = await ApiService.UpdateClientAsync(ClientId!.Value, client);
-
-                    if (success)
-                    {
-                        Navigation.NavigateTo($"/admin-lc/clients/{ClientId}");
-                    }
-                    else
-                    {
-                        errorMessage = "Erreur lors de la mise à jour du client";
-                    }
+                    errorMessage = "Erreur lors de la mise à jour du client";
                 }
             }
         }
