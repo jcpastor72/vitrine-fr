@@ -66,33 +66,91 @@
         <!-- Recent Clients -->
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-bold text-gray-900 mb-4">👥 Clients récents</h3>
-            <div class="space-y-3">
-                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <div>
-                        <p class="font-medium text-gray-900">Entreprise ABC</p>
-                        <p class="text-xs text-gray-600">Professionnel</p>
-                    </div>
-                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Actif</span>
-                </div>
-                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <div>
-                        <p class="font-medium text-gray-900">Groupe XYZ</p>
-                        <p class="text-xs text-gray-600">Enterprise</p>
-                    </div>
-                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Actif</span>
-                </div>
-                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <div>
-                        <p class="font-medium text-gray-900">Société DEF</p>
-                        <p class="text-xs text-gray-600">Starter</p>
-                    </div>
-                    <span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">Inactif</span>
-                </div>
+            <div class="max-h-80 overflow-y-auto space-y-3">
+                @if (recentClients == null)
+                {
+                    <div class="text-center text-gray-500">Chargement...</div>
+                }
+                else if (recentClients.Count == 0)
+                {
+                    <div class="text-center text-gray-500">Aucun client récent</div>
+                }
+                else
+                {
+                    @foreach (var client in recentClients)
+                    {
+                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition"
+                            @onclick="() => ShowClientDetails(client)">
+                            <div>
+                                <p class="font-medium text-gray-900">@client.Name</p>
+                                <p class="text-xs text-gray-600">@GetClientType(client)</p>
+                            </div>
+                            <span
+                                class="text-xs @(client.IsActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800") px-2 py-1 rounded">
+                                @(client.IsActive ? "Actif" : "Inactif")
+                            </span>
+                        </div>
+                    }
+                }
             </div>
-            <button @onclick="GoToClients" class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+            <button @onclick="GoToClients"
+                class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
                 Voir tous →
             </button>
         </div>
+
+        <!-- Client Details Modal -->
+        @if (selectedClient != null)
+        {
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+                @onclick="CloseClientDetails">
+                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full" @onclick:stopPropagation>
+                    <div class="bg-blue-50 border-b border-blue-200 p-6">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h3 class="text-2xl font-bold text-gray-900">Détails du client</h3>
+                                <p class="text-sm text-gray-600 mt-1">@selectedClient.Name</p>
+                            </div>
+                            <button @onclick="CloseClientDetails" class="text-gray-400 hover:text-gray-600 transition">
+                                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Type de client</label>
+                                <p class="text-lg text-gray-900">@GetClientType(selectedClient)</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+                                <span
+                                    class="text-sm @(selectedClient.IsActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800") px-2 py-1 rounded">
+                                    @(selectedClient.IsActive ? "Actif" : "Inactif")
+                                </span>
+                            </div>
+                        </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <p class="text-lg text-gray-900">@selectedClient.ContactEmail</p>
+                    </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Date d'inscription</label>
+                            <p class="text-lg text-gray-900">@selectedClient.CreatedAt.ToString("dd/MM/yyyy")</p>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-end">
+                        <button @onclick="GoToClientDetail"
+                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            Voir le profil complet
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
 
         <!-- Active Puces RFID -->
         <div class="bg-white rounded-lg shadow p-6">
@@ -111,7 +169,8 @@
                     <p class="text-xs text-gray-600">Alerte - Pas de lecture depuis 6h</p>
                 </div>
             </div>
-            <button @onclick="GoToRFIDChips" class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+            <button @onclick="GoToRFIDChips"
+                class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
                 Gérer →
             </button>
         </div>
@@ -120,44 +179,27 @@
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-bold text-gray-900 mb-4">⚡ Actions rapides</h3>
             <div class="space-y-2">
-                <button @onclick="GoToClients" class="w-full px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition font-medium text-sm text-left">
+                <button @onclick="GoToClients"
+                    class="w-full px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition font-medium text-sm text-left">
                     👥 Gérer les clients
                 </button>
-                <button @onclick="GoToCollaborators" class="w-full px-4 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition font-medium text-sm text-left">
+                <button @onclick="GoToCollaborators"
+                    class="w-full px-4 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition font-medium text-sm text-left">
                     👨‍💼 Gestion collaborateurs
                 </button>
-                <button @onclick="GoToOrders" class="w-full px-4 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition font-medium text-sm text-left">
+                <button @onclick="GoToOrders"
+                    class="w-full px-4 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition font-medium text-sm text-left">
                     📦 Commandes
                 </button>
-                <button @onclick="GoToAudit" class="w-full px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition font-medium text-sm text-left">
+                <button @onclick="GoToAudit"
+                    class="w-full px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition font-medium text-sm text-left">
                     📋 Journal d'audit
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- System Information -->
-    <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-bold text-gray-900 mb-4">ℹ️ Informations système</h3>
-        <div class="grid md:grid-cols-4 gap-4 text-sm">
-            <div>
-                <p class="text-gray-600 font-semibold">Version</p>
-                <p class="text-gray-900 font-medium mt-1">v1.0.0</p>
-            </div>
-            <div>
-                <p class="text-gray-600 font-semibold">Environnement</p>
-                <p class="text-gray-900 font-medium mt-1">Production</p>
-            </div>
-            <div>
-                <p class="text-gray-600 font-semibold">Status</p>
-                <p class="text-green-600 font-medium mt-1">✓ Tous les services</p>
-            </div>
-            <div>
-                <p class="text-gray-600 font-semibold">Dernière sync</p>
-                <p class="text-gray-900 font-medium mt-1">Il y a 5 min</p>
-            </div>
-        </div>
-    </div>
+    <!-- Section supprimée -->
 </div>
 
 @code {
@@ -190,6 +232,9 @@
             {
                 sitesCount = await sitesResponse.Content.ReadFromJsonAsync<int>();
             }
+
+            // Charger les clients récents
+            await LoadRecentClients();
         }
         catch (Exception ex)
         {
@@ -204,14 +249,65 @@
         if (!string.IsNullOrEmpty(token))
         {
             Http.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         }
         return Http;
     }
+
+    private List<Client>? recentClients;
+    private Client? selectedClient;
 
     private void GoToClients() => Navigation.NavigateTo("/admin-lc/clients");
     private void GoToCollaborators() => Navigation.NavigateTo("/admin-lc/collaborators");
     private void GoToOrders() => Navigation.NavigateTo("/admin-lc/orders");
     private void GoToRFIDChips() => Navigation.NavigateTo("/admin-lc/rfid-chips");
     private void GoToAudit() => Navigation.NavigateTo("/admin-lc/activity-log");
+
+    private async Task LoadRecentClients()
+    {
+        try
+        {
+            var httpClient = await GetAuthenticatedClientAsync();
+            var response = await httpClient.GetAsync("api/Customers/recent?limit=10");
+            if (response.IsSuccessStatusCode)
+            {
+                recentClients = await response.Content.ReadFromJsonAsync<List<Client>>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur de chargement des clients récents : {ex.Message}");
+            recentClients = new List<Client>();
+        }
+    }
+
+    private void ShowClientDetails(Client client)
+    {
+        selectedClient = client;
+    }
+
+    private void CloseClientDetails()
+    {
+        selectedClient = null;
+    }
+
+    private void GoToClientDetail()
+    {
+        if (selectedClient != null)
+        {
+            Navigation.NavigateTo($"/admin-lc/clients/{selectedClient.Id}");
+        }
+    }
+
+    private string GetClientType(Client client)
+    {
+        return client.SubscriptionPlan switch
+        {
+            "PROFESSIONAL" => "Professionnel",
+            "ENTERPRISE" => "Entreprise",
+            "STARTER" => "Starter",
+            _ => "Non défini"
+        };
+    }
+
 }
