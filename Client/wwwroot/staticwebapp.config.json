@@ -29,6 +29,6 @@
     "apiRuntime": "node:16",
     "clientCacheMode": "disable",
     "deploymentJitterEnabled": false,
-    "skipAutomaticDeployments": true
+    "skipAutomaticDeployments": false
   }
 }
