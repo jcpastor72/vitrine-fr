@@ -6,4 +6,7 @@ public class Client
     public string Name { get; set; } = string.Empty;
     public string SubscriptionPlan { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public bool IsArchived { get; set; } = false;
+    public DateTime? ArchivedAt { get; set; }
+    public string? ArchivalReason { get; set; }
 }
