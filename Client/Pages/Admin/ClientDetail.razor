@@ -105,29 +105,29 @@
         <!-- Tabs Navigation -->
         <div class="bg-white rounded-lg shadow">
             <div class="border-b border-gray-200 flex">
-                <button @onclick="() => activeTab = 'general'"
+                <button @onclick='() => activeTab = "general"'
                     class="px-6 py-4 font-medium transition @(activeTab == "general" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-600 hover:text-gray-900")">
-                    📋 Général
+                    Général
                 </button>
-                <button @onclick="() => activeTab = 'sites'"
+                <button @onclick='() => activeTab = "sites"'
                     class="px-6 py-4 font-medium transition @(activeTab == "sites" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-600 hover:text-gray-900")">
-                    🏢 Sites (@(client.Sites?.Count ?? 0))
+                    Sites (@(client.Sites?.Count ?? 0))
                 </button>
-                <button @onclick="() => activeTab = 'assets'"
+                <button @onclick='() => activeTab = "assets"'
                     class="px-6 py-4 font-medium transition @(activeTab == "assets" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-600 hover:text-gray-900")">
-                    ⚙️ Actifs (@(client.Assets?.Count ?? 0))
+                    Actifs (@(client.Assets?.Count ?? 0))
                 </button>
-                <button @onclick="() => activeTab = 'rfid'"
+                <button @onclick='() => activeTab = "rfid"'
                     class="px-6 py-4 font-medium transition @(activeTab == "rfid" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-600 hover:text-gray-900")">
-                    📡 Puces (@(client.RfidChips?.Count ?? 0))
+                    Puces (@(client.RfidChips?.Count ?? 0))
                 </button>
-                <button @onclick="() => activeTab = 'users'"
+                <button @onclick='() => activeTab = "users"'
                     class="px-6 py-4 font-medium transition @(activeTab == "users" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-600 hover:text-gray-900")">
-                    👥 Utilisateurs (@(client.Users?.Count ?? 0))
+                    Utilisateurs (@(client.Users?.Count ?? 0))
                 </button>
-                <button @onclick="() => activeTab = 'orders'"
+                <button @onclick='() => activeTab = "orders"'
                     class="px-6 py-4 font-medium transition @(activeTab == "orders" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-600 hover:text-gray-900")">
-                    📦 Commandes (@(client.Orders?.Count ?? 0))
+                    Commandes (@(client.Orders?.Count ?? 0))
                 </button>
             </div>
 
