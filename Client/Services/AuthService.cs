@@ -132,4 +132,9 @@ public class AuthService
     {
         return await _localStorage.GetItemAsync<string>("userEmail");
     }
+
+    public async Task<string?> GetUserRoleAsync()
+    {
+        return await _localStorage.GetItemAsync<string>("userRole");
+    }
 }
