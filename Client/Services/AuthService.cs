@@ -127,4 +127,9 @@ public class AuthService
     {
         return await _localStorage.GetItemAsync<string>("authToken");
     }
+
+    public async Task<string?> GetUserEmailAsync()
+    {
+        return await _localStorage.GetItemAsync<string>("userEmail");
+    }
 }
