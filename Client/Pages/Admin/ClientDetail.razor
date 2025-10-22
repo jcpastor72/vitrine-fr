@@ -74,6 +74,14 @@
                     <p class="text-lg font-medium text-gray-900 mt-1">@client.CreatedAt.ToString("dd/MM/yyyy à HH:mm")</p>
                 </div>
                 <div>
+                    <label class="text-sm text-gray-600 font-semibold">Ville</label>
+                    <p class="text-lg font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.City) ? "—" : client.City)</p>
+                </div>
+                <div>
+                    <label class="text-sm text-gray-600 font-semibold">Activité (secteur)</label>
+                    <p class="text-lg font-medium text-gray-900 mt-1">@(string.IsNullOrEmpty(client.BusinessSector) ? "—" : client.BusinessSector)</p>
+                </div>
+                <div>
                     <label class="text-sm text-gray-600 font-semibold">Statut</label>
                     <div class="mt-1">
                         @if (client.IsArchived)

@@ -9,7 +9,8 @@
 <div class="space-y-6">
     <!-- Header with Back Button -->
     <div class="flex items-center justify-between">
-        <button @onclick="GoBack" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition font-medium">
+        <button @onclick="GoBack"
+            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition font-medium">
             ← Retour
         </button>
         <h1 class="text-3xl font-bold text-gray-900">@(IsNewClient ? "Créer un client" : "Modifier le client")</h1>
@@ -52,8 +53,7 @@
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                         Nom du client <span class="text-red-600">*</span>
                     </label>
-                    <input type="text"
-                        @bind="clientForm.Name"
+                    <input type="text" @bind="clientForm.Name"
                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Exemple: Entreprise ABC" />
                 </div>
@@ -70,6 +70,24 @@
                         <option value="Professional">Professional</option>
                         <option value="Enterprise">Enterprise</option>
                     </select>
+                </div>
+
+                <!-- Ville -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Ville</label>
+                    <input type="text"
+                        @bind="clientForm.City"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Exemple: Paris" />
+                </div>
+
+                <!-- Activité -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Activité (secteur)</label>
+                    <input type="text"
+                        @bind="clientForm.BusinessSector"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Exemple: Technologie" />
                 </div>
 
                 <!-- Statut (lecture seule pour édition) -->
@@ -104,11 +122,11 @@
 
             <!-- Buttons -->
             <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
-                <button @onclick="GoBack" class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition font-medium">
+                <button @onclick="GoBack"
+                    class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition font-medium">
                     Annuler
                 </button>
-                <button @onclick="SaveClient"
-                    disabled="@(!IsFormValid || isSubmitting)"
+                <button @onclick="SaveClient" disabled="@(!IsFormValid || isSubmitting)"
                     class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed">
                     @if (isSubmitting)
                     {
@@ -143,13 +161,11 @@
     {
         if (IsNewClient)
         {
-            // Nouvelle création - initialiser le formulaire
             clientForm = new ClientFormModel { Name = "", SubscriptionPlan = "" };
             isLoading = false;
         }
         else
         {
-            // Édition - charger le client
             await LoadClient();
         }
     }
@@ -171,11 +187,12 @@
                 }
                 else
                 {
-                    // Remplir le formulaire avec les données du client
                     clientForm = new ClientFormModel
                     {
                         Name = client.Name,
-                        SubscriptionPlan = client.SubscriptionPlan
+                        SubscriptionPlan = client.SubscriptionPlan,
+                        City = client.City,
+                        BusinessSector = client.BusinessSector
                     };
                 }
             }
@@ -216,12 +233,13 @@
 
             if (IsNewClient)
             {
-                // Créer un nouveau client
                 var newClient = new Client
                 {
                     Id = Guid.NewGuid(),
                     Name = clientForm.Name,
                     SubscriptionPlan = clientForm.SubscriptionPlan,
+                    City = clientForm.City,
+                    BusinessSector = clientForm.BusinessSector,
                     CreatedAt = DateTime.Now,
                     IsArchived = false
                 };
@@ -239,11 +257,12 @@
             }
             else
             {
-                // Mettre à jour le client existant
                 if (client != null)
                 {
                     client.Name = clientForm.Name;
                     client.SubscriptionPlan = clientForm.SubscriptionPlan;
+                    client.City = clientForm.City;
+                    client.BusinessSector = clientForm.BusinessSector;
 
                     var success = await ApiService.UpdateClientAsync(ClientId!.Value, client);
 
@@ -272,5 +291,7 @@
     {
         public string Name { get; set; } = string.Empty;
         public string SubscriptionPlan { get; set; } = string.Empty;
+        public string? City { get; set; }
+        public string? BusinessSector { get; set; }
     }
 }
