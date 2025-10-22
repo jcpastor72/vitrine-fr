@@ -3,22 +3,104 @@
 @inject AuthService AuthService
 @inject NavigationManager Navigation
 
-<div class="min-h-screen bg-gray-100">
-    <nav class="bg-blue-600 text-white p-4">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold">LABOR CONTROL</h1>
-            <div class="flex gap-4 items-center">
-                <a href="/admin/clients" class="hover:underline">Clients</a>
-                <a href="/admin/rfid-chips" class="hover:underline">Puces RFID</a>
-                <button @onclick="HandleLogout" class="bg-red-500 px-4 py-1 rounded hover:bg-red-600">
-                    Déconnexion
-                </button>
-            </div>
+<div class="min-h-screen flex bg-gray-50">
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-lg">
+        <!-- Logo -->
+        <div class="p-6 border-b border-blue-700">
+            <h1 class="text-2xl font-bold">⚙️ Labor Control</h1>
+            <p class="text-xs text-blue-300 mt-1">Panneau d'administration</p>
         </div>
-    </nav>
 
-    <main class="container mx-auto p-6">
-        @Body
+        <!-- Navigation Menu -->
+        <nav class="p-4 space-y-2">
+            <!-- Dashboard -->
+            <a href="/admin-lc" class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-blue-700 transition font-medium">
+                <span class="text-xl">📊</span>
+                <span>Dashboard</span>
+            </a>
+
+            <!-- Gestion des clients -->
+            <div class="pt-2">
+                <p class="px-4 text-xs font-bold text-blue-300 uppercase tracking-wide">Gestion</p>
+                <a href="/admin-lc/clients" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                    <span>👥</span>
+                    <span>Clients</span>
+                </a>
+                <a href="/admin-lc/collaborators" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                    <span>👨‍💼</span>
+                    <span>Collaborateurs</span>
+                </a>
+            </div>
+
+            <!-- Commandes -->
+            <div class="pt-2">
+                <p class="px-4 text-xs font-bold text-blue-300 uppercase tracking-wide">Commandes</p>
+                <a href="/admin-lc/orders" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                    <span>📦</span>
+                    <span>Commandes</span>
+                </a>
+                <a href="/admin-lc/preparation" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                    <span>🏗️</span>
+                    <span>Préparation</span>
+                </a>
+                <a href="/admin-lc/shipments" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                    <span>🚚</span>
+                    <span>Expéditions</span>
+                </a>
+            </div>
+
+            <!-- RFID -->
+            <div class="pt-2">
+                <p class="px-4 text-xs font-bold text-blue-300 uppercase tracking-wide">RFID</p>
+                <a href="/admin-lc/rfid-chips" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                    <span>📡</span>
+                    <span>Puces RFID</span>
+                </a>
+            </div>
+
+            <!-- Audit -->
+            <div class="pt-2">
+                <p class="px-4 text-xs font-bold text-blue-300 uppercase tracking-wide">Sécurité</p>
+                <a href="/admin-lc/activity-log" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                    <span>📋</span>
+                    <span>Journal d'audit</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Divider -->
+        <div class="my-4 border-t border-blue-700"></div>
+
+        <!-- User Profile & Logout -->
+        <div class="p-4 space-y-3">
+            <div class="bg-blue-700 rounded-lg p-3">
+                <p class="text-xs text-blue-200">Connecté en tant que</p>
+                <p class="text-sm font-bold truncate">Admin System</p>
+            </div>
+            <button @onclick="HandleLogout" class="w-full flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition font-medium text-sm">
+                <span>🚪</span>
+                <span>Déconnexion</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col">
+        <!-- Top Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="px-8 py-4 flex justify-between items-center">
+                <h2 class="text-gray-600 text-sm font-medium">Administration Labor Control</h2>
+                <div class="flex items-center gap-4">
+                    <span class="text-xs text-gray-500">⏰ @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <div class="flex-1 p-8 overflow-auto">
+            @Body
+        </div>
     </main>
 </div>
 

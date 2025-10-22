@@ -1,0 +1,123 @@
+@page "/admin-lc/orders"
+@layout AdminLayout
+@using LaborControl.Web.Models
+@using LaborControl.Web.Services
+@inject IJSRuntime JS
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Gestion des Commandes</h1>
+            <p class="text-gray-600 mt-2">Consultez et gérez toutes les commandes clients</p>
+        </div>
+        <button class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
+            ➕ Nouvelle commande
+        </button>
+    </div>
+
+    <!-- Statistics -->
+    <div class="grid md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-gray-900">@totalOrders</div>
+            <div class="text-sm text-gray-600">Total</div>
+        </div>
+        <div class="bg-yellow-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-yellow-700">@pendingOrders</div>
+            <div class="text-sm text-yellow-600">En attente</div>
+        </div>
+        <div class="bg-blue-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-blue-700">@processingOrders</div>
+            <div class="text-sm text-blue-600">En traitement</div>
+        </div>
+        <div class="bg-green-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-green-700">@completedOrders</div>
+            <div class="text-sm text-green-600">Complétées</div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="flex gap-4">
+            <select @bind="selectedStatus" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Tous les statuts</option>
+                <option value="PENDING">En attente</option>
+                <option value="PROCESSING">En traitement</option>
+                <option value="COMPLETED">Complétée</option>
+                <option value="CANCELLED">Annulée</option>
+            </select>
+            <input type="text" placeholder="Rechercher par numéro ou client..."
+                   class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b-2 border-gray-200">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">N° Commande</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Client</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Montant</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Statut</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 font-mono font-semibold text-blue-600">#CMD-2025-001</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">Entreprise ABC</td>
+                        <td class="px-6 py-4 font-bold text-gray-900">2 300,50 €</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">22/10/2025</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                ✓ Complétée
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm space-x-2">
+                            <button class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-medium">Voir</button>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 font-mono font-semibold text-blue-600">#CMD-2025-002</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">Groupe XYZ</td>
+                        <td class="px-6 py-4 font-bold text-gray-900">1 200,00 €</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">21/10/2025</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                ⏳ En traitement
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm space-x-2">
+                            <button class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-medium">Voir</button>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 font-mono font-semibold text-blue-600">#CMD-2025-003</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">Société DEF</td>
+                        <td class="px-6 py-4 font-bold text-gray-900">980,00 €</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">20/10/2025</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                ⏱️ En attente
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm space-x-2">
+                            <button class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-medium">Voir</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string selectedStatus = "";
+    private int totalOrders = 25;
+    private int pendingOrders = 3;
+    private int processingOrders = 5;
+    private int completedOrders = 17;
+}

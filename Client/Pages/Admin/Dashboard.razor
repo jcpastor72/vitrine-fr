@@ -1,0 +1,171 @@
+@page "/admin-lc"
+@page "/admin-lc/dashboard"
+@layout AdminLayout
+@using LaborControl.Web.Models
+@using LaborControl.Web.Services
+@inject NavigationManager Navigation
+
+<div class="space-y-6">
+    <!-- Welcome Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-blue-900 rounded-lg shadow p-8 text-white">
+        <h1 class="text-4xl font-bold mb-2">Bienvenue à Labor Control 👋</h1>
+        <p class="text-blue-100">Voici un aperçu de votre activité d'administration</p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-sm text-gray-600 font-semibold">Clients totaux</p>
+                    <p class="text-4xl font-bold text-gray-900 mt-2">@clientsCount</p>
+                </div>
+                <span class="text-3xl">👥</span>
+            </div>
+            <p class="text-xs text-green-600 mt-4">+12% ce mois</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-sm text-gray-600 font-semibold">Puces RFID</p>
+                    <p class="text-4xl font-bold text-gray-900 mt-2">@rfidChipsCount</p>
+                </div>
+                <span class="text-3xl">📡</span>
+            </div>
+            <p class="text-xs text-blue-600 mt-4">Actives</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-sm text-gray-600 font-semibold">Tâches prévues</p>
+                    <p class="text-4xl font-bold text-gray-900 mt-2">@tasksCount</p>
+                </div>
+                <span class="text-3xl">📋</span>
+            </div>
+            <p class="text-xs text-yellow-600 mt-4">À traiter</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-sm text-gray-600 font-semibold">Sites gérés</p>
+                    <p class="text-4xl font-bold text-gray-900 mt-2">@sitesCount</p>
+                </div>
+                <span class="text-3xl">🏢</span>
+            </div>
+            <p class="text-xs text-green-600 mt-4">Actifs</p>
+        </div>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6">
+        <!-- Recent Clients -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">👥 Clients récents</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <p class="font-medium text-gray-900">Entreprise ABC</p>
+                        <p class="text-xs text-gray-600">Professionnel</p>
+                    </div>
+                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Actif</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <p class="font-medium text-gray-900">Groupe XYZ</p>
+                        <p class="text-xs text-gray-600">Enterprise</p>
+                    </div>
+                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Actif</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <p class="font-medium text-gray-900">Société DEF</p>
+                        <p class="text-xs text-gray-600">Starter</p>
+                    </div>
+                    <span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">Inactif</span>
+                </div>
+            </div>
+            <button @onclick="GoToClients" class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+                Voir tous →
+            </button>
+        </div>
+
+        <!-- Active Puces RFID -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">📡 Puces RFID actives</h3>
+            <div class="space-y-3">
+                <div class="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-600">
+                    <p class="font-medium text-gray-900">RFID-A-001</p>
+                    <p class="text-xs text-gray-600">Actif - Dernière lecture: 2h</p>
+                </div>
+                <div class="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-600">
+                    <p class="font-medium text-gray-900">RFID-B-042</p>
+                    <p class="text-xs text-gray-600">Actif - Dernière lecture: 15min</p>
+                </div>
+                <div class="p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-600">
+                    <p class="font-medium text-gray-900">RFID-C-007</p>
+                    <p class="text-xs text-gray-600">Alerte - Pas de lecture depuis 6h</p>
+                </div>
+            </div>
+            <button @onclick="GoToRFIDChips" class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+                Gérer →
+            </button>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">⚡ Actions rapides</h3>
+            <div class="space-y-2">
+                <button @onclick="GoToClients" class="w-full px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition font-medium text-sm text-left">
+                    👥 Gérer les clients
+                </button>
+                <button @onclick="GoToCollaborators" class="w-full px-4 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition font-medium text-sm text-left">
+                    👨‍💼 Gestion collaborateurs
+                </button>
+                <button @onclick="GoToOrders" class="w-full px-4 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition font-medium text-sm text-left">
+                    📦 Commandes
+                </button>
+                <button @onclick="GoToAudit" class="w-full px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition font-medium text-sm text-left">
+                    📋 Journal d'audit
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Information -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-bold text-gray-900 mb-4">ℹ️ Informations système</h3>
+        <div class="grid md:grid-cols-4 gap-4 text-sm">
+            <div>
+                <p class="text-gray-600 font-semibold">Version</p>
+                <p class="text-gray-900 font-medium mt-1">v1.0.0</p>
+            </div>
+            <div>
+                <p class="text-gray-600 font-semibold">Environnement</p>
+                <p class="text-gray-900 font-medium mt-1">Production</p>
+            </div>
+            <div>
+                <p class="text-gray-600 font-semibold">Status</p>
+                <p class="text-green-600 font-medium mt-1">✓ Tous les services</p>
+            </div>
+            <div>
+                <p class="text-gray-600 font-semibold">Dernière sync</p>
+                <p class="text-gray-900 font-medium mt-1">Il y a 5 min</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int clientsCount = 24;
+    private int rfidChipsCount = 147;
+    private int tasksCount = 12;
+    private int sitesCount = 8;
+
+    private void GoToClients() => Navigation.NavigateTo("/admin-lc/clients");
+    private void GoToCollaborators() => Navigation.NavigateTo("/admin-lc/collaborators");
+    private void GoToOrders() => Navigation.NavigateTo("/admin-lc/orders");
+    private void GoToRFIDChips() => Navigation.NavigateTo("/admin-lc/rfid-chips");
+    private void GoToAudit() => Navigation.NavigateTo("/admin-lc/activity-log");
+}

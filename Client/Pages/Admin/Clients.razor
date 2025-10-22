@@ -1,94 +1,166 @@
-@page "/admin/clients"
+@page "/admin-lc/clients"
 @layout AdminLayout
 @using LaborControl.Web.Models
 @using LaborControl.Web.Services
+@inject NavigationManager Navigation
 @inject ApiService ApiService
 
-<h2 class="text-2xl font-bold mb-4">Gestion des Clients</h2>
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Gestion des Clients</h1>
+            <p class="text-gray-600 mt-2">Consultez et gérez toutes les fiches clients</p>
+        </div>
+        <button @onclick="CreateNewClient" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
+            ➕ Nouveau client
+        </button>
+    </div>
 
-@if (!string.IsNullOrEmpty(errorMessage))
-{
-    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-        <strong>Erreur:</strong> @errorMessage
-    </div>
-}
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="bg-red-50 rounded-lg shadow p-4 border-l-4 border-red-600">
+            <p class="text-red-800 font-medium">⚠️ Erreur</p>
+            <p class="text-red-700 text-sm mt-1">@errorMessage</p>
+        </div>
+    }
 
-@if (isLoading)
-{
-    <div class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded">
-        <p>Chargement des clients...</p>
+    <!-- Statistics -->
+    <div class="grid md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-gray-900">@(clients?.Count ?? 0)</div>
+            <div class="text-sm text-gray-600">Clients totaux</div>
+        </div>
+        <div class="bg-blue-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-blue-700">@starterCount</div>
+            <div class="text-sm text-blue-600">Plan Starter</div>
+        </div>
+        <div class="bg-purple-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-purple-700">@professionalCount</div>
+            <div class="text-sm text-purple-600">Plan Pro</div>
+        </div>
+        <div class="bg-green-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-green-700">@enterpriseCount</div>
+            <div class="text-sm text-green-600">Plan Enterprise</div>
+        </div>
     </div>
-}
-else if (clients == null)
-{
-    <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-        <p>Erreur: La réponse de l'API est null</p>
-    </div>
-}
-else if (!clients.Any())
-{
-    <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-        <p>Aucun client trouvé (liste vide)</p>
-    </div>
-}
-else
-{
-    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-        <p>✓ @clients.Count client(s) trouvé(s)</p>
-    </div>
-    
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="min-w-full">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date création</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-                @foreach (var client in clients)
-                {
-                    <tr>
-                        <td class="px-6 py-4">@client.Name</td>
-                        <td class="px-6 py-4">@client.SubscriptionPlan</td>
-                        <td class="px-6 py-4">@client.CreatedAt.ToString("dd/MM/yyyy")</td>
-                        <td class="px-6 py-4">
-                            <button class="text-blue-600 hover:underline mr-2">Modifier</button>
-                            <button class="text-red-600 hover:underline">Supprimer</button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-}
 
-<button class="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-    Nouveau client
-</button>
+    <!-- Loading State -->
+    @if (isLoading)
+    {
+        <div class="bg-white rounded-lg shadow p-8 text-center">
+            <div class="inline-block">
+                <div class="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+            </div>
+            <p class="text-gray-600 mt-4 font-medium">Chargement des clients...</p>
+        </div>
+    }
+    else if (clients == null || !clients.Any())
+    {
+        <div class="bg-white rounded-lg shadow p-8 text-center">
+            <p class="text-2xl mb-2">👥</p>
+            <p class="text-gray-600 font-medium">Aucun client trouvé</p>
+            <p class="text-gray-500 text-sm mt-2">Commencez à créer des clients pour les gérer ici.</p>
+            <button @onclick="CreateNewClient" class="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
+                Créer le premier client
+            </button>
+        </div>
+    }
+    else
+    {
+        <!-- Clients Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b-2 border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Nom</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Contact</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Plan</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Statut</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Date création</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        @foreach (var client in clients)
+                        {
+                            <tr class="hover:bg-gray-50 transition">
+                                <td class="px-6 py-4 font-bold text-gray-900">@client.Name</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">contact@example.com</td>
+                                <td class="px-6 py-4">
+                                    @{
+                                        var planColor = client.SubscriptionPlan switch
+                                        {
+                                            "Starter" => "bg-blue-100 text-blue-800",
+                                            "Professional" => "bg-purple-100 text-purple-800",
+                                            "Enterprise" => "bg-green-100 text-green-800",
+                                            _ => "bg-gray-100 text-gray-800"
+                                        };
+                                    }
+                                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold @planColor">
+                                        @client.SubscriptionPlan
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                        ✓ Actif
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-600">@client.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                <td class="px-6 py-4 text-sm space-x-2">
+                                    <button @onclick="() => EditClient(client.Id)" class="px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition font-medium">
+                                        ✏️ Éditer
+                                    </button>
+                                    <button @onclick="() => ViewClientDetails(client.Id)" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-medium">
+                                        Voir détail
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
 
 @code {
     private List<Client>? clients;
     private bool isLoading = true;
     private string errorMessage = string.Empty;
+    private int starterCount = 5;
+    private int professionalCount = 8;
+    private int enterpriseCount = 3;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             clients = await ApiService.GetClientsAsync();
-            Console.WriteLine($"Clients loaded: {clients?.Count ?? 0}");
         }
         catch (Exception ex)
         {
-            errorMessage = $"{ex.Message} | {ex.InnerException?.Message}";
-            Console.WriteLine($"Error loading clients: {ex}");
+            errorMessage = $"Erreur de chargement: {ex.Message}";
         }
         finally
         {
             isLoading = false;
         }
+    }
+
+    private void CreateNewClient()
+    {
+        Navigation.NavigateTo("/admin-lc/clients/new");
+    }
+
+    private void EditClient(Guid clientId)
+    {
+        Navigation.NavigateTo($"/admin-lc/clients/{clientId}/edit");
+    }
+
+    private void ViewClientDetails(Guid clientId)
+    {
+        Navigation.NavigateTo($"/admin-lc/clients/{clientId}");
     }
 }

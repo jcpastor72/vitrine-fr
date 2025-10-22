@@ -1,0 +1,195 @@
+@page "/admin-lc/activity-log"
+@layout AdminLayout
+@using LaborControl.Web.Models
+@using LaborControl.Web.Services
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Journal d'Audit</h1>
+            <p class="text-gray-600 mt-2">Consultez l'historique de tous les événements et modifications</p>
+        </div>
+        <button class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+            📥 Exporter en CSV
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="grid md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Type d'action</label>
+                <select @bind="selectedAction" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tous les types</option>
+                    <option value="CREATE">Création</option>
+                    <option value="UPDATE">Modification</option>
+                    <option value="DELETE">Suppression</option>
+                    <option value="LOGIN">Connexion</option>
+                    <option value="PASSWORD">Mot de passe</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Utilisateur</label>
+                <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tous les utilisateurs</option>
+                    <option value="jean">Jean Dupont</option>
+                    <option value="marie">Marie Martin</option>
+                    <option value="pierre">Pierre Bernard</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Date de début</label>
+                <input type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Date de fin</label>
+                <input type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+        </div>
+        <div class="mt-4 flex gap-2">
+            <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">🔍 Rechercher</button>
+            <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition font-medium">Réinitialiser</button>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="grid md:grid-cols-5 gap-4">
+        <div class="bg-blue-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-blue-700">@totalEvents</div>
+            <div class="text-sm text-blue-600">Total d'événements</div>
+        </div>
+        <div class="bg-green-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-green-700">@creationEvents</div>
+            <div class="text-sm text-green-600">Créations</div>
+        </div>
+        <div class="bg-yellow-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-yellow-700">@modificationEvents</div>
+            <div class="text-sm text-yellow-600">Modifications</div>
+        </div>
+        <div class="bg-red-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-red-700">@deletionEvents</div>
+            <div class="text-sm text-red-600">Suppressions</div>
+        </div>
+        <div class="bg-purple-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-purple-700">@loginEvents</div>
+            <div class="text-sm text-purple-600">Connexions</div>
+        </div>
+    </div>
+
+    <!-- Activity Log Table -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b-2 border-gray-200">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Date/Heure</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Utilisateur</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Action</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Ressource</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Détails</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">IP/Localisation</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 text-sm text-gray-600">22/10/2025 14:32:15</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">Jean Dupont</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">✓ Création</span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Client</td>
+                        <td class="px-6 py-4 text-sm font-mono text-blue-600">CLI-2025-0042</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Nouveau client: Entreprise ACME</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">192.168.1.100</td>
+                    </tr>
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 text-sm text-gray-600">22/10/2025 12:15:48</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">Marie Martin</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">⚠️ Modification</span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Commande</td>
+                        <td class="px-6 py-4 text-sm font-mono text-blue-600">#CMD-2025-002</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Statut: En traitement</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">192.168.1.101</td>
+                    </tr>
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 text-sm text-gray-600">22/10/2025 10:45:20</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">Pierre Bernard</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">🔐 Connexion</span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Utilisateur</td>
+                        <td class="px-6 py-4 text-sm font-mono text-blue-600">pierre@laborcontrol.fr</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Connexion réussie</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">192.168.1.102</td>
+                    </tr>
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 text-sm text-gray-600">22/10/2025 09:30:05</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">Jean Dupont</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">🔑 Mot de passe</span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Utilisateur</td>
+                        <td class="px-6 py-4 text-sm font-mono text-blue-600">marie@laborcontrol.fr</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Réinitialisation MDP</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">192.168.1.100</td>
+                    </tr>
+                    <tr class="hover:bg-gray-50 transition bg-red-50">
+                        <td class="px-6 py-4 text-sm text-gray-600">21/10/2025 16:22:33</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">Sophie Leclerc</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">🗑️ Suppression</span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Commande</td>
+                        <td class="px-6 py-4 text-sm font-mono text-blue-600">#CMD-2025-099</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Commande annulée</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">192.168.1.103</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex justify-between items-center">
+        <p class="text-sm text-gray-600">Affichage de 1 à 5 sur 156 événements</p>
+        <div class="flex gap-2">
+            <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition">← Précédent</button>
+            <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition">Suivant →</button>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="bg-gray-50 rounded-lg shadow p-4">
+        <p class="text-sm font-semibold text-gray-700 mb-3">📖 Légende des actions</p>
+        <div class="grid md:grid-cols-5 gap-4 text-sm">
+            <div class="flex items-center gap-2">
+                <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">✓ Création</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">⚠️ Modification</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">🗑️ Suppression</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">🔐 Connexion</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">🔑 Mot de passe</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string selectedAction = "";
+    private int totalEvents = 156;
+    private int creationEvents = 42;
+    private int modificationEvents = 68;
+    private int deletionEvents = 12;
+    private int loginEvents = 34;
+}

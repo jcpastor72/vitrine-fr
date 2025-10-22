@@ -1,0 +1,166 @@
+@page "/admin-lc/shipments"
+@layout AdminLayout
+@using LaborControl.Web.Models
+@using LaborControl.Web.Services
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Gestion des Expéditions</h1>
+            <p class="text-gray-600 mt-2">Suivez toutes les expéditions et les livraisons</p>
+        </div>
+        <button class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
+            ➕ Nouvelle expédition
+        </button>
+    </div>
+
+    <!-- Statistics -->
+    <div class="grid md:grid-cols-4 gap-4">
+        <div class="bg-blue-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-blue-700">@readyToShip</div>
+            <div class="text-sm text-blue-600">Prêtes à expédier</div>
+        </div>
+        <div class="bg-orange-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-orange-700">@inTransit</div>
+            <div class="text-sm text-orange-600">En transit</div>
+        </div>
+        <div class="bg-green-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-green-700">@delivered</div>
+            <div class="text-sm text-green-600">Livrées</div>
+        </div>
+        <div class="bg-red-50 rounded-lg shadow p-4">
+            <div class="text-2xl font-bold text-red-700">@issues</div>
+            <div class="text-sm text-red-600">Problèmes</div>
+        </div>
+    </div>
+
+    <!-- Shipments by Status -->
+    <div class="grid md:grid-cols-2 gap-6">
+        <!-- Ready to Ship -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">📦 Prêtes à expédier</h3>
+            <div class="space-y-3">
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-bold text-gray-900">#CMD-2025-001</p>
+                            <p class="text-sm text-gray-600">Entreprise ABC - 5 unités</p>
+                            <p class="text-xs text-gray-500 mt-1">📅 22/10/2025</p>
+                        </div>
+                        <button class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 font-medium">
+                            Expédier
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- In Transit -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">🚚 En transit</h3>
+            <div class="space-y-3">
+                <div class="bg-orange-50 border-l-4 border-orange-500 p-4 rounded">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-bold text-gray-900">#EXP-2025-001</p>
+                            <p class="text-sm text-gray-600">Groupe XYZ</p>
+                            <div class="mt-2">
+                                <p class="text-xs text-gray-600">📍 En transit depuis 2 jours</p>
+                                <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                                    <div class="bg-orange-500 h-1.5 rounded-full" style="width: 60%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 font-medium">
+                            Voir détail
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- All Shipments -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-bold text-gray-900 mb-4">📋 Toutes les expéditions</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b-2 border-gray-200">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">N° Expédition</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Commande</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Client</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Transporteur</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Statut</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Numéro suivi</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 font-mono font-semibold text-blue-600">#EXP-2025-001</td>
+                        <td class="px-6 py-4 font-mono text-sm text-gray-600">#CMD-2025-002</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">Groupe XYZ</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">DPD</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                                🚚 En transit
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-mono text-sm">1234567890</td>
+                        <td class="px-6 py-4 text-sm">
+                            <button class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">Détails</button>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 font-mono font-semibold text-green-600">#EXP-2025-002</td>
+                        <td class="px-6 py-4 font-mono text-sm text-gray-600">#CMD-2025-001</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">Entreprise ABC</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Fedex</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                ✓ Livrée
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-mono text-sm">9876543210</td>
+                        <td class="px-6 py-4 text-sm">
+                            <button class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">Détails</button>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-gray-50 transition bg-red-50">
+                        <td class="px-6 py-4 font-mono font-semibold text-red-600">#EXP-2025-003</td>
+                        <td class="px-6 py-4 font-mono text-sm text-gray-600">#CMD-2025-005</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">Société DEF</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">GLS</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                ⚠️ Problème
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-mono text-sm">5555666677</td>
+                        <td class="px-6 py-4 text-sm">
+                            <button class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">Détails</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Issues Alert -->
+    <div class="bg-red-50 rounded-lg shadow p-6 border-l-4 border-red-600">
+        <h3 class="text-lg font-bold text-red-900 mb-2">⚠️ Expédition en problème</h3>
+        <p class="text-sm text-red-800 mb-3">L'expédition #EXP-2025-003 rencontre un problème de livraison. Veuillez prendre contact avec GLS pour plus de détails.</p>
+        <button class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
+            Contacter GLS
+        </button>
+    </div>
+</div>
+
+@code {
+    private int readyToShip = 1;
+    private int inTransit = 1;
+    private int delivered = 45;
+    private int issues = 1;
+}
