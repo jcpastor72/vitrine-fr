@@ -100,7 +100,8 @@
                     var userRole = await AuthService.GetUserRoleAsync();
                     if (userRole == "SUPERADMIN")
                     {
-                        Navigation.NavigateTo("/admin-lc/dashboard");
+                        // Le SuperAdmin doit voir le modal de choix (Gestion ou Accès)
+                        Navigation.NavigateTo("/dashboard?showRoleModal=true");
                     }
                     else if (userRole == "ADMIN" || userRole == "MANAGER")
                     {
