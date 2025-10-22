@@ -1,0 +1,336 @@
+@page "/teams"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Équipes - Labor Control</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-7xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <button @onclick="GoToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="lc-heading-1">Gestion des équipes</h1>
+                    <p class="lc-text-muted mt-2">Créez et gérez vos équipes par métier</p>
+                </div>
+
+                <button @onclick="ShowCreateModal"
+                        class="lc-btn lc-btn-primary inline-flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Créer une équipe
+                </button>
+            </div>
+        </div>
+
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement des équipes...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                <p class="text-red-700">@errorMessage</p>
+            </div>
+        }
+        else if (teams.Count == 0)
+        {
+            <div class="lc-card text-center">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 mb-2">Pas encore d'équipe créée</h3>
+                <p class="lc-text-muted mb-6">Créez votre première équipe pour commencer à organiser votre personnel par métier</p>
+                <button @onclick="ShowCreateModal"
+                        class="lc-btn lc-btn-primary inline-flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Créer une équipe
+                </button>
+            </div>
+        }
+        else
+        {
+            <!-- Liste des équipes -->
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                @foreach (var team in teams)
+                {
+                    <div class="lc-card overflow-hidden hover:shadow-md transition-all flex flex-col @(team.IsActive ? "" : "opacity-60")">
+                        <!-- Header avec secteur -->
+                        <div class="bg-gray-50 border-b border-gray-200 p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex-1">
+                                    <h3 class="text-lg font-bold text-gray-900">@team.Name</h3>
+                                </div>
+                                <span class="px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm font-medium">
+                                    @GetSectorLabel(team.Sector)
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                @if (!string.IsNullOrEmpty(team.Code))
+                                {
+                                    <p class="text-sm lc-text-muted">Code: @team.Code</p>
+                                }
+                                else
+                                {
+                                    <p class="text-sm opacity-0">Code: -</p>
+                                }
+                                <div class="flex items-center text-sm text-gray-700">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                    <span><strong>@team.MembersCount</strong> membre@(team.MembersCount > 1 ? "s" : "")</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contenu - flex-grow pour pousser les boutons vers le bas -->
+                        <div class="p-6 flex-grow flex flex-col">
+                            <div class="flex-grow">
+                                @if (!string.IsNullOrEmpty(team.Description))
+                                {
+                                    <p class="text-gray-600 mb-4 text-sm">@team.Description</p>
+                                }
+
+                                <!-- Informations -->
+                                <div class="space-y-3">
+                                    @if (!string.IsNullOrEmpty(team.SiteName))
+                                    {
+                                        <div class="flex items-center text-sm text-gray-700">
+                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                            <span>Site: <strong>@team.SiteName</strong></span>
+                                        </div>
+                                    }
+
+                                    @if (!string.IsNullOrEmpty(team.SupervisorName))
+                                    {
+                                        <div class="flex items-center text-sm text-gray-700">
+                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                            <span>Responsable: <strong>@team.SupervisorName</strong></span>
+                                        </div>
+                                    }
+
+                                    @if (!team.IsActive)
+                                    {
+                                        <div class="flex items-center text-sm text-red-600">
+                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                            <span><strong>Équipe inactive</strong></span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Actions - toujours en bas -->
+                            <div class="mt-6 flex gap-2">
+                                <button @onclick="() => ViewTeam(team.Id)"
+                                        class="flex-1 lc-btn lc-btn-secondary text-sm">
+                                    Voir
+                                </button>
+                                <button @onclick="() => EditTeam(team.Id)"
+                                        class="flex-1 lc-btn lc-btn-secondary text-sm">
+                                    Modifier
+                                </button>
+                                <button @onclick="() => DeleteTeam(team.Id, team.Name)"
+                                        class="px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        @if (showSuccessMessage)
+        {
+            <div class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg animate-slide-up flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                @successMessage
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<TeamInfo> teams = new();
+    private bool loading = true;
+    private string errorMessage = "";
+    private bool showSuccessMessage = false;
+    private string successMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTeams();
+    }
+
+    private async Task LoadTeams()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            // Enlever les guillemets si présents (bug localStorage)
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            // Debug: vérifier le token
+            Console.WriteLine($"[DEBUG] Token récupéré: {(string.IsNullOrEmpty(token) ? "VIDE" : $"{token.Substring(0, Math.Min(20, token.Length))}...")}");
+
+            if (string.IsNullOrEmpty(token))
+            {
+                errorMessage = "Token manquant - redirection vers login";
+                Console.WriteLine("[DEBUG] Token vide, redirection vers /login");
+                await Task.Delay(1000); // Laisser le temps de voir l'erreur
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            // Nettoyer les headers précédents
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            Console.WriteLine("[DEBUG] Envoi requête GET api/teams avec Authorization header");
+            var response = await Http.GetAsync("api/teams");
+            Console.WriteLine($"[DEBUG] Réponse reçue: {(int)response.StatusCode} {response.StatusCode}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                teams = await response.Content.ReadFromJsonAsync<List<TeamInfo>>() ?? new();
+                Console.WriteLine($"[DEBUG] {teams.Count} équipes chargées");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur {(int)response.StatusCode}: {errorContent}";
+                Console.WriteLine($"[DEBUG] Erreur: {errorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+            Console.WriteLine($"[DEBUG] Exception: {ex.Message}");
+            Console.WriteLine($"[DEBUG] Stack: {ex.StackTrace}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private void ShowCreateModal()
+    {
+        // TODO: Implémenter modal de création
+        Navigation.NavigateTo("/teams/create");
+    }
+
+    private void ViewTeam(Guid teamId)
+    {
+        Navigation.NavigateTo($"/teams/{teamId}");
+    }
+
+    private void EditTeam(Guid teamId)
+    {
+        Navigation.NavigateTo($"/teams/edit/{teamId}");
+    }
+
+    private async Task DeleteTeam(Guid teamId, string teamName)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", $"Êtes-vous sûr de vouloir supprimer l'équipe '{teamName}' ?");
+
+        if (confirmed)
+        {
+            try
+            {
+                var response = await Http.DeleteAsync($"api/teams/{teamId}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    successMessage = "Équipe supprimée avec succès";
+                    showSuccessMessage = true;
+                    await LoadTeams();
+
+                    await Task.Delay(3000);
+                    showSuccessMessage = false;
+                }
+                else
+                {
+                    errorMessage = "Erreur lors de la suppression de l'équipe";
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Erreur: {ex.Message}";
+            }
+        }
+    }
+
+    // Fonction GetSectorColorClass retirée - plus de gradients colorés
+
+    private string GetSectorLabel(string? sector)
+    {
+        return sector switch
+        {
+            "hospital_cleaning" => "Nettoyage hospitalier",
+            "industrial_maintenance" => "Maintenance industrielle",
+            "catering" => "Restauration",
+            "security" => "Sécurité",
+            "logistics" => "Logistique",
+            "healthcare" => "Santé",
+            "construction" => "Construction",
+            _ => "Général"
+        };
+    }
+
+    private class TeamInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Sector { get; set; }
+        public string? Description { get; set; }
+        public Guid? SiteId { get; set; }
+        public string? SiteName { get; set; }
+        public Guid? SupervisorId { get; set; }
+        public string? SupervisorName { get; set; }
+        public bool IsActive { get; set; }
+        public int MembersCount { get; set; }
+    }
+}

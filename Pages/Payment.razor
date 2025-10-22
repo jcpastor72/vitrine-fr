@@ -1,0 +1,233 @@
+@page "/payment"
+@using LaborControl.Web.Services
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject IJSRuntime JS
+
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl mx-auto">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="bg-indigo-600 px-6 py-8">
+                <h1 class="text-3xl font-bold text-white text-center">
+                    Paiement de votre commande
+                </h1>
+                <p class="mt-2 text-center text-indigo-100">
+                    Paiement sécurisé via Stripe
+                </p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="m-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <span class="block sm:inline">@errorMessage</span>
+                </div>
+            }
+
+            @if (isLoading)
+            {
+                <div class="p-6 text-center">
+                    <p class="text-gray-600">Chargement des informations de commande...</p>
+                </div>
+            }
+            else if (order != null)
+            {
+                <!-- Récapitulatif de la commande -->
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Récapitulatif de votre commande</h2>
+
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-600">Numéro de commande:</span>
+                            <span class="text-gray-900 font-semibold">@order.OrderNumber</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-700">10 puces NFC NTAG213</span>
+                            <span class="text-gray-900 font-semibold">GRATUIT</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm text-gray-600">
+                            <span>Livraison standard (5-7 jours)</span>
+                            <span class="font-semibold text-gray-900">10,00 €</span>
+                        </div>
+                        <div class="border-t border-gray-300 mt-3 pt-3 flex justify-between items-center">
+                            <span class="text-lg font-bold text-gray-900">Total à payer</span>
+                            <span class="text-2xl font-bold text-indigo-600">10,00 €</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bouton de paiement -->
+                <div class="p-6">
+                    <button @onclick="ProcessPayment"
+                            disabled="@isProcessing"
+                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                        @if (isProcessing)
+                        {
+                            <span>Redirection vers le paiement...</span>
+                        }
+                        else
+                        {
+                            <span>💳 Payer 10,00 € avec Stripe</span>
+                        }
+                    </button>
+
+                    <p class="mt-4 text-center text-sm text-gray-600">
+                        🔒 Paiement 100% sécurisé par Stripe
+                    </p>
+                </div>
+
+                <!-- Informations complémentaires -->
+                <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                    <p class="text-sm text-gray-600">
+                        <strong>ℹ️ Information :</strong> Vous allez être redirigé vers la page de paiement sécurisée Stripe. Après le paiement, vous recevrez une confirmation par email.
+                    </p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private OrderDetails? order;
+    private string errorMessage = "";
+    private bool isLoading = true;
+    private bool isProcessing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Vérifier si l'utilisateur est connecté
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            // Récupérer l'ID de commande depuis le localStorage
+            var orderIdString = await LocalStorage.GetItemAsync<string>("lastOrderId");
+            if (string.IsNullOrEmpty(orderIdString) || !Guid.TryParse(orderIdString, out var orderId))
+            {
+                errorMessage = "Aucune commande trouvée. Veuillez recommencer.";
+                isLoading = false;
+                return;
+            }
+
+            // Récupérer le token
+            var token = await AuthService.GetTokenAsync();
+            if (!string.IsNullOrEmpty(token))
+            {
+                Http.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+                // Récupérer les détails de la commande
+                var response = await Http.GetAsync($"api/orders/{orderId}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    order = await response.Content.ReadFromJsonAsync<OrderDetails>();
+                }
+                else
+                {
+                    errorMessage = "Impossible de récupérer les informations de la commande.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur lors du chargement : {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ProcessPayment()
+    {
+        if (order == null) return;
+
+        errorMessage = "";
+        isProcessing = true;
+
+        try
+        {
+            // Récupérer le token
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                errorMessage = "Session expirée. Veuillez vous reconnecter.";
+                isProcessing = false;
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            // Créer une session Stripe Checkout
+            var checkoutRequest = new CheckoutRequest
+            {
+                OrderId = order.Id,
+                SuccessUrl = $"{Navigation.BaseUri}payment-success",
+                CancelUrl = $"{Navigation.BaseUri}payment"
+            };
+
+            var response = await Http.PostAsJsonAsync("api/payments/create-checkout-session", checkoutRequest);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var checkoutResponse = await response.Content.ReadFromJsonAsync<CheckoutResponse>();
+
+                if (!string.IsNullOrEmpty(checkoutResponse?.CheckoutUrl))
+                {
+                    // Rediriger vers Stripe Checkout
+                    Navigation.NavigateTo(checkoutResponse.CheckoutUrl, forceLoad: true);
+                }
+                else
+                {
+                    errorMessage = "Erreur lors de la création de la session de paiement.";
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la création du paiement : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private class OrderDetails
+    {
+        public Guid Id { get; set; }
+        public string OrderNumber { get; set; } = "";
+        public decimal TotalAmount { get; set; }
+        public string? DeliveryAddress { get; set; }
+        public string? DeliveryCity { get; set; }
+        public string? DeliveryPostalCode { get; set; }
+        public string? DeliveryCountry { get; set; }
+        public string? Service { get; set; }
+    }
+
+    private class CheckoutRequest
+    {
+        public Guid OrderId { get; set; }
+        public string SuccessUrl { get; set; } = string.Empty;
+        public string CancelUrl { get; set; } = string.Empty;
+    }
+
+    private class CheckoutResponse
+    {
+        public string CheckoutUrl { get; set; } = "";
+    }
+}

@@ -1,0 +1,390 @@
+@page "/alerts"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject AuthService AuthService
+@using LaborControl.Web.Services
+
+<PageTitle>Alertes - Labor Control</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-7xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="GoToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h1 class="lc-heading-1">🚨 Alertes Maintenance</h1>
+                    <p class="lc-text-muted mt-1">Tâches de maintenance en retard nécessitant une intervention</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques rapides -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="lc-card text-center">
+                <div class="text-3xl font-bold text-red-600">@alertStats.Total</div>
+                <div class="text-gray-600 mt-1">Total en retard</div>
+            </div>
+            <div class="lc-card text-center">
+                <div class="text-3xl font-bold text-red-800">@alertStats.Critical</div>
+                <div class="text-gray-600 mt-1">Critique (≥1 jour)</div>
+            </div>
+            <div class="lc-card text-center">
+                <div class="text-3xl font-bold text-orange-600">@alertStats.Warning</div>
+                <div class="text-gray-600 mt-1">Attention (≥1 heure)</div>
+            </div>
+            <div class="lc-card text-center">
+                <div class="text-3xl font-bold text-yellow-600">@alertStats.Recent</div>
+                <div class="text-gray-600 mt-1">Récent (&lt;1 heure)</div>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+                @errorMessage
+            </div>
+        }
+
+        <!-- Liste des alertes -->
+        @if (isLoading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p class="mt-2 text-gray-600">Chargement des alertes...</p>
+            </div>
+        }
+        else if (overdueTasks.Count == 0)
+        {
+            <div class="lc-card text-center py-12">
+                <svg class="w-16 h-16 mx-auto text-green-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 class="lc-heading-3 text-green-600 mb-2">Aucune alerte !</h3>
+                <p class="text-gray-600">Toutes les tâches de maintenance sont à jour.</p>
+            </div>
+        }
+        else
+        {
+            <div class="space-y-4">
+                @foreach (var overdue in overdueTasks)
+                {
+                    <div class="lc-card hover:shadow-lg transition-shadow">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <span class="text-sm px-2 py-1 rounded @overdue.BadgeColor font-semibold">
+                                        En retard de @overdue.DelayText
+                                    </span>
+                                    <span class="text-sm px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                                        @overdue.Task.TaskType
+                                    </span>
+                                </div>
+
+                                <div class="grid md:grid-cols-3 gap-4">
+                                    <div>
+                                        <h3 class="font-semibold text-gray-900">
+                                            @if (overdue.Task.TaskType == "PROTOCOL")
+                                            {
+                                                <span>📋 Protocole - @(overdue.Task.ControlPoint?.Name ?? "Point de contrôle")</span>
+                                            }
+                                            else
+                                            {
+                                                <span>🔧 Maintenance - @(overdue.Task.Asset?.Name ?? "Équipement")</span>
+                                            }
+                                        </h3>
+                                        <p class="text-sm text-gray-600 mt-1">
+                                            Assigné à: @(overdue.Task.User?.Prenom ?? "") @(overdue.Task.User?.Nom ?? "Utilisateur")
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <p class="text-sm text-gray-600">Planifié le:</p>
+                                        <p class="font-medium">@overdue.Task.ScheduledDate.ToString("dd/MM/yyyy à HH:mm")</p>
+                                        @if (overdue.Task.ScheduledTimeEnd.HasValue)
+                                        {
+                                            <p class="text-xs text-gray-500 mt-1">
+                                                Heure de fin: @overdue.Task.ScheduledTimeEnd.Value.ToString(@"hh\:mm")
+                                            </p>
+                                        }
+                                    </div>
+
+                                    <div class="flex items-center space-x-2">
+                                        <button @onclick="() => ViewTask(overdue.Task)"
+                                                class="lc-btn lc-btn-secondary text-sm">
+                                            Voir détails
+                                        </button>
+                                        @if (overdue.Task.TaskType == "PROTOCOL")
+                                        {
+                                            <button @onclick="() => GoToControlPoints()"
+                                                    class="lc-btn lc-btn-primary text-sm">
+                                                Intervenir
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button @onclick="() => GoToAssets()"
+                                                    class="lc-btn lc-btn-primary text-sm">
+                                                Intervenir
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<OverdueTaskInfo> overdueTasks = new();
+    private AlertStats alertStats = new();
+    private bool isLoading = true;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAlerts();
+        await LoadStats();
+    }
+
+    private async Task LoadAlerts()
+    {
+        try
+        {
+            isLoading = true;
+
+            // Récupérer le token et faire l'appel avec authentification
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                errorMessage = "Token d'authentification manquant";
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Get, "api/tasks/overdue");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var tasks = await response.Content.ReadFromJsonAsync<List<ScheduledTaskDto>>() ?? new();
+
+                // Le backend retourne déjà les tâches en retard, on calcule juste les infos d'affichage
+                overdueTasks = tasks.Select(task => {
+                    var taskEndDateTime = task.ScheduledDate.Date + task.ScheduledTimeEnd!.Value;
+                    var now = DateTime.Now;
+                    var delay = now - taskEndDateTime;
+
+                    return new OverdueTaskInfo
+                    {
+                        Task = task,
+                        Delay = delay,
+                        DelayText = FormatDelay(delay),
+                        BadgeColor = GetDelayBadgeColor(delay),
+                        Priority = GetDelayPriority(delay)
+                    };
+                })
+                .OrderByDescending(x => x.Priority)
+                .ThenByDescending(x => x.Delay)
+                .ToList();
+            }
+            else
+            {
+                errorMessage = $"Erreur lors du chargement des alertes (Status: {response.StatusCode})";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadStats()
+    {
+        try
+        {
+            // Récupérer le token et faire l'appel avec authentification
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+                return;
+
+            var request = new HttpRequestMessage(HttpMethod.Get, "api/tasks/overdue");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var tasks = await response.Content.ReadFromJsonAsync<List<ScheduledTaskDto>>() ?? new();
+
+                // Le backend retourne déjà les tâches en retard, on calcule juste les statistiques
+                var delays = tasks.Select(task => {
+                    var taskEndDateTime = task.ScheduledDate.Date + task.ScheduledTimeEnd!.Value;
+                    var now = DateTime.Now;
+                    return now - taskEndDateTime;
+                }).ToList();
+
+                alertStats = new AlertStats
+                {
+                    Total = delays.Count,
+                    Critical = delays.Count(d => d.TotalDays >= 1),
+                    Warning = delays.Count(d => d.TotalHours >= 1 && d.TotalDays < 1),
+                    Recent = delays.Count(d => d.TotalHours < 1)
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur stats: {ex.Message}");
+        }
+    }
+
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private void ViewTask(ScheduledTaskDto task)
+    {
+        if (task.TaskType == "PROTOCOL")
+        {
+            Navigation.NavigateTo($"/task-executions");
+        }
+        else
+        {
+            Navigation.NavigateTo($"/maintenance-executions");
+        }
+    }
+
+    private void GoToControlPoints()
+    {
+        Navigation.NavigateTo("/control-points");
+    }
+
+    private void GoToAssets()
+    {
+        Navigation.NavigateTo("/equipment");
+    }
+
+    // Méthodes de formatage (copiées de MaintenanceAlertService)
+    private string FormatDelay(TimeSpan delay)
+    {
+        if (delay.TotalDays >= 1)
+            return $"{(int)delay.TotalDays} jour{((int)delay.TotalDays > 1 ? "s" : "")}";
+
+        if (delay.TotalHours >= 1)
+            return $"{(int)delay.TotalHours} heure{((int)delay.TotalHours > 1 ? "s" : "")}";
+
+        return $"{(int)delay.TotalMinutes} minute{((int)delay.TotalMinutes > 1 ? "s" : "")}";
+    }
+
+    private string GetDelayBadgeColor(TimeSpan delay)
+    {
+        if (delay.TotalDays >= 1)
+            return "bg-red-100 text-red-800"; // Rouge - Critique (jours)
+
+        if (delay.TotalHours >= 1)
+            return "bg-orange-100 text-orange-800"; // Orange - Préoccupant (heures)
+
+        return "bg-yellow-100 text-yellow-800"; // Jaune - Récent (minutes)
+    }
+
+    private int GetDelayPriority(TimeSpan delay)
+    {
+        if (delay.TotalDays >= 7) return 100; // 1 semaine+
+        if (delay.TotalDays >= 1) return 50;  // 1 jour+
+        if (delay.TotalHours >= 8) return 25; // 8 heures+
+        if (delay.TotalHours >= 1) return 15; // 1 heure+
+        return 10; // Moins d'1 heure
+    }
+
+    // Classes pour la désérialisation
+    private class OverdueTaskInfo
+    {
+        public ScheduledTaskDto Task { get; set; } = new();
+        public TimeSpan Delay { get; set; }
+        public string DelayText { get; set; } = "";
+        public string BadgeColor { get; set; } = "";
+        public int Priority { get; set; }
+    }
+
+    // DTOs (copiés du TasksDashboard pour cohérence)
+    private class ScheduledTaskDto
+    {
+        public Guid Id { get; set; }
+        public Guid CustomerId { get; set; }
+        public Guid UserId { get; set; }
+        public Guid ControlPointId { get; set; }
+        public Guid? TaskTemplateId { get; set; }
+        public DateTime ScheduledDate { get; set; }
+        public TimeSpan? ScheduledTimeStart { get; set; }
+        public TimeSpan? ScheduledTimeEnd { get; set; }
+        public string Status { get; set; } = "PENDING";
+        public string? Recurrence { get; set; }
+        public string TaskType { get; set; } = "PROTOCOL";
+        public UserDto? User { get; set; }
+        public ControlPointDto? ControlPoint { get; set; }
+        public TaskTemplateDto? TaskTemplate { get; set; }
+        public AssetDto? Asset { get; set; }
+        public MaintenanceScheduleDto? MaintenanceSchedule { get; set; }
+    }
+
+    private class UserDto
+    {
+        public Guid Id { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string Prenom { get; set; } = string.Empty;
+        public string Nom { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
+
+    private class ControlPointDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public AssetDto? Asset { get; set; }
+    }
+
+    private class AssetDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class TaskTemplateDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class MaintenanceScheduleDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class AlertStats
+    {
+        public int Total { get; set; }
+        public int Critical { get; set; }
+        public int Warning { get; set; }
+        public int Recent { get; set; }
+    }
+}

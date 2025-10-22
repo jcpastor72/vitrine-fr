@@ -1,0 +1,1336 @@
+@page "/calendar"
+@using LaborControl.Web.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Calendrier - LABOR CONTROL</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<!-- Navigation -->
+<nav class="fixed w-full bg-white shadow-sm z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <a href="/dashboard" class="lc-btn lc-btn-secondary inline-flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Retour
+                </a>
+                <span class="text-gray-300">|</span>
+                <h1 class="lc-heading-3 text-gray-900">Calendrier de planification</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="/tasks-dashboard" class="lc-btn lc-btn-secondary inline-flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="/create-task" class="lc-btn lc-btn-primary inline-flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Nouvelle tâche
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="min-h-screen bg-gray-50 pt-24 pb-12">
+    <div class="max-w-7xl mx-auto px-6">
+        @if (isLoading)
+        {
+            <div class="flex justify-center items-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        }
+        else
+        {
+            <!-- Header avec navigation mois -->
+            <div class="lc-card mb-6">
+                <div class="flex justify-between items-center">
+                    <button @onclick="PreviousMonth" class="lc-btn lc-btn-secondary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                        </svg>
+                        Mois précédent
+                    </button>
+                    <h2 class="lc-heading-2">
+                        @(System.Globalization.CultureInfo.GetCultureInfo("fr-FR").TextInfo.ToTitleCase(currentMonth.ToString("MMMM yyyy", new System.Globalization.CultureInfo("fr-FR"))))
+                    </h2>
+                    <button @onclick="NextMonth" class="lc-btn lc-btn-secondary inline-flex items-center">
+                        Mois suivant
+                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Filtres -->
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                        <select @bind="selectedTaskType" @bind:after="ApplyFilters" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Tous les types</option>
+                            <option value="PROTOCOL">Protocoles</option>
+                            <option value="MAINTENANCE">Maintenances</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Site</label>
+                        <select @bind="selectedSiteId" @bind:after="ApplyFilters" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Tous les sites</option>
+                            @foreach (var site in sites)
+                            {
+                                <option value="@site.Id">@site.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Technicien</label>
+                        <select @bind="selectedUserId" @bind:after="ApplyFilters" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Tous les techniciens</option>
+                            @foreach (var user in users)
+                            {
+                                <option value="@user.Id">@user.Prenom @user.Nom</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+                        <select @bind="selectedStatus" @bind:after="ApplyFilters" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Tous les statuts</option>
+                            <option value="PENDING">Planifiée</option>
+                            <option value="IN_PROGRESS">En cours</option>
+                            <option value="COMPLETED">Terminée</option>
+                            <option value="OVERDUE">En retard</option>
+                            <option value="CANCELLED">Annulée</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button @onclick="ClearFilters" class="w-full lc-btn lc-btn-secondary">
+                            Réinitialiser filtres
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Légende -->
+                <div class="flex justify-center space-x-6 mt-4 text-sm">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-yellow-200 rounded mr-2"></div>
+                        <span>En attente</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-blue-200 rounded mr-2"></div>
+                        <span>En cours</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-green-200 rounded mr-2"></div>
+                        <span>Terminée</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-red-200 rounded mr-2"></div>
+                        <span>En retard</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-blue-600 rounded-full mr-2"></div>
+                        <span>Protocole</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-orange-600 rounded-full mr-2"></div>
+                        <span>Maintenance</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grille calendrier -->
+            <div class="lc-card overflow-hidden p-0">
+                <!-- Jours de la semaine -->
+                <div class="grid grid-cols-7 bg-gray-100 border-b">
+                    @foreach (var day in new[] { "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche" })
+                    {
+                        <div class="py-3 text-center font-semibold text-gray-700 text-sm">
+                            @day
+                        </div>
+                    }
+                </div>
+
+                <!-- Jours du mois -->
+                <div class="grid grid-cols-7 divide-x divide-y">
+                    @foreach (var calendarDay in calendarDays)
+                    {
+                        <div class="@GetDayClass(calendarDay) min-h-[120px] p-2 relative">
+                            <!-- Numéro du jour -->
+                            <div class="flex justify-between items-start">
+                                <div class="text-sm font-medium @(calendarDay.IsCurrentMonth ? "text-gray-900" : "text-gray-400")">
+                                    @calendarDay.Date.Day
+                                </div>
+                                @if (calendarDay.IsCurrentMonth)
+                                {
+                                    <div class="flex items-center gap-1">
+                                        @{
+                                            var dayTasks = GetTasksForDay(calendarDay.Date);
+                                            var overdueTasks = dayTasks.Where(t => IsTaskOverdue(t)).Count();
+                                        }
+
+                                        <!-- Compteur de tâches en retard -->
+                                        @if (overdueTasks > 0)
+                                        {
+                                            <div class="bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center"
+                                                 title="@overdueTasks tâche(s) en retard">
+                                                @overdueTasks
+                                            </div>
+                                        }
+
+                                        <!-- Compteur de tâches total -->
+                                        @if (dayTasks.Count > 0)
+                                        {
+                                            <div class="bg-blue-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center"
+                                                 title="@dayTasks.Count tâche(s) au total">
+                                                @dayTasks.Count
+                                            </div>
+                                        }
+
+                                        <!-- Bouton + pour ajouter une tâche -->
+                                        <button @onclick="() => NavigateToCreateTask(calendarDay.Date)"
+                                                class="bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center transition cursor-pointer"
+                                                title="Ajouter une tâche">
+                                            +
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+
+                            <!-- Tâches du jour avec scrollbar -->
+                            @if (calendarDay.IsCurrentMonth)
+                            {
+                                var dayTasks = GetTasksForDay(calendarDay.Date);
+                                @if (dayTasks.Count > 0)
+                                {
+                                    <div class="mt-1 overflow-y-auto max-h-[80px] space-y-1 pr-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
+                                        @foreach (var task in dayTasks)
+                                        {
+                                            <div @onclick="() => ShowTaskDetails(task)"
+                                                 class="@GetTaskClass(task) text-xs p-1 rounded cursor-pointer hover:opacity-80 transition">
+                                                <div class="font-medium truncate flex items-center">
+                                                    @* Indicateur de type de tâche *@
+                                                    <div class="w-2 h-2 rounded-full mr-1 flex-shrink-0 @GetTaskTypeIndicatorClass(task)"></div>
+                                                    @* Afficher l'heure uniquement le premier jour (date de début) *@
+                                                    @if (task.ScheduledTimeStart.HasValue && calendarDay.Date.Date == task.ScheduledDate.Date)
+                                                    {
+                                                        <span class="mr-1">@task.ScheduledTimeStart.Value.ToString(@"hh\:mm")</span>
+                                                    }
+                                                    <span class="truncate">@GetTaskDisplayName(task)</span>
+                                                </div>
+                                                <div class="text-[10px] truncate opacity-75">
+                                                    @if (task.User != null)
+                                                    {
+                                                        <span>@task.User.Prenom @task.User.Nom</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span>N/A</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal de détail de tâche -->
+@if (showTaskDetailModal && selectedTask != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseTaskDetailModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" @onclick:stopPropagation>
+            <!-- Header -->
+            <div class="bg-blue-50 border-b border-blue-200 p-6">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <h3 class="text-2xl font-bold text-gray-900">Détail de la tâche</h3>
+                            <div class="px-3 py-1 rounded-full text-xs font-medium @GetTaskTypeBadgeClass(selectedTask)">
+                                @(selectedTask.TaskType == "MAINTENANCE" ? "Maintenance" : "Protocole")
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1">@GetTaskDisplayName(selectedTask)</p>
+                    </div>
+                    <button @onclick="CloseTaskDetailModal" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                <!-- Statut -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+                    <div>
+                        @switch (selectedTask.Status)
+                        {
+                            case "PENDING":
+                                <span class="px-4 py-2 inline-flex text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                    Planifiée
+                                </span>
+                                break;
+                            case "IN_PROGRESS":
+                                <span class="px-4 py-2 inline-flex text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    En cours
+                                </span>
+                                break;
+                            case "COMPLETED":
+                                <span class="px-4 py-2 inline-flex text-sm font-semibold rounded-full bg-green-100 text-green-800">
+                                    Terminée
+                                </span>
+                                break;
+                            case "CANCELLED":
+                                <span class="px-4 py-2 inline-flex text-sm font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    Annulée
+                                </span>
+                                break;
+                        }
+                    </div>
+                </div>
+
+                <!-- Date et horaires -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Date prévue</label>
+                        @if (isEditMode)
+                        {
+                            <input type="date" @bind="editScheduledDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        }
+                        else
+                        {
+                            <p class="text-lg text-gray-900">@selectedTask.ScheduledDate.ToString("dd/MM/yyyy")</p>
+                        }
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Horaire</label>
+                        @if (isEditMode)
+                        {
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="time" @bind="editTimeStart" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                <input type="time" @bind="editTimeEnd" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                        }
+                        else if (selectedTask.ScheduledTimeStart.HasValue && selectedTask.ScheduledTimeEnd.HasValue)
+                        {
+                            <p class="text-lg text-gray-900">
+                                @selectedTask.ScheduledTimeStart.Value.ToString(@"hh\:mm") - @selectedTask.ScheduledTimeEnd.Value.ToString(@"hh\:mm")
+                            </p>
+                        }
+                        else
+                        {
+                            <p class="text-gray-400">Non planifié</p>
+                        }
+                    </div>
+                </div>
+
+                <!-- Informations contextuelles selon le type de tâche -->
+                @if (selectedTask.TaskType == "MAINTENANCE")
+                {
+                    <!-- Informations maintenance -->
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Équipement</label>
+                            <p class="text-lg text-gray-900">@(selectedTask.Asset?.Name ?? "N/A")</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Zone équipement</label>
+                            <p class="text-lg text-gray-900">@(selectedTask.Asset?.Zone?.Name ?? "N/A")</p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Informations protocole -->
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Point de contrôle</label>
+                            <p class="text-lg text-gray-900">@(selectedTask.ControlPoint?.Name ?? "N/A")</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Zone</label>
+                            <p class="text-lg text-gray-900">@(selectedTask.ControlPoint?.Zone?.Name ?? "N/A")</p>
+                        </div>
+                    </div>
+                }
+
+                <!-- Technicien -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Technicien assigné</label>
+                    @if (isEditMode)
+                    {
+                        <select @bind="editUserId" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Sélectionnez un technicien</option>
+                            @foreach (var user in users)
+                            {
+                                <option value="@user.Id">@user.Prenom @user.Nom</option>
+                            }
+                        </select>
+                    }
+                    else
+                    {
+                        <p class="text-lg text-gray-900">
+                            @if (selectedTask.User != null && !string.IsNullOrEmpty(selectedTask.User.Prenom) && !string.IsNullOrEmpty(selectedTask.User.Nom))
+                            {
+                                @($"{selectedTask.User.Prenom} {selectedTask.User.Nom}")
+                            }
+                            else
+                            {
+                                <span class="text-gray-400">Non assigné</span>
+                            }
+                        </p>
+                    }
+                </div>
+
+                <!-- Informations spécifiques par type -->
+                @if (selectedTask.TaskType == "MAINTENANCE")
+                {
+                    <!-- Gamme de maintenance -->
+                    @if (selectedTask.MaintenanceSchedule != null)
+                    {
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Gamme de maintenance</label>
+                            <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <p class="text-lg font-medium text-gray-900">@selectedTask.MaintenanceSchedule.Name</p>
+                                        <p class="text-sm text-gray-600 mt-1">@selectedTask.MaintenanceSchedule.Type</p>
+                                    </div>
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full @GetMaintenancePriorityClass(selectedTask.MaintenanceSchedule.Priority)">
+                                        @GetMaintenancePriorityLabel(selectedTask.MaintenanceSchedule.Priority)
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <!-- Protocole/TaskTemplate pour les tâches de protocole -->
+                    @if (!string.IsNullOrEmpty(selectedTask.TaskTemplate?.Name))
+                    {
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Protocole</label>
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p class="text-lg font-medium text-gray-900">@selectedTask.TaskTemplate.Name</p>
+                            </div>
+                        </div>
+                    }
+                }
+
+                <!-- Récurrence -->
+                @if (!string.IsNullOrEmpty(selectedTask.Recurrence) && selectedTask.Recurrence != "ONCE")
+                {
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Récurrence</label>
+                        <p class="text-lg text-gray-900">
+                            @switch (selectedTask.Recurrence)
+                            {
+                                case "DAILY": <span>Quotidienne</span> break;
+                                case "WEEKLY": <span>Hebdomadaire</span> break;
+                                case "MONTHLY": <span>Mensuelle</span> break;
+                                case "QUARTERLY": <span>Trimestrielle</span> break;
+                                case "BIANNUAL": <span>Semestrielle</span> break;
+                                case "YEARLY": <span>Annuelle</span> break;
+                                default: <span>@selectedTask.Recurrence</span> break;
+                            }
+                        </p>
+                    </div>
+                }
+            </div>
+
+            <!-- Footer avec boutons -->
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-between">
+                <div class="flex space-x-3">
+                    @if (selectedTask.Status == "PENDING")
+                    {
+                        <button @onclick="OpenCancellationFromDetail"
+                                class="px-6 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition font-medium">
+                            Annuler la tâche
+                        </button>
+                    }
+                </div>
+                <div class="flex space-x-3">
+                    <button @onclick="CloseTaskDetailModal" class="lc-btn lc-btn-secondary">
+                        Fermer
+                    </button>
+                    @if (!isEditMode && selectedTask.Status == "PENDING")
+                    {
+                        <button @onclick="EditTask" class="lc-btn lc-btn-primary">
+                            Modifier
+                        </button>
+                    }
+                    @if (isEditMode)
+                    {
+                        <button @onclick="CancelEdit" class="lc-btn lc-btn-secondary">
+                            Annuler
+                        </button>
+                        <button @onclick="SaveTaskChanges" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
+                            Enregistrer
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de choix récurrence (modification ou annulation) -->
+@if (showRecurrenceChoiceModal && selectedTask != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseRecurrenceChoiceModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full" @onclick:stopPropagation>
+            <!-- Header -->
+            <div class="bg-blue-50 border-b border-blue-200 p-6">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900">Tâche récurrente</h3>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Cette tâche fait partie d'une série récurrente (@GetRecurrenceLabel(selectedTask.Recurrence))
+                        </p>
+                    </div>
+                    <button @onclick="CloseRecurrenceChoiceModal" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                <p class="text-gray-700 mb-6">
+                    Souhaitez-vous @(recurrenceAction == "edit" ? "modifier" : "annuler") uniquement cette occurrence ou toutes les occurrences de cette tâche récurrente ?
+                </p>
+
+                <div class="space-y-3">
+                    <!-- Option 1: Cette occurrence uniquement -->
+                    <button @onclick="() => ConfirmRecurrenceChoice(false)"
+                            class="w-full p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-left">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 mt-1">
+                                <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <h4 class="font-semibold text-gray-900">Cette occurrence uniquement</h4>
+                                <p class="text-sm text-gray-600 mt-1">
+                                    @(recurrenceAction == "edit" ? "Modifier" : "Annuler") seulement cette tâche du @selectedTask.ScheduledDate.ToString("dd/MM/yyyy")
+                                </p>
+                            </div>
+                        </div>
+                    </button>
+
+                    <!-- Option 2: Toutes les occurrences -->
+                    <button @onclick="() => ConfirmRecurrenceChoice(true)"
+                            class="w-full p-4 border-2 border-gray-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition text-left">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 mt-1">
+                                <svg class="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <h4 class="font-semibold text-gray-900">Toutes les occurrences</h4>
+                                <p class="text-sm text-gray-600 mt-1">
+                                    @(recurrenceAction == "edit" ? "Modifier" : "Annuler") toutes les tâches de cette série récurrente
+                                </p>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+                    <div class="flex">
+                        <svg class="h-5 w-5 text-yellow-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <div class="flex-1">
+                            <p class="text-sm text-yellow-700">
+                                @if (recurrenceAction == "cancel")
+                                {
+                                    <span>L'annulation de toutes les occurrences est <strong>irréversible</strong></span>
+                                }
+                                else
+                                {
+                                    <span>La modification de toutes les occurrences sera appliquée aux tâches futures</span>
+                                }
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-end">
+                <button @onclick="CloseRecurrenceChoiceModal" class="lc-btn lc-btn-secondary">
+                    Annuler
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal d'annulation -->
+@if (showCancellationModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseCancellationModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full" @onclick:stopPropagation>
+            <!-- Header -->
+            <div class="bg-orange-50 border-b border-orange-200 p-6">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="flex-shrink-0">
+                            <svg class="h-8 w-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900">Annuler cette tâche</h3>
+                            <p class="text-sm text-gray-600 mt-1">Un motif d'annulation doit être fourni pour la traçabilité</p>
+                        </div>
+                    </div>
+                    <button @onclick="CloseCancellationModal" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Motif d'annulation <span class="text-red-500">*</span>
+                    </label>
+                    <textarea @bind="cancellationReason" @bind:event="oninput"
+                              rows="4"
+                              placeholder="Décrivez la raison de l'annulation (minimum 10 caractères)..."
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
+                              maxlength="500"></textarea>
+                    <p class="mt-1 text-xs text-gray-500">@cancellationReason.Length / 500 caractères</p>
+                </div>
+
+                @if (!string.IsNullOrEmpty(cancellationError))
+                {
+                    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p class="text-sm text-red-700">@cancellationError</p>
+                    </div>
+                }
+
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                    <div class="flex">
+                        <svg class="h-5 w-5 text-yellow-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <div class="flex-1">
+                            <h4 class="text-sm font-medium text-yellow-800">Important</h4>
+                            <p class="text-sm text-yellow-700 mt-1">
+                                L'annulation sera enregistrée dans le journal avec votre nom d'utilisateur et l'horodatage. Cette action est traçable et ne peut pas être annulée.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-end space-x-3">
+                <button @onclick="CloseCancellationModal" class="lc-btn lc-btn-secondary">
+                    Fermer
+                </button>
+                <button @onclick="CancelTask" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium">
+                    Confirmer l'annulation
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private DateTime currentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private List<CalendarDay> calendarDays = new();
+    private List<ScheduledTaskDto> allTasks = new();
+    private List<ScheduledTaskDto> filteredTasks = new();
+    private ScheduledTaskDto? selectedTask = null;
+
+    // Filtres
+    private string selectedTaskType = "";
+    private string selectedSiteId = "";
+    private string selectedUserId = "";
+    private string selectedStatus = "";
+
+    // Collections pour les filtres
+    private List<SiteFilterDto> sites = new();
+    private List<UserFilterDto> users = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadSitesAndUsers();
+        await LoadMonth();
+    }
+
+    private async Task LoadMonth()
+    {
+        isLoading = true;
+        try
+        {
+            // Générer les jours du calendrier
+            GenerateCalendarDays();
+
+            // Charger les tâches du mois
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token)) return;
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var startDate = currentMonth;
+            var endDate = currentMonth.AddMonths(1).AddDays(-1);
+
+            var response = await Http.GetAsync($"api/tasks/calendar?start={startDate:yyyy-MM-dd}&end={endDate:yyyy-MM-dd}");
+            if (response.IsSuccessStatusCode)
+            {
+                allTasks = await response.Content.ReadFromJsonAsync<List<ScheduledTaskDto>>() ?? new();
+                ApplyFilters();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur lors du chargement: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GenerateCalendarDays()
+    {
+        calendarDays.Clear();
+
+        var firstDayOfMonth = new DateTime(currentMonth.Year, currentMonth.Month, 1);
+        var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+
+        // Calculer le premier lundi à afficher (peut être du mois précédent)
+        var firstDayOfWeek = (int)firstDayOfMonth.DayOfWeek;
+        if (firstDayOfWeek == 0) firstDayOfWeek = 7; // Dimanche = 7
+        var startDate = firstDayOfMonth.AddDays(-(firstDayOfWeek - 1));
+
+        // Générer 6 semaines (42 jours)
+        for (int i = 0; i < 42; i++)
+        {
+            var date = startDate.AddDays(i);
+            calendarDays.Add(new CalendarDay
+            {
+                Date = date,
+                IsCurrentMonth = date.Month == currentMonth.Month && date.Year == currentMonth.Year,
+                IsToday = date.Date == DateTime.Today
+            });
+        }
+    }
+
+    private async Task LoadSitesAndUsers()
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token)) return;
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            // Charger les sites
+            var sitesResponse = await Http.GetAsync("api/sites");
+            if (sitesResponse.IsSuccessStatusCode)
+            {
+                sites = await sitesResponse.Content.ReadFromJsonAsync<List<SiteFilterDto>>() ?? new();
+            }
+
+            // Charger les utilisateurs (uniquement techniciens)
+            var usersResponse = await Http.GetAsync("api/users");
+            if (usersResponse.IsSuccessStatusCode)
+            {
+                var allUsers = await usersResponse.Content.ReadFromJsonAsync<List<UserFilterDto>>() ?? new();
+                users = allUsers.Where(u => u.Role == "Technician").ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", $"Erreur chargement filtres: {ex.Message}");
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        filteredTasks = allTasks.Where(t =>
+        {
+            // Filtre par type de tâche
+            if (!string.IsNullOrEmpty(selectedTaskType) && t.TaskType != selectedTaskType)
+                return false;
+
+            // Filtre par statut
+            if (!string.IsNullOrEmpty(selectedStatus) && t.Status != selectedStatus)
+                return false;
+
+            // Filtre par technicien
+            if (!string.IsNullOrEmpty(selectedUserId) && t.User?.Id.ToString() != selectedUserId)
+                return false;
+
+            // Filtre par site (via la hiérarchie Zone ou Asset.Zone)
+            if (!string.IsNullOrEmpty(selectedSiteId))
+            {
+                var taskSiteId = t.ControlPoint?.Zone?.SiteId?.ToString() ??
+                                 t.ControlPoint?.Asset?.Zone?.SiteId?.ToString();
+                if (taskSiteId != selectedSiteId)
+                    return false;
+            }
+
+            return true;
+        }).ToList();
+    }
+
+    private void ClearFilters()
+    {
+        selectedTaskType = "";
+        selectedSiteId = "";
+        selectedUserId = "";
+        selectedStatus = "";
+        ApplyFilters();
+    }
+
+    private List<ScheduledTaskDto> GetTasksForDay(DateTime date)
+    {
+        return filteredTasks.Where(t =>
+        {
+            // Cas 1 : Tâche sans date de fin (une seule journée)
+            if (!t.ScheduledEndDate.HasValue)
+            {
+                return t.ScheduledDate.Date == date.Date;
+            }
+
+            // Cas 2 : Tâche multi-jours (avec date de fin)
+            // La tâche est affichée si le jour est entre la date de début et la date de fin (inclus)
+            return date.Date >= t.ScheduledDate.Date && date.Date <= t.ScheduledEndDate.Value.Date;
+        }).OrderBy(t => t.ScheduledTimeStart).ToList();
+    }
+
+    private bool IsTaskOverdue(ScheduledTaskDto task)
+    {
+        // Une tâche est en retard si elle est PENDING et que l'heure de fin est dépassée
+        if (task.Status != "PENDING" || !task.ScheduledTimeEnd.HasValue)
+            return false;
+
+        var now = DateTime.Now;
+        var taskDate = task.ScheduledDate.Date;
+        var taskEndTime = taskDate.Add(task.ScheduledTimeEnd.Value);
+
+        return now > taskEndTime;
+    }
+
+    private string GetDayClass(CalendarDay day)
+    {
+        var classes = new List<string> { "bg-white" };
+        if (!day.IsCurrentMonth) classes.Add("bg-gray-50");
+        if (day.IsToday) classes.Add("bg-blue-50 border-2 border-blue-400");
+        return string.Join(" ", classes);
+    }
+
+    private string GetTaskClass(ScheduledTaskDto task)
+    {
+        // Vérifier si la tâche est en retard
+        if (IsTaskOverdue(task))
+            return "bg-red-600 text-white font-bold";
+
+        return task.Status switch
+        {
+            "PENDING" => "bg-yellow-100 text-yellow-800",
+            "IN_PROGRESS" => "bg-blue-100 text-blue-800",
+            "COMPLETED" => "bg-green-100 text-green-800",
+            "OVERDUE" => "bg-red-600 text-white font-bold",
+            "CANCELLED" => "bg-gray-100 text-gray-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+
+    private void PreviousMonth()
+    {
+        currentMonth = currentMonth.AddMonths(-1);
+        LoadMonth().ConfigureAwait(false);
+    }
+
+    private void NextMonth()
+    {
+        currentMonth = currentMonth.AddMonths(1);
+        LoadMonth().ConfigureAwait(false);
+    }
+
+    private bool showTaskDetailModal = false;
+    private bool isEditMode = false;
+    private string editUserId = string.Empty;
+    private DateTime editScheduledDate = DateTime.Today;
+    private TimeOnly? editTimeStart = null;
+    private TimeOnly? editTimeEnd = null;
+
+    // Modal de choix récurrence
+    private bool showRecurrenceChoiceModal = false;
+    private string recurrenceAction = ""; // "edit" ou "cancel"
+    private bool applyToAllOccurrences = false;
+
+    // Modal d'annulation
+    private bool showCancellationModal = false;
+    private Guid taskToCancel;
+    private string cancellationReason = string.Empty;
+    private string cancellationError = string.Empty;
+
+    private void ShowTaskDetails(ScheduledTaskDto task)
+    {
+        selectedTask = task;
+        showTaskDetailModal = true;
+        isEditMode = false;
+    }
+
+    private void CloseTaskDetailModal()
+    {
+        showTaskDetailModal = false;
+        selectedTask = null;
+        isEditMode = false;
+    }
+
+    private void EditTask()
+    {
+        if (selectedTask == null) return;
+
+        // Vérifier si c'est une tâche récurrente
+        if (!string.IsNullOrEmpty(selectedTask.Recurrence) && selectedTask.Recurrence != "ONCE")
+        {
+            // Afficher la modal de choix
+            recurrenceAction = "edit";
+            showRecurrenceChoiceModal = true;
+        }
+        else
+        {
+            // Tâche unique, passer directement en mode édition
+            InitializeEditMode();
+        }
+    }
+
+    private void InitializeEditMode()
+    {
+        if (selectedTask == null) return;
+
+        // Initialiser les champs d'édition avec les valeurs actuelles
+        editUserId = selectedTask.User?.Id.ToString() ?? string.Empty;
+        editScheduledDate = selectedTask.ScheduledDate.Date;
+        editTimeStart = selectedTask.ScheduledTimeStart.HasValue
+            ? TimeOnly.FromTimeSpan(selectedTask.ScheduledTimeStart.Value)
+            : null;
+        editTimeEnd = selectedTask.ScheduledTimeEnd.HasValue
+            ? TimeOnly.FromTimeSpan(selectedTask.ScheduledTimeEnd.Value)
+            : null;
+
+        isEditMode = true;
+        StateHasChanged();
+    }
+
+    private void CancelEdit()
+    {
+        isEditMode = false;
+        StateHasChanged();
+    }
+
+    private void OpenCancellationFromDetail()
+    {
+        if (selectedTask == null) return;
+
+        // Vérifier si c'est une tâche récurrente
+        if (!string.IsNullOrEmpty(selectedTask.Recurrence) && selectedTask.Recurrence != "ONCE")
+        {
+            // Afficher la modal de choix
+            recurrenceAction = "cancel";
+            showRecurrenceChoiceModal = true;
+        }
+        else
+        {
+            // Tâche unique, afficher directement la modal d'annulation
+            var taskId = selectedTask.Id;
+            CloseTaskDetailModal();
+            ShowCancellationModal(taskId);
+        }
+    }
+
+    private void ShowCancellationModal(Guid taskId)
+    {
+        taskToCancel = taskId;
+        cancellationReason = string.Empty;
+        cancellationError = string.Empty;
+        showCancellationModal = true;
+    }
+
+    private void CloseCancellationModal()
+    {
+        showCancellationModal = false;
+        taskToCancel = Guid.Empty;
+        cancellationReason = string.Empty;
+        cancellationError = string.Empty;
+    }
+
+    private async Task CancelTask()
+    {
+        // Validation
+        if (string.IsNullOrWhiteSpace(cancellationReason))
+        {
+            cancellationError = "Le motif d'annulation est obligatoire";
+            return;
+        }
+
+        if (cancellationReason.Length < 10)
+        {
+            cancellationError = "Le motif doit contenir au moins 10 caractères";
+            return;
+        }
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var request = new
+            {
+                CancellationReason = cancellationReason,
+                ApplyToAllOccurrences = applyToAllOccurrences
+            };
+            var response = await Http.PostAsJsonAsync($"api/tasks/{taskToCancel}/cancel", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Annulation de la tâche prise en compte");
+                CloseCancellationModal();
+                await LoadMonth();
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                cancellationError = error?.error ?? "Une erreur est survenue";
+            }
+        }
+        catch (Exception ex)
+        {
+            cancellationError = $"Erreur: {ex.Message}";
+        }
+    }
+
+    private async Task SaveTaskChanges()
+    {
+        if (selectedTask == null) return;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            // Validation
+            if (string.IsNullOrEmpty(editUserId))
+            {
+                await JS.InvokeVoidAsync("alert", "Veuillez sélectionner un technicien");
+                return;
+            }
+
+            if (!editTimeStart.HasValue || !editTimeEnd.HasValue)
+            {
+                await JS.InvokeVoidAsync("alert", "Veuillez renseigner les horaires");
+                return;
+            }
+
+            // Vérifier la disponibilité si technicien, date ou horaires ont changé
+            bool needsAvailabilityCheck =
+                editUserId != selectedTask.User?.Id.ToString() ||
+                editScheduledDate != selectedTask.ScheduledDate.Date ||
+                editTimeStart.Value.ToTimeSpan() != selectedTask.ScheduledTimeStart ||
+                editTimeEnd.Value.ToTimeSpan() != selectedTask.ScheduledTimeEnd;
+
+            if (needsAvailabilityCheck)
+            {
+                // Appeler l'endpoint de vérification de disponibilité
+                var availabilityRequest = new
+                {
+                    UserId = Guid.Parse(editUserId),
+                    ScheduledDate = DateTime.SpecifyKind(editScheduledDate, DateTimeKind.Utc),
+                    ScheduledEndDate = (DateTime?)null,
+                    ScheduledTimeStart = editTimeStart.Value.ToTimeSpan(),
+                    ScheduledTimeEnd = editTimeEnd.Value.ToTimeSpan(),
+                    ExcludeTaskId = selectedTask.Id
+                };
+
+                var availabilityResponse = await Http.PostAsJsonAsync("api/tasks/check-availability", availabilityRequest);
+
+                if (availabilityResponse.IsSuccessStatusCode)
+                {
+                    var availabilityResult = await availabilityResponse.Content.ReadFromJsonAsync<AvailabilityResponse>();
+
+                    if (availabilityResult != null && !availabilityResult.IsAvailable)
+                    {
+                        var confirmed = await JS.InvokeAsync<bool>("confirm",
+                            $"Attention: Le technicien a {availabilityResult.ConflictCount} conflit(s) d'horaire à cette date/heure. Voulez-vous continuer quand même ?");
+
+                        if (!confirmed)
+                        {
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Mettre à jour la tâche
+            var updateRequest = new
+            {
+                UserId = Guid.Parse(editUserId),
+                ScheduledDate = DateTime.SpecifyKind(editScheduledDate, DateTimeKind.Utc),
+                ScheduledTimeStart = editTimeStart.Value.ToTimeSpan(),
+                ScheduledTimeEnd = editTimeEnd.Value.ToTimeSpan(),
+                ApplyToAllOccurrences = applyToAllOccurrences
+            };
+
+            var response = await Http.PutAsJsonAsync($"api/tasks/{selectedTask.Id}", updateRequest);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Tâche modifiée avec succès");
+                isEditMode = false;
+                applyToAllOccurrences = false; // Réinitialiser après succès
+                CloseTaskDetailModal();
+                await LoadMonth();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("alert", $"Erreur lors de la modification: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+
+    private class AvailabilityResponse
+    {
+        public bool IsAvailable { get; set; }
+        public int ConflictCount { get; set; }
+    }
+
+    private class ErrorResponse
+    {
+        public string error { get; set; } = string.Empty;
+    }
+
+    private void NavigateToCreateTask(DateTime date)
+    {
+        // Naviguer vers la page de création de tâche avec la date dans l'URL
+        Navigation.NavigateTo($"/create-task?date={date:yyyy-MM-dd}");
+    }
+
+    private void CloseRecurrenceChoiceModal()
+    {
+        showRecurrenceChoiceModal = false;
+        recurrenceAction = "";
+        applyToAllOccurrences = false;
+    }
+
+    private void ConfirmRecurrenceChoice(bool applyToAll)
+    {
+        // Sauvegarder les valeurs AVANT de fermer la modal
+        applyToAllOccurrences = applyToAll;
+        var action = recurrenceAction;
+
+        // Fermer la modal de choix récurrence (NE PAS réinitialiser applyToAllOccurrences ici)
+        showRecurrenceChoiceModal = false;
+        recurrenceAction = "";
+
+        if (action == "edit")
+        {
+            // Passer en mode édition (la modal de détail reste ouverte)
+            InitializeEditMode();
+        }
+        else if (action == "cancel")
+        {
+            // Ouvrir la modal d'annulation
+            if (selectedTask != null)
+            {
+                var taskId = selectedTask.Id;
+                CloseTaskDetailModal();
+                ShowCancellationModal(taskId);
+            }
+        }
+    }
+
+    private string GetRecurrenceLabel(string? recurrence)
+    {
+        return recurrence switch
+        {
+            "DAILY" => "Quotidienne",
+            "WEEKLY" => "Hebdomadaire",
+            "MONTHLY" => "Mensuelle",
+            "QUARTERLY" => "Trimestrielle",
+            "BIANNUAL" => "Semestrielle",
+            "YEARLY" => "Annuelle",
+            _ => "Unique"
+        };
+    }
+
+    private string GetTaskTypeIndicatorClass(ScheduledTaskDto task)
+    {
+        return task.TaskType == "MAINTENANCE" ? "bg-orange-600" : "bg-blue-600";
+    }
+
+    private string GetTaskTypeBadgeClass(ScheduledTaskDto task)
+    {
+        return task.TaskType == "MAINTENANCE"
+            ? "bg-orange-100 text-orange-800"
+            : "bg-blue-100 text-blue-800";
+    }
+
+    private string GetTaskDisplayName(ScheduledTaskDto task)
+    {
+        if (task.TaskType == "MAINTENANCE")
+        {
+            return task.Asset?.Name ?? task.MaintenanceSchedule?.Name ?? "Maintenance";
+        }
+        else
+        {
+            return task.ControlPoint?.Name ?? "Protocole";
+        }
+    }
+
+    private string GetMaintenancePriorityClass(string priority)
+    {
+        return priority switch
+        {
+            "CRITICAL" => "bg-red-100 text-red-800",
+            "HIGH" => "bg-orange-100 text-orange-800",
+            "NORMAL" => "bg-yellow-100 text-yellow-800",
+            "LOW" => "bg-green-100 text-green-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+
+    private string GetMaintenancePriorityLabel(string priority)
+    {
+        return priority switch
+        {
+            "CRITICAL" => "Critique",
+            "HIGH" => "Haute",
+            "NORMAL" => "Normale",
+            "LOW" => "Basse",
+            _ => priority
+        };
+    }
+
+    // Classes
+    private class CalendarDay
+    {
+        public DateTime Date { get; set; }
+        public bool IsCurrentMonth { get; set; }
+        public bool IsToday { get; set; }
+    }
+
+    private class ScheduledTaskDto
+    {
+        public Guid Id { get; set; }
+        public DateTime ScheduledDate { get; set; }
+        public DateTime? ScheduledEndDate { get; set; }
+        public TimeSpan? ScheduledTimeStart { get; set; }
+        public TimeSpan? ScheduledTimeEnd { get; set; }
+        public string Status { get; set; } = "PENDING";
+        public string? Recurrence { get; set; }
+        public string TaskType { get; set; } = "PROTOCOL";
+        public UserDto? User { get; set; }
+        public ControlPointDto? ControlPoint { get; set; }
+        public TaskTemplateDto? TaskTemplate { get; set; }
+        public AssetDto? Asset { get; set; }
+        public MaintenanceScheduleDto? MaintenanceSchedule { get; set; }
+    }
+
+    private class UserDto
+    {
+        public Guid Id { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string Prenom { get; set; } = string.Empty;
+        public string Nom { get; set; } = string.Empty;
+    }
+
+    private class ControlPointDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public ZoneDto? Zone { get; set; }
+        public AssetDto? Asset { get; set; }
+    }
+
+    private class ZoneDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public Guid? SiteId { get; set; }
+    }
+
+    private class AssetDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public ZoneDto? Zone { get; set; }
+    }
+
+    private class TaskTemplateDto
+    {
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class MaintenanceScheduleDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public string Priority { get; set; } = string.Empty;
+    }
+
+    // DTOs pour les filtres
+    private class SiteFilterDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class UserFilterDto
+    {
+        public Guid Id { get; set; }
+        public string Prenom { get; set; } = string.Empty;
+        public string Nom { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LABOR CONTROL - Fait, scanné, prouvé - BETA</title>
+    <base href="/" />
+
+    <!-- Tailwind CSS v3 via CDN -->
+    <script>
+        tailwind = { corePlugins: { preflight: false } }
+    </script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+
+    <link rel="stylesheet" href="css/app.css" />
+
+    <!-- Favicons Labor Control -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="android-chrome-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="android-chrome-512x512.png" />
+    <link rel="manifest" href="site.webmanifest" />
+
+    <!-- Styles personnalisés pour scrollbar -->
+    <style>
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin:hover::-webkit-scrollbar-thumb {
+            background-color: #9ca3af;
+        }
+
+        .scrollbar-thin {
+            scrollbar-width: thin;
+            scrollbar-color: #d1d5db transparent;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="text-center">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded fixed bottom-4 right-4">
+        Une erreur s'est produite.
+        <a href="." class="reload underline ml-2">Recharger</a>
+        <span class="dismiss cursor-pointer ml-2">🗙</span>
+    </div>
+
+    <script>
+        window.showNotification = function(message) {
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-1/2 left-1/2 z-[9999] bg-white rounded-lg shadow-2xl border border-gray-200 p-6 max-w-md transform transition-all duration-300 ease-in-out';
+            notification.style.transform = 'translate(-50%, -50%) scale(0.7)';
+            notification.style.opacity = '0';
+            notification.innerHTML = `
+                <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0">
+                        <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-base font-bold text-gray-900">CONFIRMATION</h3>
+                        <p class="mt-2 text-sm text-gray-600">${message}</p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="flex-shrink-0 text-gray-400 hover:text-gray-600">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.transform = 'translate(-50%, -50%) scale(1)';
+                notification.style.opacity = '1';
+            }, 10);
+
+            setTimeout(() => {
+                notification.style.transform = 'translate(-50%, -50%) scale(0.7)';
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        };
+
+        function capitalizeFirstLetter(input) {
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const value = input.value;
+
+            if (value.length > 0 && value[0] !== value[0].toUpperCase()) {
+                input.value = value.charAt(0).toUpperCase() + value.slice(1);
+                input.setSelectionRange(start, end);
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1) {
+                        if (node.tagName === 'INPUT' && node.type === 'text') {
+                            attachCapitalizeListener(node);
+                        }
+                        const inputs = node.querySelectorAll ? node.querySelectorAll('input[type="text"]') : [];
+                        inputs.forEach(attachCapitalizeListener);
+                    }
+                });
+            });
+        });
+
+        function attachCapitalizeListener(input) {
+            if (input.dataset.capitalizeAttached) return;
+
+            const excludedTypes = ['email', 'password'];
+            const excludedNames = ['email', 'password', 'username', 'login'];
+            const excludedIds = ['email', 'password', 'username', 'login'];
+
+            if (excludedTypes.includes(input.type.toLowerCase())) return;
+            if (input.name && excludedNames.some(name => input.name.toLowerCase().includes(name))) return;
+            if (input.id && excludedIds.some(id => input.id.toLowerCase().includes(id))) return;
+
+            input.dataset.capitalizeAttached = 'true';
+
+            input.addEventListener('input', function() {
+                capitalizeFirstLetter(this);
+            });
+
+            input.addEventListener('blur', function() {
+                capitalizeFirstLetter(this);
+            });
+        }
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('input[type="text"]').forEach(attachCapitalizeListener);
+        });
+    </script>
+
+    <script src="js/download.js"></script>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>

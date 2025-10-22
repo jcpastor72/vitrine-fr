@@ -1,0 +1,40 @@
+@inherits LayoutComponentBase
+@using LaborControl.Web.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="min-h-screen bg-gray-100">
+    <nav class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold">LABOR CONTROL</h1>
+            <div class="flex gap-4 items-center">
+                <a href="/admin/clients" class="hover:underline">Clients</a>
+                <a href="/admin/rfid-chips" class="hover:underline">Puces RFID</a>
+                <button @onclick="HandleLogout" class="bg-red-500 px-4 py-1 rounded hover:bg-red-600">
+                    Déconnexion
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-6">
+        @Body
+    </main>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/");
+    }
+}

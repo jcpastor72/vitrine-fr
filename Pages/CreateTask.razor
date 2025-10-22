@@ -1,0 +1,1401 @@
+@page "/create-task"
+@using LaborControl.Web.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Créer une tâche - LABOR CONTROL</PageTitle>
+
+<!-- Navigation -->
+<nav class="fixed w-full bg-white shadow-sm z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <a href="/tasks-dashboard" class="text-blue-600 hover:text-blue-800">
+                    ← Retour au tableau de bord
+                </a>
+                <span class="text-gray-300">|</span>
+                <h1 class="text-xl font-bold text-gray-900">Créer une nouvelle tâche</h1>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="min-h-screen bg-gray-50 pt-24 pb-12">
+    <div class="max-w-3xl mx-auto px-6">
+        @if (isLoading)
+        {
+            <div class="flex justify-center items-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        }
+        else
+        {
+            <div class="bg-white rounded-xl shadow-sm p-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Planifier une tâche</h2>
+
+                <!-- Formulaire -->
+                <form @onsubmit="HandleSubmit">
+                    <!-- Type de tâche sélectionné -->
+                    <div class="mb-6">
+                        <div class="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                @if (newTask.TaskType == "PROTOCOL")
+                                {
+                                    <div class="flex-shrink-0">
+                                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-semibold text-blue-900">Protocole de contrôle</h3>
+                                        <p class="text-sm text-blue-700">Surveillance d'un point de contrôle</p>
+                                    </div>
+                                }
+                                else if (newTask.TaskType == "MAINTENANCE")
+                                {
+                                    <div class="flex-shrink-0">
+                                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-semibold text-orange-900">Maintenance préventive</h3>
+                                        <p class="text-sm text-orange-700">Intervention sur un équipement</p>
+                                    </div>
+                                }
+                            </div>
+                            <button type="button" @onclick="() => showTaskTypeModal = true"
+                                    class="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition">
+                                Changer
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Site -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Site <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="selectedSiteId" @bind:after="OnSiteChanged" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Sélectionnez un site</option>
+                            @foreach (var site in sites)
+                            {
+                                <option value="@site.Id">@site.Name</option>
+                            }
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">Sélectionnez d'abord le site concerné</p>
+                    </div>
+
+                    <!-- Zone -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Zone <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="selectedZoneId" @bind:after="OnZoneChanged" required disabled="@string.IsNullOrEmpty(selectedSiteId)" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                            <option value="">@(string.IsNullOrEmpty(selectedSiteId) ? "Sélectionnez d'abord un site" : "Sélectionnez une zone")</option>
+                            @foreach (var zone in filteredZones)
+                            {
+                                <option value="@zone.Id">@zone.Name</option>
+                            }
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">La zone où se trouve le point de contrôle ou l'équipement</p>
+                    </div>
+
+                    <!-- Point de contrôle (pour protocoles) -->
+                    @if (newTask.TaskType == "PROTOCOL")
+                    {
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Point de contrôle <span class="text-red-500">*</span>
+                            </label>
+                            <select @bind="newTask.ControlPointId" required disabled="@(string.IsNullOrEmpty(selectedSiteId) || string.IsNullOrEmpty(selectedZoneId))" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                <option value="">@(string.IsNullOrEmpty(selectedZoneId) ? "Sélectionnez d'abord une zone" : "Sélectionnez un point de contrôle")</option>
+                                @foreach (var cp in filteredControlPoints)
+                                {
+                                    <option value="@cp.Id">@cp.Name (@cp.ZoneName)</option>
+                                }
+                            </select>
+                            <p class="mt-1 text-sm text-gray-500">Le point de contrôle à inspecter</p>
+                        </div>
+                    }
+
+                    <!-- Équipement et gamme de maintenance (pour maintenances) -->
+                    @if (newTask.TaskType == "MAINTENANCE")
+                    {
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Équipement <span class="text-red-500">*</span>
+                            </label>
+                            <select @bind="newTask.AssetId" @bind:after="OnAssetChanged" required disabled="@(string.IsNullOrEmpty(selectedSiteId) || string.IsNullOrEmpty(selectedZoneId))" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                <option value="">@(string.IsNullOrEmpty(selectedZoneId) ? "Sélectionnez d'abord une zone" : "Sélectionnez un équipement")</option>
+                                @foreach (var asset in filteredAssets)
+                                {
+                                    <option value="@asset.Id">@asset.Name (@asset.ZoneName)</option>
+                                }
+                            </select>
+                            <p class="mt-1 text-sm text-gray-500">L'équipement à maintenir</p>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Gamme de maintenance <span class="text-red-500">*</span>
+                            </label>
+                            <select @bind="newTask.MaintenanceScheduleId" required disabled="@string.IsNullOrEmpty(newTask.AssetId)" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                <option value="">@(string.IsNullOrEmpty(newTask.AssetId) ? "Sélectionnez d'abord un équipement" : "Sélectionnez une gamme de maintenance")</option>
+                                @foreach (var schedule in filteredMaintenanceSchedules)
+                                {
+                                    <option value="@schedule.Id">@schedule.Name (@GetMaintenanceTypeLabel(schedule.Type))</option>
+                                }
+                            </select>
+                            <p class="mt-1 text-sm text-gray-500">
+                                @if (filteredMaintenanceSchedules.Count == 0 && !string.IsNullOrEmpty(newTask.AssetId))
+                                {
+                                    <span class="text-orange-600">⚠️ Aucune gamme configurée pour cet équipement. <a href="/assets/@newTask.AssetId" class="text-blue-600 hover:underline">Créer une gamme</a></span>
+                                }
+                                else
+                                {
+                                    <span>La gamme de maintenance à exécuter</span>
+                                }
+                            </p>
+                        </div>
+                    }
+
+                    <!-- Technicien -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Technicien assigné <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="newTask.UserId" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Sélectionnez un technicien</option>
+                            @foreach (var user in technicians)
+                            {
+                                var displayName = !string.IsNullOrEmpty(user.Nom) && !string.IsNullOrEmpty(user.Prenom)
+                                    ? $"{user.Prenom} {user.Nom}"
+                                    : user.Email;
+                                <option value="@user.Id">@displayName</option>
+                            }
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">La personne qui effectuera la tâche</p>
+                    </div>
+
+                    <!-- Dates -->
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Date de début <span class="text-red-500">*</span>
+                            </label>
+                            <input type="date" @bind="scheduledDate" @bind:format="yyyy-MM-dd" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Date de fin <span class="text-gray-400">(optionnel)</span>
+                            </label>
+                            <input type="date" @bind="scheduledEndDate" @bind:format="yyyy-MM-dd"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                        </div>
+                    </div>
+
+                    <!-- Horaires -->
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Heure de début <span class="text-red-500">*</span>
+                            </label>
+                            <input type="time" @bind="timeStart" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                            <p class="mt-1 text-sm text-gray-500">Nécessaire pour vérifier la disponibilité</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Heure de fin <span class="text-red-500">*</span>
+                            </label>
+                            <input type="time" @bind="timeEnd" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                            <p class="mt-1 text-sm text-gray-500">Nécessaire pour vérifier la disponibilité</p>
+                        </div>
+                    </div>
+
+                    <!-- Récurrence -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Récurrence
+                        </label>
+                        <select @bind="newTask.Recurrence" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="ONCE">Une seule fois</option>
+                            <option value="DAILY">Quotidienne (tous les jours)</option>
+                            <option value="WEEKLY">Hebdomadaire (toutes les semaines)</option>
+                            <option value="MONTHLY">Mensuelle (tous les mois)</option>
+                            <option value="QUARTERLY">Trimestrielle (tous les 3 mois)</option>
+                            <option value="BIANNUAL">Semestrielle (tous les 6 mois)</option>
+                            <option value="YEARLY">Annuelle (tous les ans)</option>
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">
+                            @if (newTask.Recurrence == "DAILY")
+                            {
+                                <span>Les tâches seront créées automatiquement tous les jours jusqu'au 31/12/@DateTime.Now.Year</span>
+                            }
+                            else if (newTask.Recurrence == "WEEKLY")
+                            {
+                                <span>Les tâches seront créées automatiquement toutes les semaines jusqu'au 31/12/@DateTime.Now.Year</span>
+                            }
+                            else if (newTask.Recurrence == "MONTHLY")
+                            {
+                                <span>Les tâches seront créées automatiquement tous les mois jusqu'au 31/12/@DateTime.Now.Year</span>
+                            }
+                            else if (newTask.Recurrence == "QUARTERLY")
+                            {
+                                <span>Les tâches seront créées automatiquement tous les 3 mois jusqu'au 31/12/@DateTime.Now.Year</span>
+                            }
+                            else if (newTask.Recurrence == "BIANNUAL")
+                            {
+                                <span>Les tâches seront créées automatiquement tous les 6 mois jusqu'au 31/12/@DateTime.Now.Year</span>
+                            }
+                            else if (newTask.Recurrence == "YEARLY")
+                            {
+                                <span>Les tâches seront créées automatiquement tous les ans jusqu'au 31/12/@DateTime.Now.Year</span>
+                            }
+                            else
+                            {
+                                <span>La tâche sera créée une seule fois</span>
+                            }
+                        </p>
+                    </div>
+
+                    <!-- Gestion des week-ends (visible seulement si récurrence != ONCE) -->
+                    @if (newTask.Recurrence != "ONCE")
+                    {
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Gestion des week-ends
+                            </label>
+                            <select @bind="newTask.WeekendHandling" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="ALLOW">Créer les tâches même le week-end</option>
+                                <option value="MOVE_TO_MONDAY">Reporter les tâches du week-end au lundi</option>
+                                <option value="SKIP">Ne pas créer de tâches le week-end</option>
+                            </select>
+                            <p class="mt-1 text-sm text-gray-500">
+                                @if (newTask.WeekendHandling == "ALLOW")
+                                {
+                                    <span>Les tâches seront créées tous les jours, y compris samedi et dimanche</span>
+                                }
+                                else if (newTask.WeekendHandling == "MOVE_TO_MONDAY")
+                                {
+                                    <span>Les tâches tombant un samedi seront reportées au lundi suivant</span>
+                                }
+                                else if (newTask.WeekendHandling == "SKIP")
+                                {
+                                    <span>Les tâches tombant un samedi ou dimanche seront ignorées</span>
+                                }
+                            </p>
+                        </div>
+                    }
+
+                    <!-- Secteur (pour filtrer les protocoles) -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Secteur <span class="text-gray-400">(optionnel pour filtrer les protocoles)</span>
+                        </label>
+                        <select @bind="selectedSectorId" @bind:after="OnSectorChanged" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Tous les secteurs</option>
+                            @foreach (var sector in sectors.Where(s => s.IsPredefined).OrderBy(s => s.Name))
+                            {
+                                <option value="@sector.Id">
+                                    @if (!string.IsNullOrEmpty(sector.Icon))
+                                    {
+                                        @sector.Icon
+                                    }
+                                    @sector.Name
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Industrie (pour filtrer les protocoles) -->
+                    @if (!string.IsNullOrEmpty(selectedSectorId))
+                    {
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Industrie <span class="text-gray-400">(optionnel pour filtrer les protocoles)</span>
+                            </label>
+                            <select @bind="selectedIndustryId" @bind:after="OnIndustryChanged" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Toutes les industries</option>
+                                @foreach (var industry in filteredIndustries.OrderBy(i => i.Name))
+                                {
+                                    <option value="@industry.Id">
+                                        @if (!string.IsNullOrEmpty(industry.Icon))
+                                        {
+                                            @industry.Icon
+                                        }
+                                        @industry.Name
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <!-- Protocole de contrôle (optionnel) -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Protocole de contrôle
+                        </label>
+                        <select @bind="newTask.TaskTemplateId" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Par défaut : Contrôle Visuel (surveillance générale)</option>
+                            @{
+                                // Utiliser les templates filtrés par industrie s'il y en a, sinon tous les templates
+                                var templatesToShow = !string.IsNullOrEmpty(selectedIndustryId) && filteredTemplates.Any()
+                                    ? filteredTemplates
+                                    : templates;
+                            }
+                            @foreach (var category in templatesToShow.GroupBy(t => t.Category))
+                            {
+                                <optgroup label="@GetCategoryLabel(category.Key)">
+                                    @foreach (var template in category)
+                                    {
+                                        <option value="@template.Id">@template.Name</option>
+                                    }
+                                </optgroup>
+                            }
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">
+                            @if (string.IsNullOrEmpty(newTask.TaskTemplateId))
+                            {
+                                <span class="text-blue-600 font-medium">✓ La gamme "Contrôle Visuel" sera automatiquement utilisée</span>
+                            }
+                            else
+                            {
+                                <span>Définit le formulaire à remplir lors de l'intervention</span>
+                            }
+                        </p>
+                    </div>
+
+                    <!-- Sécurisation Double Bornage -->
+                    <div class="mb-6">
+                        <div class="flex items-start space-x-3">
+                            <input type="checkbox" @bind="newTask.RequireDoubleScan"
+                                   id="requireDoubleScan"
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1">
+                            <div class="flex-1">
+                                <label for="requireDoubleScan" class="text-sm font-medium text-gray-700">
+                                    Double bornage NFC requis
+                                </label>
+                                <p class="mt-1 text-sm text-gray-500">
+                                    @if (newTask.RequireDoubleScan)
+                                    {
+                                        <span class="text-orange-600 font-medium">⚠️ Le technicien devra scanner 2 fois : 1 fois pour ouvrir la tâche, puis 1 fois pour la valider</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Un seul scan NFC sera nécessaire pour valider la tâche</span>
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                        @if (newTask.RequireDoubleScan)
+                        {
+                            <div class="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                                <p class="text-sm text-orange-800">
+                                    <strong>Mode renforcé :</strong> Cette option garantit la présence physique du technicien
+                                    au début ET à la fin de l'intervention. Recommandée pour les tâches critiques ou sensibles.
+                                </p>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Boutons -->
+                    <div class="flex justify-end space-x-4 pt-6 border-t">
+                        <a href="/tasks-dashboard" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                            Annuler
+                        </a>
+                        <button type="submit" disabled="@isSaving" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
+                            @if (isSaving)
+                            {
+                                <span>Création en cours...</span>
+                            }
+                            else
+                            {
+                                <span>Créer la tâche</span>
+                            }
+                        </button>
+                    </div>
+                </form>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal de sélection du type de tâche -->
+@if (showTaskTypeModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4" @onclick:stopPropagation>
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-2xl">
+                <div class="text-center">
+                    <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-white bg-opacity-20 mb-4">
+                        <svg class="h-10 w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">Créer une nouvelle tâche</h3>
+                    <p class="text-blue-100">Choisissez le type de tâche à planifier</p>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Option Protocole -->
+                    <button @onclick='() => SelectTaskType("PROTOCOL")'
+                            class="group relative overflow-hidden rounded-xl border-2 border-gray-200 hover:border-blue-500 transition-all duration-300 hover:shadow-lg transform hover:-translate-y-1">
+                        <div class="p-8 text-center">
+                            <div class="mb-6">
+                                <div class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-blue-100 group-hover:bg-blue-200 transition-colors">
+                                    <svg class="h-12 w-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <h4 class="text-xl font-bold text-gray-900 mb-3">Protocole de contrôle</h4>
+                            <p class="text-gray-600 mb-4">Surveillance d'un point de contrôle spécifique</p>
+                            <div class="text-sm text-gray-500">
+                                <div class="flex items-center justify-center space-x-2 mb-2">
+                                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <span>Contrôle NFC</span>
+                                </div>
+                                <div class="flex items-center justify-center space-x-2">
+                                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <span>Formulaires personnalisés</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-700 opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                    </button>
+
+                    <!-- Option Maintenance -->
+                    <button @onclick='() => SelectTaskType("MAINTENANCE")'
+                            class="group relative overflow-hidden rounded-xl border-2 border-gray-200 hover:border-orange-500 transition-all duration-300 hover:shadow-lg transform hover:-translate-y-1">
+                        <div class="p-8 text-center">
+                            <div class="mb-6">
+                                <div class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-orange-100 group-hover:bg-orange-200 transition-colors">
+                                    <svg class="h-12 w-12 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <h4 class="text-xl font-bold text-gray-900 mb-3">Maintenance préventive</h4>
+                            <p class="text-gray-600 mb-4">Intervention planifiée sur un équipement</p>
+                            <div class="text-sm text-gray-500">
+                                <div class="flex items-center justify-center space-x-2 mb-2">
+                                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <span>Gammes prédéfinies</span>
+                                </div>
+                                <div class="flex items-center justify-center space-x-2">
+                                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <span>Gestion d'équipements</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="absolute inset-0 bg-gradient-to-r from-orange-600 to-orange-700 opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                    </button>
+                </div>
+
+                <!-- Footer -->
+                <div class="mt-8 text-center">
+                    <p class="text-sm text-gray-500">
+                        💡 Vous pourrez modifier ces paramètres après la création de la tâche
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de succès -->
+@if (showSuccessModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4 transform animate-bounce">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                    <svg class="h-10 w-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900 mb-2">Confirmation</h3>
+                <p class="text-lg text-gray-600">Tâche planifiée avec succès</p>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de conflit -->
+@if (showConflictModal && availabilityResponse != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseConflictModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden" @onclick:stopPropagation>
+            <!-- Header -->
+            <div class="bg-red-50 border-b border-red-200 p-6">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="flex-shrink-0">
+                            <svg class="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900">Conflit de planning détecté</h3>
+                            <p class="text-sm text-gray-600 mt-1">Le technicien n'est pas disponible sur ce créneau</p>
+                        </div>
+                    </div>
+                    <button @onclick="CloseConflictModal" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                <!-- Conflits -->
+                @if (availabilityResponse.ConflictCount > 0)
+                {
+                    <div class="mb-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-3">
+                            @availabilityResponse.ConflictCount conflit(s) détecté(s)
+                        </h4>
+                        <div class="space-y-3">
+                            @foreach (var conflict in availabilityResponse.Conflicts)
+                            {
+                                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                    <div class="flex items-start space-x-3">
+                                        <svg class="h-5 w-5 text-red-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="font-medium text-gray-900">@conflict.ControlPoint.Name</p>
+                                            <p class="text-sm text-gray-600">
+                                                @if (conflict.ControlPoint.Zone != null)
+                                                {
+                                                    <span>Zone: @conflict.ControlPoint.Zone.Name</span>
+                                                }
+                                                @if (conflict.ControlPoint.Asset != null)
+                                                {
+                                                    <span>Asset: @conflict.ControlPoint.Asset.Name</span>
+                                                    @if (conflict.ControlPoint.Asset.Zone != null)
+                                                    {
+                                                        <span> (Zone: @conflict.ControlPoint.Asset.Zone.Name)</span>
+                                                    }
+                                                }
+                                            </p>
+                                            <div class="mt-2 flex items-center space-x-4 text-sm">
+                                                <span class="text-gray-700">
+                                                    <strong>Date:</strong> @conflict.ScheduledDate.ToString("dd/MM/yyyy")
+                                                    @if (conflict.ScheduledEndDate.HasValue && conflict.ScheduledEndDate.Value.Date != conflict.ScheduledDate.Date)
+                                                    {
+                                                        <span> → @conflict.ScheduledEndDate.Value.ToString("dd/MM/yyyy")</span>
+                                                    }
+                                                </span>
+                                                @if (conflict.ScheduledTimeStart.HasValue && conflict.ScheduledTimeEnd.HasValue)
+                                                {
+                                                    <span class="text-gray-700">
+                                                        <strong>Horaire:</strong> @conflict.ScheduledTimeStart.Value.ToString(@"hh\:mm") - @conflict.ScheduledTimeEnd.Value.ToString(@"hh\:mm")
+                                                    </span>
+                                                }
+                                            </div>
+                                            <p class="mt-2 text-sm text-red-700 font-medium">@conflict.Reason</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Planning complet du technicien -->
+                @if (availabilityResponse.AllTasksForPeriod.Any())
+                {
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-900 mb-3">
+                            Planning complet du technicien pour cette période
+                        </h4>
+                        <div class="space-y-2">
+                            @foreach (var task in availabilityResponse.AllTasksForPeriod.OrderBy(t => t.ScheduledDate).ThenBy(t => t.ScheduledTimeStart))
+                            {
+                                <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1">
+                                            <p class="font-medium text-gray-900">@task.ControlPoint.Name</p>
+                                            <p class="text-sm text-gray-600">
+                                                @if (task.ControlPoint.Zone != null)
+                                                {
+                                                    <span>@task.ControlPoint.Zone.Name</span>
+                                                }
+                                                @if (task.ControlPoint.Asset != null)
+                                                {
+                                                    <span>@task.ControlPoint.Asset.Name</span>
+                                                    @if (task.ControlPoint.Asset.Zone != null)
+                                                    {
+                                                        <span> (@task.ControlPoint.Asset.Zone.Name)</span>
+                                                    }
+                                                }
+                                            </p>
+                                            <div class="mt-1 flex items-center space-x-4 text-sm text-gray-700">
+                                                <span>
+                                                    @task.ScheduledDate.ToString("dd/MM/yyyy")
+                                                    @if (task.ScheduledEndDate.HasValue && task.ScheduledEndDate.Value.Date != task.ScheduledDate.Date)
+                                                    {
+                                                        <span> → @task.ScheduledEndDate.Value.ToString("dd/MM/yyyy")</span>
+                                                    }
+                                                </span>
+                                                @if (task.ScheduledTimeStart.HasValue && task.ScheduledTimeEnd.HasValue)
+                                                {
+                                                    <span class="font-medium">
+                                                        @task.ScheduledTimeStart.Value.ToString(@"hh\:mm") - @task.ScheduledTimeEnd.Value.ToString(@"hh\:mm")
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <span class="px-3 py-1 text-xs font-medium rounded-full @GetStatusClass(task.Status)">
+                                            @GetStatusLabel(task.Status)
+                                        </span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-between items-center">
+                <p class="text-sm text-gray-600">
+                    Modifiez l'horaire ou choisissez un autre technicien pour continuer.
+                </p>
+                <div class="flex space-x-3">
+                    <button @onclick="CloseConflictModal" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                        Modifier
+                    </button>
+                    <button @onclick="ForceCreateTask" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                        Créer quand même
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool showSuccessModal = false;
+    private bool showConflictModal = false;
+    private bool showTaskTypeModal = true;
+
+    private CreateTaskDto newTask = new();
+    private List<UserDto> technicians = new();
+    private List<ControlPointDto> controlPoints = new();
+    private List<ControlPointDto> filteredControlPoints = new();
+    private List<AssetDto> assets = new();
+    private List<AssetDto> filteredAssets = new();
+    private List<MaintenanceScheduleDto> maintenanceSchedules = new();
+    private List<MaintenanceScheduleDto> filteredMaintenanceSchedules = new();
+    private List<SiteDto> sites = new();
+    private List<ZoneDto> zones = new();
+    private List<ZoneDto> filteredZones = new();
+    private List<TaskTemplateDto> templates = new();
+    private List<TaskTemplateDto> filteredTemplates = new();
+    private List<SectorDto> sectors = new();
+    private List<IndustryDto> industries = new();
+    private List<IndustryDto> filteredIndustries = new();
+
+    private string selectedSiteId = string.Empty;
+    private string selectedZoneId = string.Empty;
+    private string selectedSectorId = string.Empty;
+    private string selectedIndustryId = string.Empty;
+    private DateTime scheduledDate = DateTime.Today;
+    private DateTime? scheduledEndDate = null;
+    private TimeOnly? timeStart = new TimeOnly(9, 0);
+    private TimeOnly? timeEnd = new TimeOnly(10, 0);
+
+    private AvailabilityResponse? availabilityResponse = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token)) return;
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            // Charger les utilisateurs (techniciens et superviseurs)
+            var usersResponse = await Http.GetAsync("api/users");
+            if (usersResponse.IsSuccessStatusCode)
+            {
+                var allUsers = await usersResponse.Content.ReadFromJsonAsync<List<UserDto>>() ?? new();
+                // Filtrer uniquement les techniciens (pas les admins ou clients)
+                technicians = allUsers.Where(u =>
+                    u.Role.Equals("Technician", StringComparison.OrdinalIgnoreCase) ||
+                    u.Role.Equals("Supervisor", StringComparison.OrdinalIgnoreCase)).ToList();
+
+                Console.WriteLine($"DEBUG: {allUsers.Count} users total, {technicians.Count} techniciens/superviseurs");
+                foreach (var u in allUsers)
+                {
+                    Console.WriteLine($"  - {u.Email}: {u.Role}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: Users API failed with status {usersResponse.StatusCode}");
+            }
+
+            // Charger les points de contrôle
+            var cpResponse = await Http.GetAsync("api/controlpoints");
+            if (cpResponse.IsSuccessStatusCode)
+            {
+                controlPoints = await cpResponse.Content.ReadFromJsonAsync<List<ControlPointDto>>() ?? new();
+                Console.WriteLine($"DEBUG: {controlPoints.Count} points de contrôle chargés");
+                foreach (var cp in controlPoints)
+                {
+                    Console.WriteLine($"  - {cp.Name} (Zone: {cp.ZoneName}, SiteId: {cp.SiteId})");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: ControlPoints API failed with status {cpResponse.StatusCode}");
+            }
+
+            // Charger les sites
+            var sitesResponse = await Http.GetAsync("api/sites");
+            if (sitesResponse.IsSuccessStatusCode)
+            {
+                sites = await sitesResponse.Content.ReadFromJsonAsync<List<SiteDto>>() ?? new();
+                Console.WriteLine($"DEBUG: {sites.Count} sites chargés");
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: Sites API failed with status {sitesResponse.StatusCode}");
+            }
+
+            // Charger les zones
+            var zonesResponse = await Http.GetAsync("api/zones");
+            if (zonesResponse.IsSuccessStatusCode)
+            {
+                zones = await zonesResponse.Content.ReadFromJsonAsync<List<ZoneDto>>() ?? new();
+                Console.WriteLine($"DEBUG: {zones.Count} zones chargées");
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: Zones API failed with status {zonesResponse.StatusCode}");
+            }
+
+            // Charger les secteurs
+            var sectorsResponse = await Http.GetAsync("api/sectors");
+            if (sectorsResponse.IsSuccessStatusCode)
+            {
+                sectors = await sectorsResponse.Content.ReadFromJsonAsync<List<SectorDto>>() ?? new();
+                Console.WriteLine($"DEBUG: {sectors.Count} secteurs chargés");
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: Sectors API failed with status {sectorsResponse.StatusCode}");
+            }
+
+            // Charger les industries
+            var industriesResponse = await Http.GetAsync("api/industries");
+            if (industriesResponse.IsSuccessStatusCode)
+            {
+                industries = await industriesResponse.Content.ReadFromJsonAsync<List<IndustryDto>>() ?? new();
+                Console.WriteLine($"DEBUG: {industries.Count} industries chargées");
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: Industries API failed with status {industriesResponse.StatusCode}");
+            }
+
+            // Charger les gammes de maintenance (TaskTemplates)
+            var templatesResponse = await Http.GetAsync("api/tasktemplates");
+            if (templatesResponse.IsSuccessStatusCode)
+            {
+                templates = await templatesResponse.Content.ReadFromJsonAsync<List<TaskTemplateDto>>() ?? new();
+                Console.WriteLine($"DEBUG: {templates.Count} templates chargés");
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: Templates API failed with status {templatesResponse.StatusCode}");
+            }
+
+            // Charger les équipements
+            var assetsResponse = await Http.GetAsync("api/assets");
+            if (assetsResponse.IsSuccessStatusCode)
+            {
+                assets = await assetsResponse.Content.ReadFromJsonAsync<List<AssetDto>>() ?? new();
+                Console.WriteLine($"DEBUG: {assets.Count} équipements chargés");
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: Assets API failed with status {assetsResponse.StatusCode}");
+            }
+
+            // Charger les gammes de maintenance (MaintenanceSchedules)
+            var maintenanceSchedulesResponse = await Http.GetAsync("api/maintenanceschedules");
+            if (maintenanceSchedulesResponse.IsSuccessStatusCode)
+            {
+                maintenanceSchedules = await maintenanceSchedulesResponse.Content.ReadFromJsonAsync<List<MaintenanceScheduleDto>>() ?? new();
+                Console.WriteLine($"DEBUG: {maintenanceSchedules.Count} gammes de maintenance chargées");
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: MaintenanceSchedules API failed with status {maintenanceSchedulesResponse.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur lors du chargement des données: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        // Validation selon le type de tâche
+        if (newTask.TaskType == "PROTOCOL")
+        {
+            if (string.IsNullOrEmpty(newTask.ControlPointId) || string.IsNullOrEmpty(newTask.UserId))
+            {
+                await JS.InvokeVoidAsync("alert", "Veuillez remplir tous les champs obligatoires pour le protocole");
+                return;
+            }
+        }
+        else if (newTask.TaskType == "MAINTENANCE")
+        {
+            if (string.IsNullOrEmpty(newTask.AssetId) || string.IsNullOrEmpty(newTask.MaintenanceScheduleId) || string.IsNullOrEmpty(newTask.UserId))
+            {
+                await JS.InvokeVoidAsync("alert", "Veuillez remplir tous les champs obligatoires pour la maintenance");
+                return;
+            }
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "Veuillez sélectionner un type de tâche");
+            return;
+        }
+
+        // Vérifier que les horaires sont renseignés
+        if (!timeStart.HasValue || !timeEnd.HasValue)
+        {
+            await JS.InvokeVoidAsync("alert", "Veuillez renseigner l'heure de début et l'heure de fin de la tâche");
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            // Préparer la tâche - Convertir la date en UTC pour PostgreSQL
+            var scheduledDateUtc = scheduledDate.Kind == DateTimeKind.Utc
+                ? scheduledDate
+                : DateTime.SpecifyKind(scheduledDate, DateTimeKind.Utc);
+
+            DateTime? scheduledEndDateUtc = null;
+            if (scheduledEndDate.HasValue)
+            {
+                scheduledEndDateUtc = scheduledEndDate.Value.Kind == DateTimeKind.Utc
+                    ? scheduledEndDate.Value
+                    : DateTime.SpecifyKind(scheduledEndDate.Value, DateTimeKind.Utc);
+            }
+
+            // Vérifier la disponibilité du technicien
+            var availabilityRequest = new
+            {
+                UserId = Guid.Parse(newTask.UserId),
+                ScheduledDate = scheduledDateUtc,
+                ScheduledEndDate = scheduledEndDateUtc,
+                ScheduledTimeStart = timeStart.Value.ToTimeSpan(),
+                ScheduledTimeEnd = timeEnd.Value.ToTimeSpan()
+            };
+
+            var availabilityCheckResponse = await Http.PostAsJsonAsync("api/tasks/check-availability", availabilityRequest);
+
+            if (availabilityCheckResponse.IsSuccessStatusCode)
+            {
+                availabilityResponse = await availabilityCheckResponse.Content.ReadFromJsonAsync<AvailabilityResponse>();
+
+                if (availabilityResponse != null && !availabilityResponse.IsAvailable)
+                {
+                    // Il y a des conflits, afficher le modal
+                    showConflictModal = true;
+                    isSaving = false;
+                    StateHasChanged();
+                    return;
+                }
+            }
+
+            // Pas de conflit, créer la tâche
+            await CreateTaskDirectly();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+            isSaving = false;
+        }
+    }
+
+    private async Task CreateTaskDirectly()
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var scheduledDateUtc = scheduledDate.Kind == DateTimeKind.Utc
+                ? scheduledDate
+                : DateTime.SpecifyKind(scheduledDate, DateTimeKind.Utc);
+
+            DateTime? scheduledEndDateUtc = null;
+            if (scheduledEndDate.HasValue)
+            {
+                scheduledEndDateUtc = scheduledEndDate.Value.Kind == DateTimeKind.Utc
+                    ? scheduledEndDate.Value
+                    : DateTime.SpecifyKind(scheduledEndDate.Value, DateTimeKind.Utc);
+            }
+
+            var taskToCreate = new
+            {
+                TaskType = newTask.TaskType,
+                // Pour protocoles
+                ControlPointId = !string.IsNullOrEmpty(newTask.ControlPointId) ? Guid.Parse(newTask.ControlPointId) : (Guid?)null,
+                // Pour maintenances
+                AssetId = !string.IsNullOrEmpty(newTask.AssetId) ? Guid.Parse(newTask.AssetId) : (Guid?)null,
+                MaintenanceScheduleId = !string.IsNullOrEmpty(newTask.MaintenanceScheduleId) ? Guid.Parse(newTask.MaintenanceScheduleId) : (Guid?)null,
+                // Commun
+                UserId = Guid.Parse(newTask.UserId),
+                ScheduledDate = scheduledDateUtc,
+                ScheduledEndDate = scheduledEndDateUtc,
+                ScheduledTimeStart = timeStart.HasValue ? timeStart.Value.ToTimeSpan() : (TimeSpan?)null,
+                ScheduledTimeEnd = timeEnd.HasValue ? timeEnd.Value.ToTimeSpan() : (TimeSpan?)null,
+                Recurrence = newTask.Recurrence,
+                WeekendHandling = newTask.WeekendHandling,
+                TaskTemplateId = !string.IsNullOrEmpty(newTask.TaskTemplateId) ? Guid.Parse(newTask.TaskTemplateId) : (Guid?)null,
+                RequireDoubleScan = newTask.RequireDoubleScan
+            };
+
+            var response = await Http.PostAsJsonAsync("api/tasks", taskToCreate);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<CreateTaskResponse>();
+
+                // Afficher un message personnalisé selon le nombre de tâches créées
+                if (result != null && result.TaskCount > 1)
+                {
+                    await JS.InvokeVoidAsync("showNotification", result.Message);
+                }
+
+                showSuccessModal = true;
+                StateHasChanged();
+                await Task.Delay(2000);
+                Navigation.NavigateTo("/tasks-dashboard");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("alert", $"Erreur lors de la création: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void CloseConflictModal()
+    {
+        showConflictModal = false;
+        availabilityResponse = null;
+    }
+
+    private async Task ForceCreateTask()
+    {
+        showConflictModal = false;
+        await CreateTaskDirectly();
+    }
+
+    private string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            "PENDING" => "bg-yellow-100 text-yellow-800",
+            "IN_PROGRESS" => "bg-blue-100 text-blue-800",
+            "COMPLETED" => "bg-green-100 text-green-800",
+            "CANCELLED" => "bg-gray-100 text-gray-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+
+    private string GetStatusLabel(string status)
+    {
+        return status switch
+        {
+            "PENDING" => "En attente",
+            "IN_PROGRESS" => "En cours",
+            "COMPLETED" => "Terminée",
+            "CANCELLED" => "Annulée",
+            _ => status
+        };
+    }
+
+    private void OnSiteChanged()
+    {
+        // Réinitialiser les sélections
+        newTask.ControlPointId = string.Empty;
+        newTask.AssetId = string.Empty;
+        newTask.MaintenanceScheduleId = string.Empty;
+        selectedZoneId = string.Empty;
+        filteredMaintenanceSchedules.Clear();
+
+        if (!string.IsNullOrEmpty(selectedSiteId) && Guid.TryParse(selectedSiteId, out var siteGuid))
+        {
+            // Filtrer les zones par site
+            filteredZones = zones.Where(z => z.SiteId.HasValue && z.SiteId.Value == siteGuid).ToList();
+        }
+        else
+        {
+            filteredZones.Clear();
+            filteredControlPoints.Clear();
+            filteredAssets.Clear();
+        }
+    }
+
+    private void OnZoneChanged()
+    {
+        // Réinitialiser les sélections
+        newTask.ControlPointId = string.Empty;
+        newTask.AssetId = string.Empty;
+        newTask.MaintenanceScheduleId = string.Empty;
+        filteredMaintenanceSchedules.Clear();
+
+        if (!string.IsNullOrEmpty(selectedZoneId) && Guid.TryParse(selectedZoneId, out var zoneGuid))
+        {
+            // Filtrer les points de contrôle par zone
+            filteredControlPoints = controlPoints.Where(cp => cp.ZoneId.HasValue && cp.ZoneId.Value == zoneGuid).ToList();
+
+            // Filtrer les équipements par zone
+            filteredAssets = assets.Where(a => a.ZoneId.HasValue && a.ZoneId.Value == zoneGuid).ToList();
+        }
+        else
+        {
+            filteredControlPoints.Clear();
+            filteredAssets.Clear();
+        }
+    }
+
+    private void OnSectorChanged()
+    {
+        // Réinitialiser les sélections
+        selectedIndustryId = string.Empty;
+        newTask.TaskTemplateId = string.Empty;
+
+        if (!string.IsNullOrEmpty(selectedSectorId) && Guid.TryParse(selectedSectorId, out var sectorGuid))
+        {
+            // Filtrer les industries par secteur
+            filteredIndustries = industries.Where(i => i.SectorId == sectorGuid).ToList();
+        }
+        else
+        {
+            filteredIndustries.Clear();
+            filteredTemplates.Clear();
+        }
+    }
+
+    private void OnIndustryChanged()
+    {
+        // Réinitialiser la sélection de template
+        newTask.TaskTemplateId = string.Empty;
+
+        if (!string.IsNullOrEmpty(selectedIndustryId) && Guid.TryParse(selectedIndustryId, out var industryGuid))
+        {
+            // Filtrer les templates par industrie
+            filteredTemplates = templates.Where(t => t.IndustryId.HasValue && t.IndustryId.Value == industryGuid).ToList();
+        }
+        else
+        {
+            filteredTemplates.Clear();
+        }
+    }
+
+    private void SelectTaskType(string taskType)
+    {
+        newTask.TaskType = taskType;
+        showTaskTypeModal = false;
+        ResetSelections();
+        StateHasChanged();
+    }
+
+    private void OnProtocolSelected()
+    {
+        newTask.TaskType = "PROTOCOL";
+        ResetSelections();
+        StateHasChanged();
+    }
+
+    private void OnMaintenanceSelected()
+    {
+        newTask.TaskType = "MAINTENANCE";
+        ResetSelections();
+        StateHasChanged();
+    }
+
+    private void ResetSelections()
+    {
+        // Réinitialiser les sélections lors du changement de type
+        newTask.ControlPointId = string.Empty;
+        newTask.AssetId = string.Empty;
+        newTask.MaintenanceScheduleId = string.Empty;
+        newTask.TaskTemplateId = string.Empty;
+        selectedSectorId = string.Empty;
+        selectedIndustryId = string.Empty;
+        filteredMaintenanceSchedules.Clear();
+        filteredIndustries.Clear();
+        filteredTemplates.Clear();
+    }
+
+    private void OnAssetChanged()
+    {
+        // Réinitialiser la gamme sélectionnée
+        newTask.MaintenanceScheduleId = string.Empty;
+
+        // Filtrer les gammes de maintenance par équipement
+        if (!string.IsNullOrEmpty(newTask.AssetId) && Guid.TryParse(newTask.AssetId, out var assetGuid))
+        {
+            filteredMaintenanceSchedules = maintenanceSchedules.Where(ms => ms.AssetId == assetGuid && ms.Status == "ACTIVE").ToList();
+        }
+        else
+        {
+            filteredMaintenanceSchedules.Clear();
+        }
+    }
+
+    private string GetCategoryLabel(string category)
+    {
+        return category switch
+        {
+            "SURVEILLANCE" => "Surveillance",
+            "HOTELLERIE" => "Hôtellerie",
+            "SOIN_BASE" => "Soins de base",
+            "SOIN_TECHNIQUE" => "Soins techniques",
+            "TECHNIQUE" => "Maintenance technique",
+            _ => category
+        };
+    }
+
+    // Helper method pour les types de maintenance
+    private string GetMaintenanceTypeLabel(string? type)
+    {
+        return type switch
+        {
+            "PREVENTIVE" => "Préventive",
+            "CORRECTIVE" => "Corrective",
+            "PREDICTIVE" => "Prédictive",
+            _ => type ?? ""
+        };
+    }
+
+    // DTOs
+    private class CreateTaskDto
+    {
+        public string TaskType { get; set; } = "PROTOCOL";
+        // Pour protocoles
+        public string ControlPointId { get; set; } = string.Empty;
+        // Pour maintenances
+        public string AssetId { get; set; } = string.Empty;
+        public string MaintenanceScheduleId { get; set; } = string.Empty;
+        // Commun
+        public string UserId { get; set; } = string.Empty;
+        public string Recurrence { get; set; } = "ONCE";
+        public string WeekendHandling { get; set; } = "ALLOW";
+        public string TaskTemplateId { get; set; } = string.Empty;
+        public bool RequireDoubleScan { get; set; } = false;
+    }
+
+    private class UserDto
+    {
+        public Guid Id { get; set; }
+        public string? Nom { get; set; }
+        public string? Prenom { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
+
+    private class ControlPointDto
+    {
+        public Guid Id { get; set; }
+        public Guid? SiteId { get; set; }
+        public Guid? ZoneId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string ZoneName { get; set; } = string.Empty;
+    }
+
+    private class SiteDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class ZoneDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public Guid? SiteId { get; set; }
+    }
+
+    private class SectorDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Code { get; set; }
+        public string? Icon { get; set; }
+        public string? Color { get; set; }
+        public bool IsPredefined { get; set; }
+    }
+
+    private class IndustryDto
+    {
+        public Guid Id { get; set; }
+        public Guid SectorId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Code { get; set; }
+        public string? Icon { get; set; }
+        public string? Color { get; set; }
+        public bool IsPredefined { get; set; }
+        public SectorDto? Sector { get; set; }
+    }
+
+    private class TaskTemplateDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public Guid? IndustryId { get; set; }
+        public IndustryDto? Industry { get; set; }
+    }
+
+    // DTOs pour la vérification de disponibilité
+    private class AvailabilityResponse
+    {
+        public bool IsAvailable { get; set; }
+        public int ConflictCount { get; set; }
+        public List<ConflictDto> Conflicts { get; set; } = new();
+        public List<TaskSummaryDto> AllTasksForPeriod { get; set; } = new();
+    }
+
+    private class ConflictDto
+    {
+        public Guid Id { get; set; }
+        public DateTime ScheduledDate { get; set; }
+        public DateTime? ScheduledEndDate { get; set; }
+        public TimeSpan? ScheduledTimeStart { get; set; }
+        public TimeSpan? ScheduledTimeEnd { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public ControlPointSummaryDto ControlPoint { get; set; } = new();
+        public string Reason { get; set; } = string.Empty;
+    }
+
+    private class TaskSummaryDto
+    {
+        public Guid Id { get; set; }
+        public DateTime ScheduledDate { get; set; }
+        public DateTime? ScheduledEndDate { get; set; }
+        public TimeSpan? ScheduledTimeStart { get; set; }
+        public TimeSpan? ScheduledTimeEnd { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public ControlPointSummaryDto ControlPoint { get; set; } = new();
+    }
+
+    private class ControlPointSummaryDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public ZoneSummaryDto? Zone { get; set; }
+        public AssetSummaryDto? Asset { get; set; }
+    }
+
+    private class ZoneSummaryDto
+    {
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class AssetSummaryDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public ZoneSummaryDto? Zone { get; set; }
+    }
+
+    private class CreateTaskResponse
+    {
+        public string Message { get; set; } = string.Empty;
+        public int TaskCount { get; set; }
+        public Guid FirstTaskId { get; set; }
+        public string Recurrence { get; set; } = string.Empty;
+    }
+
+    private class AssetDto
+    {
+        public Guid Id { get; set; }
+        public Guid? SiteId { get; set; }
+        public Guid? ZoneId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string ZoneName { get; set; } = string.Empty;
+    }
+
+    private class MaintenanceScheduleDto
+    {
+        public Guid Id { get; set; }
+        public Guid AssetId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+    }
+}

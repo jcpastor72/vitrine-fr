@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "deployOnBuild": false,
+  "deployOnSave": false,
+  "deployOnChange": false,
+  "deployArtifact": false,
+  "autoPublish": false
+}

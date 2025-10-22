@@ -1,0 +1,361 @@
+@page "/teams/{id:guid}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Détail équipe - Labor Control</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-7xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <button @onclick="GoBack"
+                    class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-md mb-4">
+                ← Retour aux équipes
+            </button>
+        </div>
+
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                <p class="text-red-700">@errorMessage</p>
+            </div>
+        }
+        else if (team != null)
+        {
+            <!-- Carte principale de l'équipe -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-6">
+                <!-- Header coloré selon le secteur -->
+                <div class="@GetSectorColorClass(team.Sector) text-white p-6">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h1 class="text-3xl font-bold mb-2">@team.Name</h1>
+                            @if (!string.IsNullOrEmpty(team.Code))
+                            {
+                                <p class="text-lg opacity-90">Code: @team.Code</p>
+                            }
+                            <span class="inline-block mt-2 bg-white bg-opacity-30 px-4 py-2 rounded-full text-sm font-semibold">
+                                @GetSectorLabel(team.Sector)
+                            </span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button @onclick="EditTeam"
+                                    class="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg font-semibold transition">
+                                ✏️ Modifier
+                            </button>
+                            <button @onclick="DeleteTeam"
+                                    class="px-4 py-2 bg-red-500 bg-opacity-80 hover:bg-opacity-100 rounded-lg font-semibold transition">
+                                🗑️ Supprimer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contenu -->
+                <div class="p-6">
+                    @if (!string.IsNullOrEmpty(team.Description))
+                    {
+                        <div class="mb-6">
+                            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">Description</h3>
+                            <p class="text-gray-700">@team.Description</p>
+                        </div>
+                    }
+
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <!-- Site -->
+                        @if (!string.IsNullOrEmpty(team.SiteName))
+                        {
+                            <div>
+                                <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">Site</h3>
+                                <p class="text-lg font-semibold text-gray-900">📍 @team.SiteName</p>
+                            </div>
+                        }
+
+                        <!-- Superviseur -->
+                        @if (!string.IsNullOrEmpty(team.SupervisorName))
+                        {
+                            <div>
+                                <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">Responsable</h3>
+                                <p class="text-lg font-semibold text-gray-900">👔 @team.SupervisorName</p>
+                            </div>
+                        }
+
+                        <!-- Nombre de membres -->
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">Effectif</h3>
+                            <p class="text-lg font-semibold text-gray-900">👥 @team.Members.Count membre@(team.Members.Count > 1 ? "s" : "")</p>
+                        </div>
+                    </div>
+
+                    <!-- Date de création -->
+                    <div class="mt-6 text-sm text-gray-500">
+                        Créée le @team.CreatedAt.ToString("dd/MM/yyyy à HH:mm")
+                        @if (team.UpdatedAt.HasValue)
+                        {
+                            <span> • Modifiée le @team.UpdatedAt.Value.ToString("dd/MM/yyyy à HH:mm")</span>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des membres -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Membres de l'équipe</h2>
+                    <button @onclick="AddMember"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+                        + Ajouter un membre
+                    </button>
+                </div>
+
+                @if (team.Members.Count == 0)
+                {
+                    <div class="text-center py-12 text-gray-500">
+                        <div class="text-6xl mb-4">👤</div>
+                        <p class="text-lg">Aucun membre dans cette équipe</p>
+                        <p class="text-sm mt-2">Ajoutez des techniciens pour commencer</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach (var member in team.Members)
+                        {
+                            var memberFullName = $"{member.Prenom} {member.Nom}";
+                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="font-semibold text-gray-900">@memberFullName</h3>
+                                        <p class="text-sm text-gray-600">@member.Email</p>
+                                        @if (!string.IsNullOrEmpty(member.JobTitle))
+                                        {
+                                            <p class="text-sm text-gray-500 mt-1">@member.JobTitle</p>
+                                        }
+                                        <span class="inline-block mt-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">
+                                            @member.Role
+                                        </span>
+                                    </div>
+                                    <button @onclick="() => RemoveMember(member.Id, memberFullName)"
+                                            class="text-red-500 hover:text-red-700 text-sm">
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private TeamDetailDto? team;
+    private bool loading = true;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTeam();
+    }
+
+    private async Task LoadTeam()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            // Enlever les guillemets si présents (bug localStorage)
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/teams/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                team = await response.Content.ReadFromJsonAsync<TeamDetailDto>();
+            }
+            else
+            {
+                errorMessage = $"Erreur {(int)response.StatusCode}: Équipe introuvable";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private void EditTeam()
+    {
+        Navigation.NavigateTo($"/teams/edit/{Id}");
+    }
+
+    private async Task DeleteTeam()
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", $"Êtes-vous sûr de vouloir supprimer l'équipe '{team?.Name}' ?");
+
+        if (confirmed && team != null)
+        {
+            try
+            {
+                var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    token = token.Trim('"');
+                }
+
+                Http.DefaultRequestHeaders.Clear();
+                Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+                var response = await Http.DeleteAsync($"api/teams/{Id}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    Navigation.NavigateTo("/teams");
+                }
+                else
+                {
+                    errorMessage = "Erreur lors de la suppression de l'équipe";
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Erreur: {ex.Message}";
+            }
+        }
+    }
+
+    private void AddMember()
+    {
+        // TODO: Implémenter modal ou page pour ajouter un membre
+        Navigation.NavigateTo($"/teams/{Id}/add-member");
+    }
+
+    private async Task RemoveMember(Guid memberId, string memberName)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", $"Retirer {memberName} de cette équipe ?");
+
+        if (confirmed)
+        {
+            try
+            {
+                var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    token = token.Trim('"');
+                }
+
+                Http.DefaultRequestHeaders.Clear();
+                Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+                var request = new { UserId = memberId };
+                var response = await Http.PostAsJsonAsync("api/teams/remove-user", request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadTeam(); // Recharger l'équipe
+                }
+                else
+                {
+                    errorMessage = "Erreur lors du retrait du membre";
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Erreur: {ex.Message}";
+            }
+        }
+    }
+
+    private string GetSectorColorClass(string? sector)
+    {
+        return sector switch
+        {
+            "hospital_cleaning" => "bg-gradient-to-r from-blue-500 to-blue-600",
+            "industrial_maintenance" => "bg-gradient-to-r from-orange-500 to-orange-600",
+            "catering" => "bg-gradient-to-r from-green-500 to-green-600",
+            "security" => "bg-gradient-to-r from-red-500 to-red-600",
+            "logistics" => "bg-gradient-to-r from-purple-500 to-purple-600",
+            "healthcare" => "bg-gradient-to-r from-pink-500 to-pink-600",
+            "construction" => "bg-gradient-to-r from-yellow-500 to-yellow-600",
+            _ => "bg-gradient-to-r from-gray-500 to-gray-600"
+        };
+    }
+
+    private string GetSectorLabel(string? sector)
+    {
+        return sector switch
+        {
+            "hospital_cleaning" => "Nettoyage hospitalier",
+            "industrial_maintenance" => "Maintenance industrielle",
+            "catering" => "Restauration",
+            "security" => "Sécurité",
+            "logistics" => "Logistique",
+            "healthcare" => "Santé",
+            "construction" => "Construction",
+            _ => "Général"
+        };
+    }
+
+    // DTO pour la réponse API
+    private class TeamDetailDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Sector { get; set; }
+        public string? Description { get; set; }
+        public Guid? SiteId { get; set; }
+        public string? SiteName { get; set; }
+        public Guid? SupervisorId { get; set; }
+        public string? SupervisorName { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public List<TeamMember> Members { get; set; } = new();
+    }
+
+    private class TeamMember
+    {
+        public Guid Id { get; set; }
+        public string Email { get; set; } = "";
+        public string Prenom { get; set; } = "";
+        public string Nom { get; set; } = "";
+        public string Role { get; set; } = "";
+        public string? JobTitle { get; set; }
+    }
+}

@@ -1,0 +1,304 @@
+@page "/checkout"
+@using LaborControl.Web.Services
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl mx-auto">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="bg-indigo-600 px-6 py-8">
+                <h1 class="text-3xl font-bold text-white text-center">
+                    Finaliser ma commande
+                </h1>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="m-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-center" role="alert">
+                    <p class="font-semibold">Erreur lors de la création de votre commande</p>
+                    <p class="mt-1">@errorMessage</p>
+                </div>
+            }
+
+            @if (isLoading)
+            {
+                <div class="p-6 text-center">
+                    <p class="text-gray-600">Chargement de vos informations...</p>
+                </div>
+            }
+            else
+            {
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Informations de livraison</h2>
+
+                    <!-- Destinataire (lecture seule) -->
+                    <div class="bg-blue-50 rounded-lg p-4 mb-4">
+                        <h3 class="font-medium text-gray-900 mb-2">Destinataire</h3>
+                        <p class="text-gray-700 font-semibold">@customerCompanyName</p>
+                        <p class="text-gray-700">@formattedContactName</p>
+                    </div>
+
+                    <!-- Adresse (lecture seule) -->
+                    <div class="bg-blue-50 rounded-lg p-4 mb-4">
+                        <h3 class="font-medium text-gray-900 mb-2">Adresse de livraison</h3>
+                        <p class="text-gray-700">@customerAddress</p>
+                        <p class="text-gray-700">@customerPostalCode @customerCity</p>
+                        <p class="text-gray-700">France</p>
+                    </div>
+
+                    <!-- Formulaire pour Service et Instructions -->
+                    <form @onsubmit="HandleCheckout" class="space-y-4">
+                        <div>
+                            <label for="service" class="block text-sm font-medium text-gray-700">Service destinataire *</label>
+                            <input id="service"
+                                   type="text"
+                                   @bind="service"
+                                   required
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                   placeholder="Ex: Direction, Qualité, Production, Accueil...">
+                        </div>
+
+                        <div>
+                            <label for="notes" class="block text-sm font-medium text-gray-700">Instructions de livraison (optionnel)</label>
+                            <textarea id="notes"
+                                      @bind="notes"
+                                      rows="3"
+                                      class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                      placeholder="Digicode, étage, horaires de réception, instructions particulières..."></textarea>
+                        </div>
+
+                        <div class="pt-6 space-y-3">
+                            <button type="submit"
+                                    disabled="@isSubmitting"
+                                    class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                @if (isSubmitting)
+                                {
+                                    <span>Redirection vers le paiement...</span>
+                                }
+                                else
+                                {
+                                    <span>💳 Procéder au paiement</span>
+                                }
+                            </button>
+
+                            <button type="button"
+                                    @onclick="GoBackToCart"
+                                    class="w-full flex justify-center py-3 px-4 border-2 border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                <span>⬅️ Retour au panier</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string service = "";
+    private string notes = "";
+    private string errorMessage = "";
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    // Informations client pré-remplies
+    private string customerCompanyName = "";
+    private string customerContactName = "";
+    private string formattedContactName = "";
+    private string customerAddress = "";
+    private string customerPostalCode = "";
+    private string customerCity = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadCustomerInfo();
+    }
+
+    private async Task LoadCustomerInfo()
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync("api/customers/current");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var customer = await response.Content.ReadFromJsonAsync<CustomerInfo>();
+                if (customer != null)
+                {
+                    customerCompanyName = customer.Name ?? "";
+                    customerContactName = customer.ContactName ?? "";
+                    formattedContactName = FormatContactName(customerContactName);
+
+                    // Parser l'adresse (format: "rue, code postal ville")
+                    var addressParts = customer.Address?.Split(',') ?? Array.Empty<string>();
+                    if (addressParts.Length >= 2)
+                    {
+                        customerAddress = FormatAddress(addressParts[0].Trim());
+                        var cityPostalParts = addressParts[1].Trim().Split(' ', 2);
+                        if (cityPostalParts.Length >= 2)
+                        {
+                            customerPostalCode = cityPostalParts[0];
+                            customerCity = FormatCity(cityPostalParts[1]);
+                        }
+                    }
+                    else
+                    {
+                        customerAddress = FormatAddress(customer.Address ?? "");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur lors du chargement des informations : {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleCheckout()
+    {
+        errorMessage = "";
+        isSubmitting = true;
+
+        try
+        {
+            // Validation
+            if (string.IsNullOrWhiteSpace(service))
+            {
+                errorMessage = "Veuillez indiquer le service destinataire.";
+                isSubmitting = false;
+                return;
+            }
+
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                errorMessage = "Session expirée. Veuillez vous reconnecter.";
+                isSubmitting = false;
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var checkoutRequest = new
+            {
+                DeliveryAddress = customerAddress,
+                DeliveryCity = customerCity,
+                DeliveryPostalCode = customerPostalCode,
+                DeliveryCountry = "France",
+                Service = service,
+                Notes = notes,
+                SuccessUrl = $"{Navigation.BaseUri}payment-success",
+                CancelUrl = $"{Navigation.BaseUri}checkout"
+            };
+
+            var response = await Http.PostAsJsonAsync("api/payments/create-checkout-from-cart", checkoutRequest);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<CheckoutResponse>();
+                if (result != null && !string.IsNullOrEmpty(result.CheckoutUrl))
+                {
+                    // Rediriger vers Stripe Checkout
+                    Navigation.NavigateTo(result.CheckoutUrl, forceLoad: true);
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                    errorMessage = errorResponse?.Message ?? errorContent;
+                }
+                catch
+                {
+                    errorMessage = errorContent;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void GoBackToCart()
+    {
+        Navigation.NavigateTo("/cart");
+    }
+
+    private string FormatContactName(string contactName)
+    {
+        if (string.IsNullOrWhiteSpace(contactName)) return "";
+        var parts = contactName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "";
+        if (parts.Length == 1) return parts[0].ToUpper();
+
+        var lastName = parts[parts.Length - 1].ToUpper();
+        var firstNames = parts.Take(parts.Length - 1)
+            .Select(name => char.ToUpper(name[0]) + name.Substring(1).ToLower());
+
+        return $"{string.Join(" ", firstNames)} {lastName}";
+    }
+
+    private string FormatAddress(string address)
+    {
+        if (string.IsNullOrWhiteSpace(address)) return "";
+        var words = address.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(" ", words.Select(word =>
+            char.ToUpper(word[0]) + word.Substring(1).ToLower()
+        ));
+    }
+
+    private string FormatCity(string city)
+    {
+        if (string.IsNullOrWhiteSpace(city)) return "";
+        return city.ToUpper();
+    }
+
+    private class CustomerInfo
+    {
+        public string? Name { get; set; }
+        public string? ContactName { get; set; }
+        public string? Address { get; set; }
+    }
+
+    private class CheckoutResponse
+    {
+        public string CheckoutUrl { get; set; } = string.Empty;
+        public Guid OrderId { get; set; }
+    }
+
+    private class ErrorResponse
+    {
+        public string? Message { get; set; }
+    }
+}

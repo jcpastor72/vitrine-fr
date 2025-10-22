@@ -1,0 +1,399 @@
+@page "/account-details"
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@using LaborControl.Web.Services
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject AuthService AuthService
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8 px-4">
+    <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="NavigateToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+
+            <h1 class="lc-heading-1 mb-2">Détails du compte</h1>
+            <p class="lc-text-muted">Gérez les informations de votre entreprise et vos paramètres</p>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="text-center py-20">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement des informations...</p>
+            </div>
+        }
+        else
+        {
+            <!-- Informations entreprise -->
+            <div class="lc-card mb-6">
+                <h2 class="lc-heading-2 mb-6">Informations de l'entreprise</h2>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nom de l'entreprise</label>
+                        <input @bind="companyName"
+                               type="text"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
+                               readonly />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Email de contact</label>
+                        <input @bind="contactEmail"
+                               type="email"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
+                               readonly />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Téléphone</label>
+                        <input @bind="contactPhone"
+                               type="text"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
+                               readonly />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">SIRET</label>
+                        <input @bind="siret"
+                               type="text"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
+                               readonly />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Code APE</label>
+                        <input @bind="apeCode"
+                               type="text"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
+                               readonly />
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Adresse</label>
+                        <input @bind="address"
+                               type="text"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
+                               readonly />
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+                        <textarea @bind="description"
+                                  rows="3"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
+                                  readonly></textarea>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <p class="text-sm text-blue-800">
+                        <strong>Information :</strong> Pour modifier ces informations, veuillez contacter notre support à
+                        <a href="mailto:support@labor-control.fr" class="underline">support@labor-control.fr</a>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Statistiques du compte -->
+            <div class="lc-card mb-6">
+                <h2 class="lc-heading-2 mb-6">Statistiques de votre compte</h2>
+
+                <div class="grid md:grid-cols-3 gap-4">
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-2">
+                            <label class="text-sm font-medium lc-text-muted">Sites</label>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900">@sitesCount</div>
+                        <div class="text-xs lc-text-muted mt-1">site@(sitesCount > 1 ? "s" : "") créé@(sitesCount > 1 ? "s" : "")</div>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-2">
+                            <label class="text-sm font-medium lc-text-muted">Techniciens</label>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900">@techniciansCount</div>
+                        <div class="text-xs lc-text-muted mt-1">technicien@(techniciansCount > 1 ? "s" : "")</div>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-2">
+                            <label class="text-sm font-medium lc-text-muted">Superviseurs</label>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900">@supervisorsCount</div>
+                        <div class="text-xs lc-text-muted mt-1">superviseur@(supervisorsCount > 1 ? "s" : "")</div>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-2">
+                            <label class="text-sm font-medium lc-text-muted">Puces commandées</label>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900">@totalChipsOrdered</div>
+                        <div class="text-xs lc-text-muted mt-1">puce@(totalChipsOrdered > 1 ? "s" : "") NFC</div>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-2">
+                            <label class="text-sm font-medium lc-text-muted">Points activés</label>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900">@activeControlPointsCount</div>
+                        <div class="text-xs lc-text-muted mt-1">point@(activeControlPointsCount > 1 ? "s" : "")</div>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-2">
+                            <label class="text-sm font-medium lc-text-muted">Forfait actuel</label>
+                        </div>
+                        <div class="text-lg font-bold text-gray-900">@currentSubscriptionTier</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Abonnement et facturation -->
+            <div class="lc-card mb-6">
+                <h2 class="lc-heading-2 mb-6">Abonnement et facturation</h2>
+
+                <div class="space-y-4">
+                    <div class="p-4 @(isSubscriptionActive ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200") rounded-lg border">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="font-bold text-gray-900">Forfait actuel</div>
+                                <div class="text-sm lc-text-muted mb-2">@currentSubscriptionTier</div>
+                                @if (isSubscriptionActive)
+                                {
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        ✓ Activé
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                        ⚠ À activer
+                                    </span>
+                                }
+                            </div>
+                            @if (!isSubscriptionActive && totalChipsOrdered > 10)
+                            {
+                                <a href="/catalog" class="lc-btn lc-btn-primary">
+                                    Activer mon abonnement
+                                </a>
+                            }
+                            else if (!isSubscriptionActive)
+                            {
+                                <a href="/catalog" class="lc-btn lc-btn-primary">
+                                    Commander des puces
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="font-bold text-gray-900">Commandes</div>
+                                <div class="text-sm lc-text-muted">Consultez vos commandes et factures</div>
+                            </div>
+                            <a href="/orders" class="lc-btn lc-btn-primary">
+                                Voir les commandes
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Support -->
+            <div class="lc-card bg-blue-50 border-blue-200">
+                <h2 class="lc-heading-2 mb-4">Besoin d'aide ?</h2>
+                <p class="text-gray-700 mb-4">
+                    Notre équipe est à votre disposition pour toute question ou demande de modification de vos informations.
+                </p>
+                <div class="flex flex-wrap gap-4">
+                    <a href="mailto:support@labor-control.fr" class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Contacter le support
+                    </a>
+                    <a href="tel:+33123456789" class="lc-btn lc-btn-secondary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        Appeler
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private bool isLoading = true;
+
+    // Informations entreprise
+    private string companyName = "";
+    private string contactEmail = "";
+    private string contactPhone = "";
+    private string siret = "";
+    private string apeCode = "";
+    private string address = "";
+    private string description = "";
+
+    // Statistiques
+    private string currentSubscriptionTier = "Gratuit";
+    private bool isSubscriptionActive = false;
+    private string subscriptionStatus = "";
+    private int sitesCount = 0;
+    private int techniciansCount = 0;
+    private int supervisorsCount = 0;
+    private int totalChipsOrdered = 0;
+    private int activeControlPointsCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAccountData();
+    }
+
+    private async Task LoadAccountData()
+    {
+        try
+        {
+            isLoading = true;
+
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Récupérer les informations du client
+            var customerResponse = await Http.GetFromJsonAsync<CustomerInfo>("http://localhost:5278/api/customers/me");
+            if (customerResponse != null)
+            {
+                companyName = customerResponse.Name ?? "Non renseigné";
+                contactEmail = customerResponse.ContactEmail ?? "Non renseigné";
+                contactPhone = customerResponse.ContactPhone ?? "Non renseigné";
+                siret = customerResponse.Siret ?? "Non renseigné";
+                apeCode = customerResponse.ApeCode ?? "Non renseigné";
+                address = customerResponse.Address ?? "Non renseigné";
+                description = customerResponse.Description ?? "Non renseigné";
+                currentSubscriptionTier = customerResponse.SubscriptionPlan ?? "Gratuit";
+                subscriptionStatus = customerResponse.SubscriptionStatus ?? "";
+            }
+
+            // Récupérer les commandes
+            var orders = await Http.GetFromJsonAsync<List<OrderSummary>>("http://localhost:5278/api/orders");
+            if (orders != null)
+            {
+                totalChipsOrdered = orders
+                    .Where(o => o.Status != "CANCELLED")
+                    .Sum(o => o.ChipsQuantity);
+
+                // Déterminer le forfait en fonction du nombre de puces (même logique que Catalog.razor)
+                if (totalChipsOrdered <= 10)
+                {
+                    currentSubscriptionTier = "Gratuit";
+                    // Le forfait gratuit est considéré comme activé si des puces sont commandées
+                    isSubscriptionActive = totalChipsOrdered > 0;
+                }
+                else if (totalChipsOrdered <= 25)
+                {
+                    currentSubscriptionTier = "Starter (49€/mois)";
+                    // Vérifier si le plan Starter est activé via subscriptionStatus
+                    isSubscriptionActive = !string.IsNullOrEmpty(subscriptionStatus) && subscriptionStatus.ToLower() == "active";
+                }
+                else if (totalChipsOrdered <= 50)
+                {
+                    currentSubscriptionTier = "Medium (99€/mois)";
+                    // Vérifier si le plan Medium est activé via subscriptionStatus
+                    isSubscriptionActive = !string.IsNullOrEmpty(subscriptionStatus) && subscriptionStatus.ToLower() == "active";
+                }
+                else
+                {
+                    currentSubscriptionTier = "Corporate (sur devis)";
+                    // Vérifier si le plan Corporate est activé via subscriptionStatus
+                    isSubscriptionActive = !string.IsNullOrEmpty(subscriptionStatus) && subscriptionStatus.ToLower() == "active";
+                }
+            }
+
+            // Récupérer les sites
+            var sites = await Http.GetFromJsonAsync<List<SiteInfo>>("http://localhost:5278/api/sites");
+            sitesCount = sites?.Count ?? 0;
+
+            // Récupérer les utilisateurs
+            var users = await Http.GetFromJsonAsync<List<UserInfo>>("http://localhost:5278/api/users");
+            if (users != null)
+            {
+                techniciansCount = users.Count(u => u.Role == "Technician");
+                supervisorsCount = users.Count(u => u.Role == "Supervisor" || u.Role == "Manager");
+            }
+
+            // Récupérer les points de contrôle
+            var controlPoints = await Http.GetFromJsonAsync<List<ControlPointInfo>>("http://localhost:5278/api/controlpoints");
+            activeControlPointsCount = controlPoints?.Count(cp => cp.IsActive) ?? 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur lors du chargement: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void NavigateToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private class CustomerInfo
+    {
+        public Guid Id { get; set; }
+        public string? Name { get; set; }
+        public string? ContactEmail { get; set; }
+        public string? ContactPhone { get; set; }
+        public string? Siret { get; set; }
+        public string? ApeCode { get; set; }
+        public string? Address { get; set; }
+        public string? Description { get; set; }
+        public string? SubscriptionPlan { get; set; }
+        public string? SubscriptionStatus { get; set; }
+    }
+
+    private class OrderSummary
+    {
+        public Guid Id { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public int ChipsQuantity { get; set; }
+    }
+
+    private class SiteInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class UserInfo
+    {
+        public Guid Id { get; set; }
+        public string Role { get; set; } = string.Empty;
+    }
+
+    private class ControlPointInfo
+    {
+        public Guid Id { get; set; }
+        public bool IsActive { get; set; }
+    }
+}

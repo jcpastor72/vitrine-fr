@@ -1,0 +1,495 @@
+@page "/teams/edit/{id:guid}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Modifier l'équipe - Labor Control</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-3xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <button @onclick="GoBack"
+                    class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-md mb-4">
+                ← Retour
+            </button>
+            <h1 class="text-3xl font-bold text-gray-900">Modifier l'équipe</h1>
+            <p class="text-gray-600 mt-2">Mettez à jour les informations de l'équipe</p>
+        </div>
+
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement...</p>
+            </div>
+        }
+        else
+        {
+            <!-- Formulaire -->
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                        <p class="text-red-700">@errorMessage</p>
+                    </div>
+                }
+
+                <form @onsubmit="HandleSubmit">
+                    <!-- Nom de l'équipe -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Nom de l'équipe <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text"
+                               @bind="teamName"
+                               required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ex: Équipe Nettoyage Bâtiment A" />
+                    </div>
+
+                    <!-- Code -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Code (optionnel)
+                        </label>
+                        <input type="text"
+                               @bind="teamCode"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ex: NET-A, MAINT-01" />
+                        <p class="text-xs text-gray-500 mt-1">Code court pour identifier facilement l'équipe</p>
+                    </div>
+
+                    <!-- Secteur/Métier -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Secteur / Métier <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="teamSector"
+                                required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">-- Sélectionnez un secteur --</option>
+                            <option value="hospital_cleaning">🏥 Nettoyage hospitalier</option>
+                            <option value="industrial_maintenance">🔧 Maintenance industrielle</option>
+                            <option value="catering">🍽️ Restauration / HACCP</option>
+                            <option value="security">🔒 Sécurité / Rondes</option>
+                            <option value="logistics">📦 Logistique</option>
+                            <option value="healthcare">⚕️ Santé / Soins</option>
+                            <option value="construction">🏗️ Construction / BTP</option>
+                            <option value="general">📋 Général</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Le secteur détermine les templates de tâches disponibles</p>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Description (optionnel)
+                        </label>
+                        <textarea @bind="teamDescription"
+                                  rows="3"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder="Décrivez l'équipe, ses missions, horaires, etc."></textarea>
+                    </div>
+
+                    <!-- Boutons -->
+                    <div class="flex gap-4 pt-4">
+                        <button type="submit"
+                                disabled="@isSubmitting"
+                                class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                            @if (isSubmitting)
+                            {
+                                <span>Enregistrement en cours...</span>
+                            }
+                            else
+                            {
+                                <span>✓ Enregistrer les modifications</span>
+                            }
+                        </button>
+                        <button type="button"
+                                @onclick="GoBack"
+                                class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                            Annuler
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Section Gestion des membres -->
+            @if (!loading && team != null)
+            {
+                <div class="bg-white rounded-xl shadow-lg p-8 mt-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900">Membres de l'équipe</h2>
+                            <p class="text-gray-600 mt-1">@team.Members.Count membre(s) dans cette équipe</p>
+                        </div>
+                        <button @onclick="AddMember"
+                                class="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all duration-300 shadow-lg">
+                            + Ajouter un membre
+                        </button>
+                    </div>
+
+                    @if (team.Members.Count == 0)
+                    {
+                        <div class="text-center py-12 bg-gray-50 rounded-lg">
+                            <div class="text-6xl mb-4">👥</div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-2">Aucun membre</h3>
+                            <p class="text-gray-600 mb-6">Cette équipe n'a pas encore de membres affectés.</p>
+                            <button @onclick="AddMember"
+                                    class="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition">
+                                + Ajouter le premier membre
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="grid md:grid-cols-2 gap-4">
+                            @foreach (var member in team.Members)
+                            {
+                                var fullName = $"{member.Prenom} {member.Nom}";
+                                <div class="bg-gray-50 rounded-lg p-4 hover:shadow-md transition">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center flex-1">
+                                            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                                                <span class="text-lg font-bold text-blue-600">@GetInitials(member.Prenom, member.Nom)</span>
+                                            </div>
+                                            <div class="flex-1">
+                                                <h3 class="font-bold text-gray-900">@fullName</h3>
+                                                <p class="text-sm text-gray-600">@member.Email</p>
+                                                <span class="@GetRoleBadgeClass(member.Role)">
+                                                    @GetRoleLabel(member.Role)
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <button @onclick="() => RemoveMember(member.Id, fullName)"
+                                                class="ml-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition">
+                                            ✕ Retirer
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<!-- Boîte de dialogue de confirmation pour retirer un membre -->
+@if (showRemoveDialog)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @onclick="CancelRemove">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden" @onclick:stopPropagation="true">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
+                <h3 class="text-xl font-bold text-white">Confirmation</h3>
+            </div>
+
+            <!-- Body -->
+            <div class="px-6 py-6">
+                <p class="text-gray-700 text-lg">@removeConfirmMessage</p>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+                <button @onclick="CancelRemove"
+                        class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                    Annuler
+                </button>
+                <button @onclick="ConfirmRemove"
+                        class="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition">
+                    Retirer
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private TeamDetailDto? team;
+    private string teamName = "";
+    private string teamCode = "";
+    private string teamSector = "";
+    private string teamDescription = "";
+    private bool loading = true;
+    private bool isSubmitting = false;
+    private string errorMessage = "";
+
+    // Variables pour la suppression de membre
+    private bool showRemoveDialog = false;
+    private string removeConfirmMessage = "";
+    private Guid pendingRemoveUserId;
+    private string pendingRemoveUserName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTeam();
+    }
+
+    private async Task LoadTeam()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            // Enlever les guillemets si présents (bug localStorage)
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/teams/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                team = await response.Content.ReadFromJsonAsync<TeamDetailDto>();
+
+                if (team != null)
+                {
+                    // Pré-remplir les champs du formulaire
+                    teamName = team.Name;
+                    teamCode = team.Code ?? "";
+                    teamSector = team.Sector ?? "";
+                    teamDescription = team.Description ?? "";
+                }
+            }
+            else
+            {
+                errorMessage = $"Erreur {(int)response.StatusCode}: Équipe introuvable";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private async Task HandleSubmit()
+    {
+        // Validation
+        if (string.IsNullOrWhiteSpace(teamName))
+        {
+            errorMessage = "Le nom de l'équipe est obligatoire";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(teamSector))
+        {
+            errorMessage = "Le secteur est obligatoire";
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            // Enlever les guillemets si présents (bug localStorage)
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            // Préparer la requête avec une classe DTO
+            var request = new UpdateTeamRequest
+            {
+                Name = teamName.Trim(),
+                Code = string.IsNullOrWhiteSpace(teamCode) ? null : teamCode.Trim(),
+                Sector = teamSector,
+                Description = string.IsNullOrWhiteSpace(teamDescription) ? null : teamDescription.Trim()
+            };
+
+            // Nettoyer les headers et ajouter l'Authorization
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.PutAsJsonAsync($"api/teams/{Id}", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Rediriger vers la page de détail de l'équipe
+                Navigation.NavigateTo($"/teams/{Id}");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la modification : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void AddMember()
+    {
+        // Naviguer vers la page d'ajout de membre
+        Navigation.NavigateTo($"/teams/{Id}/add-member");
+    }
+
+    private void RemoveMember(Guid userId, string userName)
+    {
+        // Afficher la boîte de dialogue de confirmation
+        pendingRemoveUserId = userId;
+        pendingRemoveUserName = userName;
+        removeConfirmMessage = $"Retirer {userName} de l'équipe {teamName} ?";
+        showRemoveDialog = true;
+    }
+
+    private void CancelRemove()
+    {
+        showRemoveDialog = false;
+        pendingRemoveUserId = Guid.Empty;
+        pendingRemoveUserName = "";
+        removeConfirmMessage = "";
+    }
+
+    private async Task ConfirmRemove()
+    {
+        showRemoveDialog = false;
+        await ProcessRemoveMember(pendingRemoveUserId);
+    }
+
+    private async Task ProcessRemoveMember(Guid userId)
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var request = new RemoveUserFromTeamRequest
+            {
+                UserId = userId
+            };
+
+            var response = await Http.PostAsJsonAsync("api/teams/remove-user", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Recharger l'équipe pour mettre à jour la liste des membres
+                await LoadTeam();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors du retrait : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+    }
+
+    private string GetInitials(string prenom, string nom)
+    {
+        var prenomInitial = string.IsNullOrEmpty(prenom) ? "" : prenom.Substring(0, 1).ToUpper();
+        var nomInitial = string.IsNullOrEmpty(nom) ? "" : nom.Substring(0, 1).ToUpper();
+        return prenomInitial + nomInitial;
+    }
+
+    private string GetRoleLabel(string role)
+    {
+        return role switch
+        {
+            "Admin" => "Administrateur",
+            "Manager" => "Manager",
+            "Supervisor" => "Superviseur",
+            "Technician" => "Technicien",
+            _ => role
+        };
+    }
+
+    private string GetRoleBadgeClass(string role)
+    {
+        var baseClass = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+        return role switch
+        {
+            "Admin" => $"{baseClass} bg-red-100 text-red-800",
+            "Manager" => $"{baseClass} bg-purple-100 text-purple-800",
+            "Supervisor" => $"{baseClass} bg-orange-100 text-orange-800",
+            "Technician" => $"{baseClass} bg-blue-100 text-blue-800",
+            _ => $"{baseClass} bg-gray-100 text-gray-800"
+        };
+    }
+
+    // DTO pour charger l'équipe avec ses membres
+    private class TeamDetailDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Sector { get; set; }
+        public string? Description { get; set; }
+        public List<TeamMemberDto> Members { get; set; } = new();
+    }
+
+    private class TeamMemberDto
+    {
+        public Guid Id { get; set; }
+        public string Nom { get; set; } = "";
+        public string Prenom { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Role { get; set; } = "";
+        public bool IsActive { get; set; }
+    }
+
+    // DTO pour la modification d'équipe
+    private class UpdateTeamRequest
+    {
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Sector { get; set; }
+        public string? Description { get; set; }
+    }
+
+    private class RemoveUserFromTeamRequest
+    {
+        public Guid UserId { get; set; }
+    }
+}

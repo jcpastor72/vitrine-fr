@@ -1,0 +1,502 @@
+@page "/sectors"
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@using LaborControl.Web.Services
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject AuthService AuthService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Secteurs d'activité - Labor Control</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8 px-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="NavigateToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h1 class="lc-heading-1">Secteurs d'activité</h1>
+                    <p class="lc-text-muted mt-1">Activez les secteurs correspondant à votre activité</p>
+                </div>
+                <button @onclick="OpenCreateModal"
+                        class="lc-btn lc-btn-primary inline-flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Secteur personnalisé
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        @if (isLoading)
+        {
+            <div class="text-center py-20">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 lc-text-muted">Chargement des secteurs...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
+                @errorMessage
+            </div>
+        }
+        else if (allSectors.Count == 0)
+        {
+            <div class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Aucun secteur d'activité</h3>
+                <p class="lc-text-muted mb-6">Initialisez les secteurs prédéfinis pour commencer</p>
+                <button @onclick="InitializePredefinedSectors"
+                        disabled="@isInitializing"
+                        class="lc-btn lc-btn-primary disabled:opacity-50">
+                    @(isInitializing ? "Initialisation..." : "Initialiser les secteurs prédéfinis")
+                </button>
+            </div>
+        }
+        else
+        {
+            <!-- Active Sectors -->
+            @if (activeSectors.Count > 0)
+            {
+                <div class="mb-8">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="lc-heading-2">Secteurs activés (@activeSectors.Count)</h2>
+                        <button @onclick="NavigateToDashboard"
+                                class="lc-btn lc-btn-primary">
+                            Valider mon choix
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        @foreach (var sector in activeSectors.OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name))
+                        {
+                            <div class="bg-white border rounded-lg p-6 hover:shadow-md transition-all"
+                                 style="border-left: 4px solid @(sector.Color ?? "#10B981")">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="flex items-center flex-1">
+                                        @if (!string.IsNullOrEmpty(sector.Icon))
+                                        {
+                                            <span class="text-3xl mr-3">@sector.Icon</span>
+                                        }
+                                        <div class="flex-1">
+                                            <h3 class="text-lg font-semibold text-gray-900">@sector.Name</h3>
+                                            @if (sector.IsPredefined)
+                                            {
+                                                <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-1">Prédéfini</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded mt-1">Personnalisé</span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-2 ml-2">
+                                        @if (!sector.IsPredefined)
+                                        {
+                                            <button @onclick="() => OpenEditModal(sector)"
+                                                    class="text-blue-600 hover:text-blue-800 p-1"
+                                                    title="Modifier">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                </svg>
+                                            </button>
+                                        }
+                                        <button @onclick="() => ToggleSector(sector)"
+                                                class="text-red-600 hover:text-red-800 p-1"
+                                                title="Désactiver">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(sector.Description))
+                                {
+                                    <p class="lc-text-muted text-sm mb-4">@sector.Description</p>
+                                }
+
+                                <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                                    <div class="flex items-center lc-text-muted text-sm">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                        </svg>
+                                        <span>@sector.IndustriesCount métier@(sector.IndustriesCount > 1 ? "s" : "")</span>
+                                    </div>
+                                    <a href="/industries?sectorId=@sector.Id"
+                                       class="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center">
+                                        Voir les métiers
+                                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </a>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Inactive Sectors -->
+            @if (inactiveSectors.Count > 0)
+            {
+                <div>
+                    <h2 class="lc-heading-2 mb-4">Secteurs disponibles (@inactiveSectors.Count)</h2>
+                    <p class="lc-text-muted mb-4">Cliquez sur un secteur pour l'activer</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        @foreach (var sector in inactiveSectors.OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name))
+                        {
+                            <button @onclick="() => ToggleSector(sector)"
+                                    class="bg-gray-50 border rounded-lg p-6 hover:border-blue-400 hover:bg-white transition-all text-left opacity-60 hover:opacity-100"
+                                    style="border-left: 4px solid @(sector.Color ?? "#3B82F6")">
+                                <div class="flex items-center mb-3">
+                                    @if (!string.IsNullOrEmpty(sector.Icon))
+                                    {
+                                        <span class="text-3xl mr-3 opacity-50">@sector.Icon</span>
+                                    }
+                                    <div class="flex-1">
+                                        <h3 class="text-lg font-semibold text-gray-900">@sector.Name</h3>
+                                        @if (sector.IsPredefined)
+                                        {
+                                            <span class="inline-block bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded mt-1">Prédéfini</span>
+                                        }
+                                    </div>
+                                    <svg class="w-5 h-5 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(sector.Description))
+                                {
+                                    <p class="lc-text-muted text-sm">@sector.Description</p>
+                                }
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Initialize button if no predefined sectors -->
+            @if (!allSectors.Any(s => s.IsPredefined))
+            {
+                <div class="mt-8 bg-white border border-gray-200 rounded-lg p-6 text-center">
+                    <p class="lc-text-muted mb-4">Vous pouvez initialiser les secteurs prédéfinis du système</p>
+                    <button @onclick="InitializePredefinedSectors"
+                            disabled="@isInitializing"
+                            class="lc-btn lc-btn-primary disabled:opacity-50">
+                        @(isInitializing ? "Initialisation..." : "Initialiser les secteurs prédéfinis")
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<!-- Create/Edit Modal (pour secteurs personnalisés uniquement) -->
+@if (showModal)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-8">
+                <h2 class="lc-heading-2 mb-6">
+                    @(isEditMode ? "Modifier le secteur personnalisé" : "Nouveau secteur personnalisé")
+                </h2>
+
+                @if (!string.IsNullOrEmpty(modalErrorMessage))
+                {
+                    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
+                        @modalErrorMessage
+                    </div>
+                }
+
+                <div class="space-y-6">
+                    <!-- Name -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Nom du secteur <span class="text-red-500">*</span>
+                        </label>
+                        <input @bind="formName"
+                               type="text"
+                               placeholder="Ex: Services à la personne"
+                               required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+
+                    <!-- Code -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Code (optionnel)
+                        </label>
+                        <input @bind="formCode"
+                               type="text"
+                               placeholder="Ex: SAP"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Description (optionnelle)
+                        </label>
+                        <textarea @bind="formDescription"
+                                  rows="3"
+                                  placeholder="Description du secteur d'activité..."
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                    </div>
+
+
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-4 mt-8">
+                    <button @onclick="CloseModal"
+                            class="flex-1 lc-btn lc-btn-secondary">
+                        Annuler
+                    </button>
+                    <button @onclick="SaveSector"
+                            disabled="@isSaving"
+                            class="flex-1 lc-btn lc-btn-primary disabled:opacity-50">
+                        @(isSaving ? "Enregistrement..." : isEditMode ? "Mettre à jour" : "Créer")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<SectorDto> allSectors = new();
+    private List<SectorDto> activeSectors => allSectors.Where(s => s.IsActive).ToList();
+    private List<SectorDto> inactiveSectors => allSectors.Where(s => !s.IsActive).ToList();
+
+    private bool isLoading = true;
+    private bool isInitializing = false;
+    private string? errorMessage;
+
+    // Modal
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    private Guid? editingId;
+    private string? modalErrorMessage;
+
+    // Form fields
+    private string formName = "";
+    private string? formCode;
+    private string? formDescription;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSectors();
+    }
+
+    private async Task LoadSectors()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Load ALL sectors (active and inactive)
+            var response = await Http.GetFromJsonAsync<List<SectorDto>>("http://localhost:5278/api/sectors");
+            allSectors = response ?? new List<SectorDto>();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur lors du chargement: {ex.Message}";
+            Console.WriteLine($"Erreur: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task InitializePredefinedSectors()
+    {
+        try
+        {
+            isInitializing = true;
+            errorMessage = null;
+
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.PostAsync("http://localhost:5278/api/sectors/init-predefined", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadSectors();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de l'initialisation: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+            Console.WriteLine($"Erreur: {ex}");
+        }
+        finally
+        {
+            isInitializing = false;
+        }
+    }
+
+    private async Task ToggleSector(SectorDto sector)
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Use the dedicated toggle endpoint
+            var response = await Http.PostAsync($"http://localhost:5278/api/sectors/{sector.Id}/toggle", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadSectors(); // Refresh from server
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+            Console.WriteLine($"Erreur: {ex}");
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        isEditMode = false;
+        editingId = null;
+        ResetForm();
+        showModal = true;
+    }
+
+    private void OpenEditModal(SectorDto sector)
+    {
+        isEditMode = true;
+        editingId = sector.Id;
+        formName = sector.Name;
+        formCode = sector.Code;
+        formDescription = sector.Description;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        modalErrorMessage = null;
+        ResetForm();
+    }
+
+    private void ResetForm()
+    {
+        formName = "";
+        formCode = null;
+        formDescription = null;
+    }
+
+    private async Task SaveSector()
+    {
+        try
+        {
+            isSaving = true;
+            modalErrorMessage = null;
+
+            // Validation
+            if (string.IsNullOrWhiteSpace(formName))
+            {
+                modalErrorMessage = "Le nom est obligatoire";
+                return;
+            }
+
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var request = new
+            {
+                Name = formName,
+                Code = formCode,
+                Description = formDescription
+            };
+
+            HttpResponseMessage response;
+
+            if (isEditMode && editingId.HasValue)
+            {
+                response = await Http.PutAsJsonAsync($"http://localhost:5278/api/sectors/{editingId.Value}", request);
+            }
+            else
+            {
+                response = await Http.PostAsJsonAsync("http://localhost:5278/api/sectors", request);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                CloseModal();
+                await LoadSectors();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                modalErrorMessage = $"Erreur: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            modalErrorMessage = $"Erreur: {ex.Message}";
+            Console.WriteLine($"Erreur: {ex}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void NavigateToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    public class SectorDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Code { get; set; }
+        public string? Description { get; set; }
+        public string? Color { get; set; }
+        public string? Icon { get; set; }
+        public int DisplayOrder { get; set; }
+        public bool IsPredefined { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public int IndustriesCount { get; set; }
+    }
+}

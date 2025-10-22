@@ -1,0 +1,436 @@
+@page "/teams/create"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Créer une équipe - Labor Control</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-3xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <button @onclick="GoBack"
+                    class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-md mb-4">
+                ← Retour aux équipes
+            </button>
+            <h1 class="text-3xl font-bold text-gray-900">Créer une nouvelle équipe</h1>
+            <p class="text-gray-600 mt-2">Organisez votre personnel par métier</p>
+        </div>
+
+        <!-- Formulaire -->
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                    <p class="text-red-700">@errorMessage</p>
+                </div>
+            }
+
+            <form @onsubmit="HandleSubmit">
+                <!-- Nom de l'équipe -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Nom de l'équipe <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text"
+                           @bind="teamName"
+                           required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Ex: Équipe Nettoyage Bâtiment A" />
+                </div>
+
+                <!-- Code -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Code (optionnel)
+                    </label>
+                    <input type="text"
+                           @bind="teamCode"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Ex: NET-A, MAINT-01" />
+                    <p class="text-xs text-gray-500 mt-1">Code court pour identifier facilement l'équipe</p>
+                </div>
+
+                <!-- Secteur/Métier -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Secteur / Métier <span class="text-red-500">*</span>
+                    </label>
+                    <select @bind="teamSector"
+                            required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">-- Sélectionnez un secteur --</option>
+                        <option value="hospital_cleaning">🏥 Nettoyage hospitalier</option>
+                        <option value="industrial_maintenance">🔧 Maintenance industrielle</option>
+                        <option value="catering">🍽️ Restauration / HACCP</option>
+                        <option value="security">🔒 Sécurité / Rondes</option>
+                        <option value="logistics">📦 Logistique</option>
+                        <option value="healthcare">⚕️ Santé / Soins</option>
+                        <option value="construction">🏗️ Construction / BTP</option>
+                        <option value="general">📋 Général</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Le secteur détermine les templates de tâches disponibles</p>
+                </div>
+
+                <!-- Description -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Description <span class="text-red-500">*</span>
+                    </label>
+                    <textarea @bind="teamDescription"
+                              required
+                              minlength="10"
+                              rows="3"
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Décrivez l'équipe, ses missions, horaires, etc."></textarea>
+                    <p class="text-xs text-gray-500 mt-1">
+                        Minimum 10 caractères.
+                        <span class="text-blue-600">💡 Des suggestions seront proposées selon le métier choisi prochainement.</span>
+                    </p>
+                </div>
+
+                <!-- Site principal de rattachement -->
+                <div class="bg-green-50 rounded-lg p-6 mb-6">
+                    <h3 class="text-lg font-bold text-gray-900 mb-2">Site principal de rattachement <span class="text-red-500">*</span></h3>
+                    <p class="text-sm text-gray-600 mb-4">Sélectionnez le site où cette équipe est basée (lieu de départ, vestiaires, etc.)</p>
+
+                    @if (loadingSites)
+                    {
+                        <p class="text-sm text-gray-600">Chargement des sites...</p>
+                    }
+                    else if (availableSites.Count == 0)
+                    {
+                        <div class="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
+                            <p class="text-sm text-orange-700 mb-3">
+                                Aucun site disponible. Vous devez d'abord créer un site avant de créer une équipe.
+                            </p>
+                            <button type="button"
+                                    @onclick="@(() => Navigation.NavigateTo("/sites/create"))"
+                                    class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all duration-300 shadow-md text-sm">
+                                Créer un site maintenant →
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <select @bind="primarySiteId"
+                                required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            <option value="">-- Choisir le site principal --</option>
+                            @foreach (var site in availableSites)
+                            {
+                                <option value="@site.Id">
+                                    @site.Name @(!string.IsNullOrEmpty(site.Code) ? $"({site.Code})" : "") @(!string.IsNullOrEmpty(site.City) ? $"- {site.City}" : "")
+                                </option>
+                            }
+                        </select>
+                    }
+                </div>
+
+                <!-- Organisation du travail -->
+                <div class="bg-purple-50 rounded-lg p-6 mb-6">
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">📅 Organisation du travail</h3>
+
+                    <!-- Système de rotation -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Système de rotation <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="workShiftSystem"
+                                required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="">-- Sélectionnez --</option>
+                            <option value="1x8">1x8 (Équipe unique, journée normale)</option>
+                            <option value="2x8">2x8 (2 équipes en rotation matin/après-midi)</option>
+                            <option value="3x8">3x8 (3 équipes en rotation continue 24h)</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Définit comment l'équipe se relaie sur le poste de travail</p>
+                    </div>
+
+                    <!-- Fréquence de rotation -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Fréquence de rotation <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="rotationFrequency"
+                                required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="">-- Sélectionnez --</option>
+                            <option value="daily">Quotidienne</option>
+                            <option value="weekly">Hebdomadaire</option>
+                            <option value="biweekly">Tous les 15 jours</option>
+                            <option value="monthly">Mensuelle</option>
+                            <option value="none">Pas de rotation</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">À quelle fréquence les équipes changent-elles d'horaire</p>
+                    </div>
+
+                    <!-- Travail weekend -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Travail le weekend
+                        </label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox"
+                                       @bind="worksSaturday"
+                                       class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded" />
+                                <span class="ml-2 text-sm text-gray-700">Travaille le samedi</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox"
+                                       @bind="worksSunday"
+                                       class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded" />
+                                <span class="ml-2 text-sm text-gray-700">Travaille le dimanche</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Astreintes -->
+                    <div class="mb-4">
+                        <label class="flex items-start">
+                            <input type="checkbox"
+                                   @bind="hasOnCallDuty"
+                                   class="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded" />
+                            <div class="ml-2">
+                                <span class="text-sm font-semibold text-gray-700">Astreintes</span>
+                                <p class="text-xs text-gray-500">Cette équipe effectue des astreintes (interventions hors horaires normaux)</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Boutons -->
+                <div class="flex gap-4 pt-4">
+                    <button type="submit"
+                            disabled="@isSubmitting"
+                            class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                        @if (isSubmitting)
+                        {
+                            <span>Création en cours...</span>
+                        }
+                        else
+                        {
+                            <span>✓ Créer l'équipe</span>
+                        }
+                    </button>
+                    <button type="button"
+                            @onclick="GoBack"
+                            class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Info box -->
+        <div class="mt-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <span class="text-2xl">💡</span>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-blue-700">
+                        <strong>Astuce :</strong> Vous pourrez affecter des techniciens et un superviseur à cette équipe après sa création.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string teamName = "";
+    private string teamCode = "";
+    private string teamSector = "";
+    private string teamDescription = "";
+    private string primarySiteId = "";
+    private string workShiftSystem = "";
+    private string rotationFrequency = "";
+    private bool worksSaturday = false;
+    private bool worksSunday = false;
+    private bool hasOnCallDuty = false;
+    private bool isSubmitting = false;
+    private bool loadingSites = false;
+    private string errorMessage = "";
+    private List<SiteInfo> availableSites = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableSites();
+    }
+
+    private async Task LoadAvailableSites()
+    {
+        loadingSites = true;
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync("api/sites");
+            if (response.IsSuccessStatusCode)
+            {
+                var sites = await response.Content.ReadFromJsonAsync<List<SiteInfo>>();
+                if (sites != null)
+                {
+                    availableSites = sites.Where(s => s.IsActive).OrderBy(s => s.Name).ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur chargement sites: {ex.Message}");
+        }
+        finally
+        {
+            loadingSites = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private async Task HandleSubmit()
+    {
+        // Validation
+        if (string.IsNullOrWhiteSpace(teamName))
+        {
+            errorMessage = "Le nom de l'équipe est obligatoire";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(teamSector))
+        {
+            errorMessage = "Le secteur est obligatoire";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(teamDescription))
+        {
+            errorMessage = "La description de l'équipe est obligatoire";
+            return;
+        }
+
+        if (teamDescription.Trim().Length < 10)
+        {
+            errorMessage = "La description doit contenir au moins 10 caractères";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(primarySiteId) || !Guid.TryParse(primarySiteId, out _))
+        {
+            errorMessage = "Le site principal est obligatoire";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(workShiftSystem))
+        {
+            errorMessage = "Le système de rotation est obligatoire";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(rotationFrequency))
+        {
+            errorMessage = "La fréquence de rotation est obligatoire";
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            // Enlever les guillemets si présents (bug localStorage)
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            // Préparer la requête avec une classe DTO
+            var request = new CreateTeamRequest
+            {
+                Name = teamName.Trim(),
+                Code = string.IsNullOrWhiteSpace(teamCode) ? null : teamCode.Trim(),
+                Sector = teamSector,
+                Description = teamDescription.Trim(),
+                SiteId = Guid.Parse(primarySiteId),
+                WorkShiftSystem = workShiftSystem,
+                RotationFrequency = rotationFrequency,
+                WorksSaturday = worksSaturday,
+                WorksSunday = worksSunday,
+                HasOnCallDuty = hasOnCallDuty
+            };
+
+            // Nettoyer les headers et ajouter l'Authorization
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.PostAsJsonAsync("api/teams", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Rediriger vers la liste des équipes
+                Navigation.NavigateTo("/teams");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la création : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    // DTO pour la création d'équipe
+    private class CreateTeamRequest
+    {
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Sector { get; set; }
+        public string? Description { get; set; }
+        public Guid? SiteId { get; set; }
+        public string WorkShiftSystem { get; set; } = "";
+        public string RotationFrequency { get; set; } = "";
+        public bool WorksSaturday { get; set; }
+        public bool WorksSunday { get; set; }
+        public bool HasOnCallDuty { get; set; }
+    }
+
+    private class SiteInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? City { get; set; }
+        public bool IsActive { get; set; }
+    }
+}

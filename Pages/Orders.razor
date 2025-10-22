@@ -1,0 +1,667 @@
+@page "/orders"
+@using LaborControl.Web.Services
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Commandes - LABOR CONTROL</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Bouton retour -->
+        <div class="mb-6">
+            <button @onclick="GoToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+        </div>
+
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="lc-heading-1 mb-2">Commandes</h1>
+            <p class="lc-text-muted">
+                Suivez l'historique et le statut de vos commandes
+            </p>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="text-gray-600 text-lg mt-4">Chargement de vos commandes...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-center" role="alert">
+                <p class="font-semibold">Erreur</p>
+                <p class="mt-1">@errorMessage</p>
+            </div>
+        }
+        else if (orders.Count == 0)
+        {
+            <div class="lc-card text-center">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900 mb-2">Aucune commande</h2>
+                <p class="lc-text-muted mb-6">Vous n'avez pas encore passé de commande.</p>
+                <a href="/catalog" class="lc-btn lc-btn-primary inline-flex items-center">
+                    Découvrir le catalogue
+                </a>
+            </div>
+        }
+        else
+        {
+            <!-- Liste des commandes -->
+            <div class="space-y-6">
+                @foreach (var order in orders)
+                {
+                    <div class="lc-card overflow-hidden hover:shadow-md transition-all">
+                        <!-- Header de la commande -->
+                        <div class="bg-gray-50 border-b border-gray-200 p-6">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-lg font-bold text-gray-900 mb-1">Commande #@order.OrderNumber</h3>
+                                    <p class="text-sm lc-text-muted">Passée le @order.CreatedAt.ToString("dd/MM/yyyy à HH:mm")</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-2xl font-bold text-gray-900">@string.Format("{0:F2}", order.TotalAmount) €</div>
+                                    <div class="text-sm lc-text-muted mt-1">@GetOrderTypeLabel(order.ProductType)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Corps de la commande -->
+                        <div class="p-6">
+                            <!-- Grille de statuts -->
+                            <div class="grid md:grid-cols-4 gap-4 mb-6">
+                                <!-- Statut de paiement -->
+                                <div class="@GetStatusCardClass(order.Status) rounded-lg p-4">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-2xl mr-2">@GetPaymentStatusIcon(order.Status)</span>
+                                        <label class="text-sm font-medium">Paiement</label>
+                                    </div>
+                                    <div class="text-lg font-bold">@GetPaymentStatusLabel(order.Status)</div>
+                                    @if (order.Status == "PAID" || order.Status == "SHIPPED" || order.Status == "DELIVERED")
+                                    {
+                                        <div class="text-xs text-gray-600 mt-1">
+                                            @if (!string.IsNullOrEmpty(order.StripePaymentIntentId))
+                                            {
+                                                <span title="@order.StripePaymentIntentId">Réf: @order.StripePaymentIntentId.Substring(0, Math.Min(20, order.StripePaymentIntentId.Length))...</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Paiement Direct</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+
+                                <!-- Statut de livraison -->
+                                <div class="@GetDeliveryStatusCardClass(order.DeliveryStatus) rounded-lg p-4">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-2xl mr-2">@GetDeliveryStatusIcon(order.DeliveryStatus)</span>
+                                        <label class="text-sm font-medium">Livraison</label>
+                                    </div>
+                                    <div class="text-lg font-bold">@GetDeliveryStatusLabel(order.DeliveryStatus)</div>
+                                    @if (!string.IsNullOrEmpty(order.PackagingCode))
+                                    {
+                                        <div class="text-xs text-gray-600 mt-1 font-mono">
+                                            PKG: @order.PackagingCode
+                                        </div>
+                                    }
+                                </div>
+
+                                <!-- Statut d'activation des puces -->
+                                <div class="@GetActivationStatusCardClass(order.ChipsActivationStatus) rounded-lg p-4">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-2xl mr-2">@GetActivationStatusIcon(order.ChipsActivationStatus)</span>
+                                        <label class="text-sm font-medium">Activation</label>
+                                    </div>
+                                    <div class="text-lg font-bold">@GetActivationStatusLabel(order.ChipsActivationStatus)</div>
+                                    <div class="text-xs text-gray-600 mt-1">@order.ChipsActivated / @order.ChipsQuantity puces</div>
+                                </div>
+
+                                <!-- Statut d'affectation aux points de contrôle -->
+                                <div class="@GetAssignmentStatusCardClass(order.ChipsAssignmentStatus) rounded-lg p-4">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-2xl mr-2">@GetAssignmentStatusIcon(order.ChipsAssignmentStatus)</span>
+                                        <label class="text-sm font-medium">Affectation</label>
+                                    </div>
+                                    <div class="text-lg font-bold">@GetAssignmentStatusLabel(order.ChipsAssignmentStatus)</div>
+                                    <div class="text-xs text-gray-600 mt-1">@order.ChipsAssigned / @order.ChipsQuantity points</div>
+                                </div>
+                            </div>
+
+                            <!-- Détails de la commande -->
+                            <div class="border-t border-gray-200 pt-4">
+                                <h4 class="font-semibold text-gray-900 mb-3">Détails de la commande</h4>
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                        <div class="text-sm text-gray-600">Quantité de puces</div>
+                                        <div class="font-semibold text-gray-900">@order.ChipsQuantity puce@(order.ChipsQuantity > 1 ? "s" : "") NFC</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm text-gray-600">Adresse de livraison</div>
+                                        <div class="font-semibold text-gray-900">@order.DeliveryAddress</div>
+                                        <div class="text-sm text-gray-700">@order.DeliveryPostalCode @order.DeliveryCity</div>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(order.Service))
+                                    {
+                                        <div>
+                                            <div class="text-sm text-gray-600">Service</div>
+                                            <div class="font-semibold text-gray-900">@order.Service</div>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(order.Notes))
+                                    {
+                                        <div>
+                                            <div class="text-sm text-gray-600">Instructions</div>
+                                            <div class="font-semibold text-gray-900">@order.Notes</div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="border-t border-gray-200 pt-4 mt-4 flex gap-3 flex-wrap">
+                                @if ((order.Status == "PAID" || order.Status == "SHIPPED") && order.DeliveryStatus != "DELIVERED")
+                                {
+                                    <button @onclick="() => OpenReceiveModal(order.Id)"
+                                            class="lc-btn lc-btn-primary inline-flex items-center">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                        </svg>
+                                        Réceptionner ma commande
+                                    </button>
+                                }
+
+                                @if (order.Status != "CANCELLED")
+                                {
+                                    <button @onclick="() => DownloadInvoice(order.Id)"
+                                            disabled="@(downloadingInvoiceId == order.Id)"
+                                            class="lc-btn lc-btn-secondary inline-flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
+                                        @if (downloadingInvoiceId == order.Id)
+                                        {
+                                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Téléchargement...</span>
+                                        }
+                                        else
+                                        {
+                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            <span>Télécharger la facture</span>
+                                        }
+                                    </button>
+
+                                    <button @onclick="() => DiagnosticOrder(order.Id)"
+                                            class="lc-btn lc-btn-secondary inline-flex items-center text-xs">
+                                        🔍 Diagnostic
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Modal de réception -->
+        @if (showReceiveModal)
+        {
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @onclick="CloseReceiveModal">
+                <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4" @onclick:stopPropagation>
+                    <h3 class="lc-heading-2 mb-4">Réceptionner la commande</h3>
+                    <p class="text-gray-600 mb-6">
+                        Entrez le code packaging inscrit sur l'étiquette de votre colis pour activer vos puces RFID.
+                    </p>
+
+                    @if (!string.IsNullOrEmpty(receiveErrorMessage))
+                    {
+                        <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+                            @receiveErrorMessage
+                        </div>
+                    }
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Code packaging
+                        </label>
+                        <input type="text"
+                               @bind="packagingCode"
+                               @bind:event="oninput"
+                               placeholder="Ex: PKG-2025-001"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg font-mono uppercase"
+                               disabled="@isReceiving" />
+                        <p class="text-xs text-gray-500 mt-1">
+                            Le code se trouve sur l'étiquette du colis
+                        </p>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button @onclick="ReceiveOrder"
+                                disabled="@(isReceiving || string.IsNullOrWhiteSpace(packagingCode))"
+                                class="flex-1 lc-btn lc-btn-primary disabled:bg-gray-300 disabled:cursor-not-allowed">
+                            @if (isReceiving)
+                            {
+                                <span>Réception en cours...</span>
+                            }
+                            else
+                            {
+                                <span>Valider</span>
+                            }
+                        </button>
+                        <button @onclick="CloseReceiveModal"
+                                disabled="@isReceiving"
+                                class="lc-btn lc-btn-secondary disabled:opacity-50">
+                            Annuler
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Modal de confirmation de succès -->
+        @if (showSuccessModal)
+        {
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <h3 class="lc-heading-2 text-green-600 mb-4">Réception confirmée !</h3>
+                        <p class="text-gray-700 mb-6">
+                            @successMessage
+                        </p>
+                        <button @onclick="CloseSuccessModal"
+                                class="w-full lc-btn lc-btn-primary">
+                            OK, j'ai compris
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<OrderDetails> orders = new();
+    private bool isLoading = true;
+    private string errorMessage = "";
+
+    // Modal de réception
+    private bool showReceiveModal = false;
+    private Guid selectedOrderId;
+    private string packagingCode = "";
+    private bool isReceiving = false;
+    private string receiveErrorMessage = "";
+    private bool showSuccessModal = false;
+    private string successMessage = "";
+
+    // Téléchargement de facture
+    private Guid? downloadingInvoiceId = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadOrders();
+    }
+
+    private async Task LoadOrders()
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync("api/orders/details");
+            if (response.IsSuccessStatusCode)
+            {
+                var ordersList = await response.Content.ReadFromJsonAsync<List<OrderDetails>>();
+                orders = ordersList ?? new List<OrderDetails>();
+            }
+            else
+            {
+                errorMessage = "Erreur lors du chargement des commandes";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    // Méthodes pour les labels
+    private string GetOrderTypeLabel(string? productType) => productType switch
+    {
+        "pack_discovery" => "Pack Découverte",
+        "nfc_chip" => "Puces supplémentaires",
+        "subscription" => "Abonnement",
+        _ => "Commande"
+    };
+
+    private string GetPaymentStatusLabel(string status) => status switch
+    {
+        "PENDING" => "En attente",
+        "PAID" => "Payée",
+        "SHIPPED" => "Payée",
+        "DELIVERED" => "Payée",
+        "CANCELLED" => "Annulée",
+        _ => status
+    };
+
+    private string GetDeliveryStatusLabel(string? status) => status switch
+    {
+        "PENDING" => "En préparation",
+        "SHIPPED" => "Expédiée",
+        "DELIVERED" => "Réceptionnée",
+        null => "En attente",
+        _ => status
+    };
+
+    private string GetActivationStatusLabel(string? status) => status switch
+    {
+        "PENDING" => "À activer",
+        "PARTIAL" => "Partielle",
+        "COMPLETED" => "Complète",
+        null => "En attente",
+        _ => status
+    };
+
+    private string GetAssignmentStatusLabel(string? status) => status switch
+    {
+        "PENDING" => "À affecter",
+        "PARTIAL" => "Partielle",
+        "COMPLETED" => "Complète",
+        null => "En attente",
+        _ => status
+    };
+
+    // Méthodes pour les icônes (simplifiées - icônes retirées)
+    private string GetPaymentStatusIcon(string status) => "";
+    private string GetDeliveryStatusIcon(string? status) => "";
+    private string GetActivationStatusIcon(string? status) => "";
+    private string GetAssignmentStatusIcon(string? status) => "";
+
+    // Méthodes pour les couleurs des cartes
+    private string GetStatusCardClass(string status) => status switch
+    {
+        "PAID" => "bg-green-50 text-green-900",
+        "SHIPPED" => "bg-green-50 text-green-900",
+        "DELIVERED" => "bg-green-50 text-green-900",
+        "PENDING" => "bg-yellow-50 text-yellow-900",
+        "CANCELLED" => "bg-red-50 text-red-900",
+        _ => "bg-gray-50 text-gray-900"
+    };
+
+    private string GetDeliveryStatusCardClass(string? status) => status switch
+    {
+        "DELIVERED" => "bg-green-50 text-green-900",
+        "SHIPPED" => "bg-blue-50 text-blue-900",
+        "PENDING" => "bg-yellow-50 text-yellow-900",
+        _ => "bg-gray-50 text-gray-900"
+    };
+
+    private string GetActivationStatusCardClass(string? status) => status switch
+    {
+        "COMPLETED" => "bg-green-50 text-green-900",
+        "PARTIAL" => "bg-orange-50 text-orange-900",
+        "PENDING" => "bg-yellow-50 text-yellow-900",
+        _ => "bg-gray-50 text-gray-900"
+    };
+
+    private string GetAssignmentStatusCardClass(string? status) => status switch
+    {
+        "COMPLETED" => "bg-green-50 text-green-900",
+        "PARTIAL" => "bg-purple-50 text-purple-900",
+        "PENDING" => "bg-yellow-50 text-yellow-900",
+        _ => "bg-gray-50 text-gray-900"
+    };
+
+    // Méthodes pour le modal de réception
+    private void OpenReceiveModal(Guid orderId)
+    {
+        selectedOrderId = orderId;
+        packagingCode = "";
+        receiveErrorMessage = "";
+        showReceiveModal = true;
+    }
+
+    private void CloseReceiveModal()
+    {
+        showReceiveModal = false;
+        packagingCode = "";
+        receiveErrorMessage = "";
+    }
+
+    private void CloseSuccessModal()
+    {
+        showSuccessModal = false;
+        successMessage = "";
+    }
+
+    private async Task ReceiveOrder()
+    {
+        isReceiving = true;
+        receiveErrorMessage = "";
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var request = new { PackagingCode = packagingCode.Trim().ToUpper() };
+            var response = await Http.PostAsJsonAsync($"api/orders/{selectedOrderId}/receive", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<ReceiveOrderResponse>();
+                var chipCount = result?.ChipsReceived ?? 0;
+                var chipText = chipCount > 1 ? "puces activées et affectées" : "puce activée et affectée";
+                successMessage = $"{chipCount} {chipText} à votre compte";
+                CloseReceiveModal();
+
+                // Recharger les commandes
+                await LoadOrders();
+
+                // Afficher le modal de succès
+                showSuccessModal = true;
+                StateHasChanged();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                receiveErrorMessage = errorContent.Contains("incorrect")
+                    ? "Code packaging incorrect. Vérifiez le code sur l'étiquette."
+                    : "Erreur lors de la réception. Veuillez réessayer.";
+            }
+        }
+        catch (Exception ex)
+        {
+            receiveErrorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isReceiving = false;
+        }
+    }
+
+    private async Task DiagnosticOrder(Guid orderId)
+    {
+        errorMessage = "";
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                errorMessage = "Token d'authentification manquant";
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync($"api/payments/invoice/{orderId}/diagnostic");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var diagnosticData = await response.Content.ReadAsStringAsync();
+                errorMessage = $"DIAGNOSTIC:\n{diagnosticData}";
+            }
+            else
+            {
+                errorMessage = $"Erreur diagnostic (Code: {response.StatusCode})";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur diagnostic : {ex.Message}";
+        }
+    }
+
+    private async Task DownloadInvoice(Guid orderId)
+    {
+        downloadingInvoiceId = orderId;
+        errorMessage = ""; // Réinitialiser le message d'erreur
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync($"api/payments/invoice/{orderId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var fileBytes = await response.Content.ReadAsByteArrayAsync();
+                var order = orders.FirstOrDefault(o => o.Id == orderId);
+                var fileName = order != null ? $"Facture_{order.OrderNumber}.pdf" : "Facture.pdf";
+
+                // Créer un blob et déclencher le téléchargement
+                var base64 = Convert.ToBase64String(fileBytes);
+                var dataUrl = $"data:application/pdf;base64,{base64}";
+
+                // Utiliser JavaScript pour déclencher le téléchargement
+                await JSRuntime.InvokeVoidAsync("downloadFile", dataUrl, fileName);
+            }
+            else
+            {
+                // Lire le contenu de l'erreur pour plus de détails
+                var errorContent = await response.Content.ReadAsStringAsync();
+
+                try
+                {
+                    // Essayer de parser le JSON d'erreur
+                    var errorResponse = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(errorContent);
+                    errorMessage = errorResponse?.Message ?? "Erreur lors du téléchargement de la facture.";
+                }
+                catch
+                {
+                    // Si ce n'est pas du JSON, afficher le contenu brut
+                    errorMessage = string.IsNullOrEmpty(errorContent)
+                        ? $"Erreur lors du téléchargement de la facture (Code: {response.StatusCode})"
+                        : errorContent;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur lors du téléchargement de la facture : {ex.Message}";
+        }
+        finally
+        {
+            downloadingInvoiceId = null;
+        }
+    }
+
+    private class ReceiveOrderResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = "";
+        public int ChipsReceived { get; set; }
+    }
+
+    private class OrderDetails
+    {
+        public Guid Id { get; set; }
+        public string OrderNumber { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string? ProductType { get; set; }
+        public int ChipsQuantity { get; set; }
+        public decimal TotalAmount { get; set; }
+        public string? DeliveryAddress { get; set; }
+        public string? DeliveryCity { get; set; }
+        public string? DeliveryPostalCode { get; set; }
+        public string? Service { get; set; }
+        public string? Notes { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string? StripePaymentIntentId { get; set; }
+        public string? PackagingCode { get; set; }
+
+        // Statuts supplémentaires
+        public string? DeliveryStatus { get; set; }
+        public string? ChipsActivationStatus { get; set; }
+        public int ChipsActivated { get; set; }
+        public string? ChipsAssignmentStatus { get; set; }
+        public int ChipsAssigned { get; set; }
+    }
+
+    private class ErrorResponse
+    {
+        public string Message { get; set; } = "";
+    }
+}

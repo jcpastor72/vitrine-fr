@@ -1,0 +1,424 @@
+@page "/cart"
+@using LaborControl.Web.Services
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">
+                🛒 Panier
+            </h1>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-center" role="alert">
+                <p class="font-semibold">Erreur</p>
+                <p class="mt-1">@errorMessage</p>
+            </div>
+        }
+
+        @if (isLoading)
+        {
+            <div class="text-center py-12">
+                <p class="text-gray-600 text-lg">Chargement de votre panier...</p>
+            </div>
+        }
+        else if (cart == null || cart.Items.Count == 0)
+        {
+            <!-- Panier vide -->
+            <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+                <div class="text-6xl mb-4">🛒</div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Votre panier est vide</h2>
+                <p class="text-gray-600 mb-8">Découvrez nos produits et services pour équiper votre entreprise</p>
+                <button @onclick="GoToCatalog"
+                        class="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-all duration-300">
+                    📦 Découvrir le catalogue
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Liste des articles -->
+                <div class="lg:col-span-2 space-y-4">
+                    @foreach (var item in cart.Items)
+                    {
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <h3 class="text-xl font-bold text-gray-900 mb-2">@item.ProductName</h3>
+                                    <p class="text-gray-600 text-sm mb-4">@item.ProductDescription</p>
+
+                                    <!-- Prix unitaire -->
+                                    <div class="text-sm text-gray-700 mb-2">
+                                        Prix unitaire : <span class="font-semibold">@string.Format("{0:F2}", item.UnitPrice) € HT</span>
+                                    </div>
+
+                                    @if (item.ShippingCost > 0)
+                                    {
+                                        <div class="text-sm text-gray-600 mb-4">
+                                            + @string.Format("{0:F2}", item.ShippingCost) € de livraison
+                                        </div>
+                                    }
+
+                                    <!-- Quantité -->
+                                    <div class="flex items-center space-x-4">
+                                        <label class="text-sm font-medium text-gray-700">Quantité :</label>
+                                        <div class="flex items-center space-x-2">
+                                            <button @onclick="() => UpdateQuantity(item.Id, item.Quantity - 1)"
+                                                    disabled="@(item.Quantity <= 1 || isUpdating)"
+                                                    class="w-8 h-8 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                -
+                                            </button>
+                                            <span class="w-12 text-center font-semibold">@item.Quantity</span>
+                                            <button @onclick="() => UpdateQuantity(item.Id, item.Quantity + 1)"
+                                                    disabled="@isUpdating"
+                                                    class="w-8 h-8 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                +
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Prix total et suppression -->
+                                <div class="ml-6 text-right">
+                                    <div class="text-2xl font-bold text-indigo-600 mb-4">
+                                        @string.Format("{0:F2}", item.TotalPrice) €
+                                    </div>
+                                    <button @onclick="() => RemoveFromCart(item.Id)"
+                                            disabled="@isUpdating"
+                                            class="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                                        🗑️ Supprimer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Résumé du panier -->
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-xl shadow-lg p-6 sticky top-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-6">Résumé</h2>
+
+                        <div class="space-y-3 mb-6">
+                            <div class="flex justify-between text-gray-700">
+                                <span>Sous-total HT</span>
+                                <span class="font-semibold">@string.Format("{0:F2}", cart.Subtotal) €</span>
+                            </div>
+                            <div class="flex justify-between text-gray-700">
+                                <span>TVA (20%)</span>
+                                <span class="font-semibold">@string.Format("{0:F2}", cart.Subtotal * 0.20m) €</span>
+                            </div>
+                            <div class="flex justify-between text-gray-700">
+                                <span>Sous-total TTC</span>
+                                <span class="font-semibold">@string.Format("{0:F2}", cart.Subtotal * 1.20m) €</span>
+                            </div>
+                            <div class="flex justify-between text-gray-700">
+                                <span>Livraison</span>
+                                <span class="font-semibold">@string.Format("{0:F2}", cart.ShippingTotal) €</span>
+                            </div>
+                            <div class="border-t border-gray-300 pt-3 flex justify-between text-lg font-bold text-gray-900">
+                                <span>Total TTC</span>
+                                <span class="text-indigo-600">@string.Format("{0:F2}", (cart.Subtotal * 1.20m) + cart.ShippingTotal) €</span>
+                            </div>
+                        </div>
+
+                        <!-- Boutons d'action -->
+                        <div class="space-y-3">
+                            <button @onclick="ProceedToCheckout"
+                                    disabled="@isUpdating"
+                                    class="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg font-semibold hover:from-indigo-700 hover:to-indigo-800 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
+                                ✅ Valider mon panier
+                            </button>
+
+                            <button @onclick="GoToCatalog"
+                                    class="w-full py-3 px-4 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-all duration-300">
+                                ⬅️ Continuer mes achats
+                            </button>
+
+                            <button @onclick="ShowClearCartModal"
+                                    disabled="@isUpdating"
+                                    class="w-full py-2 px-4 text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                                🗑️ Vider le panier
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal de confirmation pour vider le panier -->
+@if (showClearCartModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseClearCartModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full" @onclick:stopPropagation>
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-red-500 to-red-600 text-white p-6 rounded-t-xl">
+                <h3 class="text-xl font-bold">Confirmation</h3>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                <p class="text-gray-700 text-lg mb-4">
+                    Êtes-vous sûr de vouloir vider votre panier ?
+                </p>
+                <p class="text-gray-600 text-sm">
+                    Cette action est irréversible et supprimera tous les articles de votre panier.
+                </p>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 p-6 rounded-b-xl flex justify-end space-x-3">
+                <button @onclick="CloseClearCartModal"
+                        class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-semibold">
+                    Annuler
+                </button>
+                <button @onclick="ConfirmClearCart"
+                        class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold">
+                    Vider le panier
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private CartResponse? cart;
+    private string errorMessage = "";
+    private bool isLoading = true;
+    private bool isUpdating = false;
+    private bool showClearCartModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadCart();
+    }
+
+    private async Task LoadCart()
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync("api/cart");
+
+            if (response.IsSuccessStatusCode)
+            {
+                cart = await response.Content.ReadFromJsonAsync<CartResponse>();
+            }
+            else
+            {
+                errorMessage = "Erreur lors du chargement du panier";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task UpdateQuantity(Guid itemId, int newQuantity)
+    {
+        if (newQuantity < 1) return;
+
+        errorMessage = "";
+        isUpdating = true;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var request = new { Quantity = newQuantity };
+            var response = await Http.PutAsJsonAsync($"api/cart/items/{itemId}", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadCart();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                    errorMessage = errorResponse?.Message ?? errorContent;
+                }
+                catch
+                {
+                    errorMessage = errorContent;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isUpdating = false;
+        }
+    }
+
+    private async Task RemoveFromCart(Guid itemId)
+    {
+        errorMessage = "";
+        isUpdating = true;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.DeleteAsync($"api/cart/items/{itemId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadCart();
+            }
+            else
+            {
+                errorMessage = "Erreur lors de la suppression de l'article";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isUpdating = false;
+        }
+    }
+
+    private void ShowClearCartModal()
+    {
+        showClearCartModal = true;
+    }
+
+    private void CloseClearCartModal()
+    {
+        showClearCartModal = false;
+    }
+
+    private async Task ConfirmClearCart()
+    {
+        showClearCartModal = false;
+        errorMessage = "";
+        isUpdating = true;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.DeleteAsync("api/cart");
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadCart();
+            }
+            else
+            {
+                errorMessage = "Erreur lors du vidage du panier";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isUpdating = false;
+        }
+    }
+
+    private void ProceedToCheckout()
+    {
+        // TODO: Créer la page de checkout pour le panier
+        Navigation.NavigateTo("/checkout");
+    }
+
+    private void GoToCatalog()
+    {
+        Navigation.NavigateTo("/catalog");
+    }
+
+    private class CartResponse
+    {
+        public List<CartItemDTO> Items { get; set; } = new();
+        public decimal Subtotal { get; set; }
+        public decimal ShippingTotal { get; set; }
+        public decimal Total { get; set; }
+        public int ItemCount { get; set; }
+    }
+
+    private class CartItemDTO
+    {
+        public Guid Id { get; set; }
+        public Guid ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public string? ProductDescription { get; set; }
+        public string ProductType { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal TotalPrice { get; set; }
+        public decimal? ShippingCost { get; set; }
+        public string? ImageUrl { get; set; }
+    }
+
+    private class ErrorResponse
+    {
+        public string? Message { get; set; }
+    }
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = default!;
+}

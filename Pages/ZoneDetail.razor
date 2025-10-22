@@ -1,0 +1,594 @@
+@page "/zones/{id:guid}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Détail de la zone - Labor Control</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-7xl mx-auto px-4">
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                <p class="text-red-700">@errorMessage</p>
+            </div>
+        }
+        else if (zone != null)
+        {
+            <!-- Header -->
+            <div class="mb-6">
+                <button @onclick="GoBack"
+                        class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Retour
+                </button>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="flex items-center gap-2 text-sm lc-text-muted mb-2">
+                            <span>@zone.SiteName</span>
+                            @if (zone.ParentZoneName != null)
+                            {
+                                <span>›</span>
+                                <span>@zone.ParentZoneName</span>
+                            }
+                            <span>›</span>
+                            <span class="text-gray-900 font-semibold">@zone.Name</span>
+                        </div>
+                        <h1 class="lc-heading-1">@zone.Name</h1>
+                        <div class="flex flex-col gap-2 mt-2">
+                            <div class="flex items-center gap-3">
+                                @if (!string.IsNullOrEmpty(zone.Code))
+                                {
+                                    <p class="lc-text-muted">Code: @zone.Code</p>
+                                }
+                                @if (!string.IsNullOrEmpty(zone.Type))
+                                {
+                                    <p class="lc-text-muted">Type : <span class="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full">@GetTypeLabel(zone.Type)</span></p>
+                                }
+                                @if (!zone.IsActive)
+                                {
+                                    <span class="px-3 py-1 bg-red-100 text-red-800 text-sm rounded-full">Inactive</span>
+                                }
+                            </div>
+                            @if (!string.IsNullOrEmpty(zone.Description))
+                            {
+                                <p class="lc-text-muted text-sm"><span class="font-medium">Description :</span> @zone.Description</p>
+                            }
+                        </div>
+                    </div>
+                    <button @onclick="EditZone"
+                            class="lc-btn lc-btn-secondary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Modifier
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sous-zones -->
+            <div class="lc-card mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="lc-heading-3">Sous-zones (@filteredSubZones.Count)</h2>
+                    <button @onclick="CreateSubZone"
+                            class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Ajouter une sous-zone
+                    </button>
+                </div>
+
+                <!-- Filtre -->
+                @if (zone.SubZones.Count > 0)
+                {
+                    <div class="mb-4">
+                        <div class="flex flex-wrap gap-2">
+                            <button @onclick="() => SetSubZoneTypeFilter(null)"
+                                    class="px-3 py-1.5 text-sm rounded-lg transition @(subZoneTypeFilter == null ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200")">
+                                Tous (@zone.SubZones.Count)
+                            </button>
+                            @foreach (var type in GetSubZoneTypes())
+                            {
+                                var count = zone.SubZones.Count(sz => sz.Type == type);
+                                <button @onclick="() => SetSubZoneTypeFilter(type)"
+                                        class="px-3 py-1.5 text-sm rounded-lg transition @(subZoneTypeFilter == type ? "bg-purple-600 text-white" : "bg-purple-100 text-purple-800 hover:bg-purple-200")">
+                                    @GetTypeLabel(type) (@count)
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (zone.SubZones.Count == 0)
+                {
+                    <div class="text-center py-8 bg-gray-50 rounded-lg">
+                        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+                            </svg>
+                        </div>
+                        <p class="lc-text-muted">Aucune sous-zone</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
+                        @foreach (var subZone in filteredSubZones)
+                        {
+                            <div class="p-4 hover:bg-blue-50 cursor-pointer transition"
+                                 @onclick="() => ViewZone(subZone.Id)">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="font-semibold text-gray-900">@subZone.Name</h3>
+                                        <div class="flex items-center gap-4 mt-1 text-sm lc-text-muted">
+                                            @if (!string.IsNullOrEmpty(subZone.Code))
+                                            {
+                                                <span>Code: <span class="font-mono font-medium">@subZone.Code</span></span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(subZone.Type))
+                                            {
+                                                <span>Type: <span class="font-medium">@GetTypeLabel(subZone.Type)</span></span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Équipements -->
+            <div class="lc-card mb-6">
+                <h2 class="lc-heading-3 mb-4">Équipements (@filteredAssets.Count)</h2>
+
+                <!-- Filtres -->
+                @if (zone.Assets.Count > 0)
+                {
+                    <div class="mb-4 space-y-3">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 mb-2 block">Type d'équipement</label>
+                            <select @bind="assetTypeFilter"
+                                    @bind:after="OnAssetTypeFilterChanged"
+                                    class="lc-input max-w-xs">
+                                <option value="">Tous (@zone.Assets.Count)</option>
+                                @foreach (var type in GetAssetTypes())
+                                {
+                                    var count = zone.Assets.Count(a => a.Type == type);
+                                    <option value="@type">@GetAssetTypeLabel(type) (@count)</option>
+                                }
+                            </select>
+                        </div>
+                        @if (GetAssetStatuses().Any())
+                        {
+                            <div>
+                                <label class="text-sm font-medium text-gray-700 mb-2 block">Statut</label>
+                                <div class="flex flex-wrap gap-2">
+                                    <button @onclick="() => SetAssetStatusFilter(null)"
+                                            class="px-3 py-1.5 text-sm rounded-lg transition @(assetStatusFilter == null ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200")">
+                                        Tous
+                                    </button>
+                                    @foreach (var status in GetAssetStatuses())
+                                    {
+                                        var count = zone.Assets.Count(a => a.Status == status);
+                                        <button @onclick="() => SetAssetStatusFilter(status)"
+                                                class="px-3 py-1.5 text-sm rounded-lg transition @(assetStatusFilter == status ? "bg-green-600 text-white" : "bg-green-100 text-green-800 hover:bg-green-200")">
+                                            @GetAssetStatusLabel(status) (@count)
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (zone.Assets.Count == 0)
+                {
+                    <div class="text-center py-8 bg-gray-50 rounded-lg">
+                        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                        <p class="lc-text-muted">Aucun équipement</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
+                        @foreach (var asset in filteredAssets)
+                        {
+                            <div class="p-4 hover:bg-blue-50 cursor-pointer transition"
+                                 @onclick="() => ViewAsset(asset.Id)">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="font-semibold text-gray-900">@asset.Name</h3>
+                                        <div class="flex items-center gap-4 mt-1 text-sm lc-text-muted">
+                                            @if (!string.IsNullOrEmpty(asset.Code))
+                                            {
+                                                <span>Code: <span class="font-mono font-medium">@asset.Code</span></span>
+                                            }
+                                            <span>Type: <span class="font-medium">@GetAssetTypeLabel(asset.Type)</span></span>
+                                            @if (!string.IsNullOrEmpty(asset.Status))
+                                            {
+                                                <span>Statut: <span class="font-medium">@GetAssetStatusLabel(asset.Status)</span></span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Points de contrôle -->
+            <div class="lc-card">
+                <h2 class="lc-heading-3 mb-4">Points de contrôle NFC (@filteredControlPoints.Count)</h2>
+
+                <!-- Filtre -->
+                @if (zone.ControlPoints.Count > 0)
+                {
+                    <div class="mb-4">
+                        <div class="flex flex-wrap gap-2">
+                            <button @onclick="() => SetControlPointMeasurementTypeFilter(null)"
+                                    class="px-3 py-1.5 text-sm rounded-lg transition @(controlPointMeasurementTypeFilter == null ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200")">
+                                Tous (@zone.ControlPoints.Count)
+                            </button>
+                            @foreach (var type in GetControlPointMeasurementTypes())
+                            {
+                                var count = zone.ControlPoints.Count(cp => cp.MeasurementType == type);
+                                <button @onclick="() => SetControlPointMeasurementTypeFilter(type)"
+                                        class="px-3 py-1.5 text-sm rounded-lg transition @(controlPointMeasurementTypeFilter == type ? "bg-indigo-600 text-white" : "bg-indigo-100 text-indigo-800 hover:bg-indigo-200")">
+                                    @type (@count)
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (zone.ControlPoints.Count == 0)
+                {
+                    <div class="text-center py-8 bg-gray-50 rounded-lg">
+                        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                        <p class="lc-text-muted">Aucun point de contrôle</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
+                        @foreach (var cp in filteredControlPoints)
+                        {
+                            <div class="p-4 hover:bg-blue-50 transition">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="font-semibold text-gray-900">@cp.Name</h3>
+                                        <div class="flex items-center gap-4 mt-1 text-sm lc-text-muted">
+                                            <span>Code: <span class="font-mono font-medium">@cp.Code</span></span>
+                                            <span>Type: <span class="font-medium">@cp.MeasurementType</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private ZoneDetailDto? zone;
+    private bool loading = true;
+    private string errorMessage = "";
+
+    // Filtres
+    private string? subZoneTypeFilter = null;
+    private string? assetTypeFilter = null;
+    private string? assetStatusFilter = null;
+    private string? controlPointMeasurementTypeFilter = null;
+
+    private List<SubZoneDto> filteredSubZones => zone?.SubZones
+        .Where(sz => subZoneTypeFilter == null || sz.Type == subZoneTypeFilter)
+        .ToList() ?? new();
+
+    private List<AssetDto> filteredAssets => zone?.Assets
+        .Where(a => (assetTypeFilter == null || a.Type == assetTypeFilter) &&
+                    (assetStatusFilter == null || a.Status == assetStatusFilter))
+        .ToList() ?? new();
+
+    private List<ControlPointDto> filteredControlPoints => zone?.ControlPoints
+        .Where(cp => controlPointMeasurementTypeFilter == null || cp.MeasurementType == controlPointMeasurementTypeFilter)
+        .ToList() ?? new();
+
+    private void SetSubZoneTypeFilter(string? type)
+    {
+        subZoneTypeFilter = type;
+        StateHasChanged();
+    }
+
+    private void SetAssetTypeFilter(string? type)
+    {
+        assetTypeFilter = type;
+        StateHasChanged();
+    }
+
+    private void OnAssetTypeFilterChanged()
+    {
+        // Convert empty string to null for filtering
+        if (string.IsNullOrEmpty(assetTypeFilter))
+        {
+            assetTypeFilter = null;
+        }
+        StateHasChanged();
+    }
+
+    private void SetAssetStatusFilter(string? status)
+    {
+        assetStatusFilter = status;
+        StateHasChanged();
+    }
+
+    private void SetControlPointMeasurementTypeFilter(string? type)
+    {
+        controlPointMeasurementTypeFilter = type;
+        StateHasChanged();
+    }
+
+    private List<string> GetSubZoneTypes()
+    {
+        return zone?.SubZones
+            .Where(sz => !string.IsNullOrEmpty(sz.Type))
+            .Select(sz => sz.Type!)
+            .Distinct()
+            .OrderBy(t => t)
+            .ToList() ?? new();
+    }
+
+    private List<string> GetAssetTypes()
+    {
+        return zone?.Assets
+            .Select(a => a.Type)
+            .Distinct()
+            .OrderBy(t => t)
+            .ToList() ?? new();
+    }
+
+    private List<string> GetAssetStatuses()
+    {
+        return zone?.Assets
+            .Where(a => !string.IsNullOrEmpty(a.Status))
+            .Select(a => a.Status!)
+            .Distinct()
+            .OrderBy(s => s)
+            .ToList() ?? new();
+    }
+
+    private List<string> GetControlPointMeasurementTypes()
+    {
+        return zone?.ControlPoints
+            .Select(cp => cp.MeasurementType)
+            .Distinct()
+            .OrderBy(t => t)
+            .ToList() ?? new();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadZone();
+    }
+
+    private async Task LoadZone()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/zones/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                zone = await response.Content.ReadFromJsonAsync<ZoneDetailDto>();
+            }
+            else
+            {
+                errorMessage = $"Erreur {(int)response.StatusCode}: Zone introuvable";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private void EditZone()
+    {
+        Navigation.NavigateTo($"/zones/edit/{Id}");
+    }
+
+    private void ViewZone(Guid zoneId)
+    {
+        Navigation.NavigateTo($"/zones/{zoneId}");
+    }
+
+    private void CreateSubZone()
+    {
+        if (zone != null)
+        {
+            Navigation.NavigateTo($"/zones/create?siteId={zone.SiteId}&parentZoneId={Id}");
+        }
+    }
+
+    private void ManageAssets()
+    {
+        Navigation.NavigateTo("/equipment");
+    }
+
+    private void CreateAsset()
+    {
+        Navigation.NavigateTo($"/zones/{Id}/assets/create");
+    }
+
+    private void ViewAsset(Guid assetId)
+    {
+        // Redirection vers la page Equipment au lieu d'Assets
+        Navigation.NavigateTo($"/equipment");
+    }
+
+    private string GetTypeLabel(string? type)
+    {
+        return type switch
+        {
+            "BUILDING" => "Bâtiment",
+            "FLOOR" => "Étage",
+            "WING" => "Aile",
+            "AREA" => "Zone/Secteur",
+            "ROOM" => "Salle",
+            "CORRIDOR" => "Couloir",
+            "DEPARTMENT" => "Département",
+            "OTHER" => "Autre",
+            _ => type ?? ""
+        };
+    }
+
+    private string GetAssetTypeLabel(string type)
+    {
+        return type switch
+        {
+            // Types de CreateAsset.razor
+            "EXCHANGER" => "Échangeur",
+            "PUMP" => "Pompe",
+            "COMPRESSOR" => "Compresseur",
+            "VALVE" => "Vanne",
+            "MOTOR" => "Moteur",
+            "TANK" => "Réservoir",
+            "FILTER" => "Filtre",
+            "SENSOR" => "Capteur",
+            // Types génériques
+            "HVAC" => "CVC (Chauffage, Ventilation, Climatisation)",
+            "ELECTRICAL" => "Électrique",
+            "PLUMBING" => "Plomberie",
+            "ELEVATOR" => "Ascenseur",
+            "FIRE_SAFETY" => "Sécurité Incendie",
+            "SECURITY" => "Sécurité",
+            "IT" => "Informatique",
+            "LIGHTING" => "Éclairage",
+            "DOOR" => "Porte",
+            "WINDOW" => "Fenêtre",
+            "FURNITURE" => "Mobilier",
+            "MEDICAL" => "Médical",
+            "KITCHEN" => "Cuisine",
+            "CLEANING" => "Nettoyage",
+            "OTHER" => "Autre",
+            _ => type
+        };
+    }
+
+    private string GetAssetStatusLabel(string status)
+    {
+        return status switch
+        {
+            "OPERATIONAL" => "Opérationnel",
+            "UNDER_MAINTENANCE" => "En maintenance",
+            "OUT_OF_SERVICE" => "Hors service",
+            "RETIRED" => "Retiré",
+            _ => status
+        };
+    }
+
+    private class ZoneDetailDto
+    {
+        public Guid Id { get; set; }
+        public Guid SiteId { get; set; }
+        public string SiteName { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Type { get; set; }
+        public string? Description { get; set; }
+        public Guid? ParentZoneId { get; set; }
+        public string? ParentZoneName { get; set; }
+        public int Level { get; set; }
+        public bool IsActive { get; set; }
+        public List<SubZoneDto> SubZones { get; set; } = new();
+        public List<AssetDto> Assets { get; set; } = new();
+        public List<ControlPointDto> ControlPoints { get; set; } = new();
+    }
+
+    private class SubZoneDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Type { get; set; }
+    }
+
+    private class AssetDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string Type { get; set; } = "";
+        public string? Status { get; set; }
+    }
+
+    private class ControlPointDto
+    {
+        public Guid Id { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string MeasurementType { get; set; } = "";
+    }
+}

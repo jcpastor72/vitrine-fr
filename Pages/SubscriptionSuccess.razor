@@ -1,0 +1,269 @@
+@page "/subscription-success"
+@using LaborControl.Web.Services
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl mx-auto">
+        @if (isLoading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+                <p class="text-gray-600 text-lg mt-4">Vérification de votre abonnement...</p>
+            </div>
+        }
+        else if (subscriptionConfirmed)
+        {
+            <!-- Confirmation de succès -->
+            <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+                <!-- Header avec icône de succès -->
+                <div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white py-8 px-6 text-center">
+                    <div class="text-6xl mb-4">✓</div>
+                    <h1 class="text-3xl font-bold mb-2">Abonnement activé avec succès !</h1>
+                    <p class="text-green-100 text-lg">Bienvenue sur Labor Control @planName</p>
+                </div>
+
+                <!-- Détails de l'abonnement -->
+                <div class="p-8">
+                    <div class="mb-8">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                            <span class="mr-3">📋</span>
+                            Détails de votre abonnement
+                        </h2>
+
+                        <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 mb-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <div class="text-sm text-gray-600 mb-1">Forfait</div>
+                                    <div class="text-xl font-bold text-green-700">@planName</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-gray-600 mb-1">Facturation</div>
+                                    <div class="text-xl font-bold text-green-700">
+                                        @(billingPeriod == "annual" ? "Annuelle" : "Mensuelle")
+                                        @if (billingPeriod == "annual")
+                                        {
+                                            <span class="text-sm bg-green-200 text-green-800 px-2 py-1 rounded ml-2">-15%</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-gray-600 mb-1">Montant</div>
+                                    <div class="text-xl font-bold text-gray-900">
+                                        @string.Format("{0:F2}", monthlyAmount) € / @(billingPeriod == "annual" ? "an" : "mois")
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-gray-600 mb-1">Statut</div>
+                                    <div class="text-xl font-bold text-green-600">● Actif</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Avantages du forfait -->
+                        <div class="bg-gray-50 rounded-xl p-6 mb-6">
+                            <h3 class="font-semibold text-gray-900 mb-4">Votre forfait inclut :</h3>
+                            <div class="space-y-3">
+                                @if (planName == "Labor Control - Starter")
+                                {
+                                    <div class="flex items-center text-gray-700">
+                                        <span class="text-green-600 mr-3">✓</span>
+                                        <span>11 à 25 points de contrôle</span>
+                                    </div>
+                                    <div class="flex items-center text-gray-700">
+                                        <span class="text-green-600 mr-3">✓</span>
+                                        <span>Gestion des rondes</span>
+                                    </div>
+                                    <div class="flex items-center text-gray-700">
+                                        <span class="text-green-600 mr-3">✓</span>
+                                        <span>Rapports détaillés</span>
+                                    </div>
+                                    <div class="flex items-center text-gray-700">
+                                        <span class="text-green-600 mr-3">✓</span>
+                                        <span>Support email</span>
+                                    </div>
+                                }
+                                else if (planName == "Labor Control - Medium")
+                                {
+                                    <div class="flex items-center text-gray-700">
+                                        <span class="text-green-600 mr-3">✓</span>
+                                        <span>26 à 50 points de contrôle</span>
+                                    </div>
+                                    <div class="flex items-center text-gray-700">
+                                        <span class="text-green-600 mr-3">✓</span>
+                                        <span>Gestion des rondes avancée</span>
+                                    </div>
+                                    <div class="flex items-center text-gray-700">
+                                        <span class="text-green-600 mr-3">✓</span>
+                                        <span>Rapports personnalisés</span>
+                                    </div>
+                                    <div class="flex items-center text-gray-700">
+                                        <span class="text-green-600 mr-3">✓</span>
+                                        <span>Support prioritaire</span>
+                                    </div>
+                                    <div class="flex items-center text-gray-700">
+                                        <span class="text-green-600 mr-3">✓</span>
+                                        <span>API access</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Informations importantes -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <span class="text-2xl">ℹ️</span>
+                                </div>
+                                <div class="ml-3">
+                                    <h3 class="text-sm font-medium text-blue-800 mb-2">Informations importantes</h3>
+                                    <div class="text-sm text-blue-700 space-y-1">
+                                        <p>• Votre abonnement est actif immédiatement</p>
+                                        <p>• Un email de confirmation vous a été envoyé</p>
+                                        <p>• Le renouvellement est automatique</p>
+                                        <p>• Vous pouvez annuler à tout moment depuis votre espace client</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prochaines étapes -->
+                    <div class="border-t border-gray-200 pt-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Prochaines étapes</h3>
+                        <div class="space-y-3 mb-6">
+                            <div class="flex items-start">
+                                <span class="flex-shrink-0 w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold mr-3">1</span>
+                                <div>
+                                    <div class="font-semibold text-gray-900">Configurez vos points de contrôle</div>
+                                    <div class="text-sm text-gray-600">Ajoutez et organisez vos points de contrôle dans l'application</div>
+                                </div>
+                            </div>
+                            <div class="flex items-start">
+                                <span class="flex-shrink-0 w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold mr-3">2</span>
+                                <div>
+                                    <div class="font-semibold text-gray-900">Créez vos rondes</div>
+                                    <div class="text-sm text-gray-600">Définissez les parcours et fréquences de contrôle</div>
+                                </div>
+                            </div>
+                            <div class="flex items-start">
+                                <span class="flex-shrink-0 w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold mr-3">3</span>
+                                <div>
+                                    <div class="font-semibold text-gray-900">Commencez à contrôler</div>
+                                    <div class="text-sm text-gray-600">Utilisez l'application mobile pour scanner vos puces NFC</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Boutons d'action -->
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <button @onclick="GoToDashboard"
+                                    class="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl">
+                                🏠 Retour au tableau de bord
+                            </button>
+                            <button @onclick="GoToCatalog"
+                                    class="flex-1 bg-white text-gray-700 py-3 px-6 rounded-lg font-semibold border-2 border-gray-300 hover:border-green-500 hover:text-green-600 transition-all duration-300">
+                                🛒 Voir le catalogue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Support -->
+            <div class="mt-8 text-center text-gray-600">
+                <p class="text-sm">
+                    Besoin d'aide ? Contactez notre support à
+                    <a href="mailto:support@laborcontrol.fr" class="text-green-600 hover:text-green-700 font-semibold">support@laborcontrol.fr</a>
+                </p>
+            </div>
+        }
+        else
+        {
+            <!-- Erreur -->
+            <div class="bg-white rounded-2xl shadow-2xl p-8 text-center">
+                <div class="text-6xl mb-4">⚠️</div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-4">Erreur de vérification</h1>
+                <p class="text-gray-600 mb-6">
+                    Nous n'avons pas pu confirmer votre abonnement. Veuillez réessayer ou contacter le support.
+                </p>
+                <button @onclick="GoToDashboard"
+                        class="bg-gray-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-gray-700 transition-all duration-300">
+                    Retour au tableau de bord
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "session_id")]
+    public string? SessionId { get; set; }
+
+    private bool isLoading = true;
+    private bool subscriptionConfirmed = false;
+    private string planName = "";
+    private string billingPeriod = "";
+    private decimal monthlyAmount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(SessionId))
+        {
+            await VerifySubscription();
+        }
+        else
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task VerifySubscription()
+    {
+        try
+        {
+            // Simuler une vérification (en production, vous appelleriez votre API)
+            await Task.Delay(1500);
+
+            // Pour le moment, on considère que l'abonnement est confirmé
+            // car Stripe a déjà traité le paiement
+            subscriptionConfirmed = true;
+
+            // Récupérer les informations depuis l'URL ou le session storage
+            var uri = new Uri(Navigation.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+            // Ces informations devraient être récupérées depuis votre API en production
+            // Pour le moment, on utilise des valeurs par défaut
+            planName = "Labor Control - Starter"; // ou Medium
+            billingPeriod = "monthly"; // ou annual
+            monthlyAmount = 49.00m; // à calculer selon le plan
+        }
+        catch (Exception ex)
+        {
+            subscriptionConfirmed = false;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private void GoToCatalog()
+    {
+        Navigation.NavigateTo("/catalog");
+    }
+}

@@ -1,0 +1,288 @@
+@page "/controlpoints"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>Points de Contrôle - LABOR CONTROL</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8 px-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="GoBack"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h1 class="lc-heading-1">Points de Contrôle</h1>
+                    <p class="lc-text-muted mt-1">Gérez vos points de contrôle et affectez vos puces RFID</p>
+                </div>
+                <div class="flex gap-3 flex-wrap">
+                    <button @onclick="NavigateToCreate"
+                            class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Nouveau Point de Contrôle
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="flex justify-center items-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                ⚠️ @errorMessage
+            </div>
+        }
+        else
+        {
+            <!-- Liste des points de contrôle -->
+            <div class="grid md:grid-cols-2 gap-6">
+                @foreach (var cp in controlPoints)
+                {
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
+                        <div class="p-6">
+                            <!-- En-tête -->
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="flex-1">
+                                    <h3 class="text-xl font-bold text-gray-900 mb-1">@cp.Name</h3>
+                                    <p class="text-sm text-gray-500 font-mono">@cp.Code</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @onclick="() => NavigateToEdit(cp.Id)"
+                                            class="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                        </svg>
+                                    </button>
+                                    <button @onclick="() => DeleteControlPoint(cp.Id)"
+                                            class="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Description -->
+                            @if (!string.IsNullOrEmpty(cp.Description))
+                            {
+                                <p class="text-gray-600 text-sm mb-4">@cp.Description</p>
+                            }
+
+                            <!-- Détails -->
+                            <div class="space-y-2 text-sm">
+                                <!-- Localisation -->
+                                @if (!string.IsNullOrEmpty(cp.ZoneName))
+                                {
+                                    <div class="flex items-center gap-2">
+                                        <div class="flex items-center gap-1 text-gray-500">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            </svg>
+                                            <span>Zone:</span>
+                                        </div>
+                                        <span class="font-semibold text-gray-900">@cp.ZoneName</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(cp.AssetName))
+                                {
+                                    <div class="flex items-center gap-2">
+                                        <div class="flex items-center gap-1 text-gray-500">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            </svg>
+                                            <span>Équipement:</span>
+                                        </div>
+                                        <span class="font-semibold text-gray-900">@cp.AssetName</span>
+                                    </div>
+                                }
+
+                                <!-- Type de mesure -->
+                                @if (!string.IsNullOrEmpty(cp.MeasurementType))
+                                {
+                                    <div class="flex items-center gap-2">
+                                        <div class="flex items-center gap-1 text-gray-500">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                            </svg>
+                                            <span>Type:</span>
+                                        </div>
+                                        <span class="text-gray-700">@cp.MeasurementType</span>
+                                    </div>
+                                }
+
+                                <!-- Puce RFID affectée -->
+                                <div class="mt-4 pt-4 border-t border-gray-200">
+                                    @if (!string.IsNullOrEmpty(cp.RfidChipCode))
+                                    {
+                                        <div class="flex items-center gap-2 text-green-600">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            <span>Puce affectée:</span>
+                                            <span class="font-mono font-bold">@cp.RfidChipCode</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="flex items-center gap-2 text-orange-600">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            <span>Aucune puce affectée</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            Utilisez l'application mobile pour scanner et affecter une puce
+                                        </p>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (controlPoints.Count == 0)
+            {
+                <div class="text-center py-12 bg-white rounded-xl shadow-lg">
+                    <div class="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Aucun point de contrôle</h3>
+                    <p class="text-gray-600 mb-6">Créez votre premier point de contrôle pour commencer</p>
+                    <button @onclick="NavigateToCreate"
+                            class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Créer un point de contrôle
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private List<ControlPointItem> controlPoints = new();
+    private bool isLoading = true;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadControlPoints();
+    }
+
+    private async Task LoadControlPoints()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = "";
+
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            token = token.Trim('"');
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            controlPoints = await Http.GetFromJsonAsync<List<ControlPointItem>>("api/controlpoints") ?? new();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur lors du chargement : {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private void NavigateToCreate()
+    {
+        Navigation.NavigateTo("/controlpoints/create");
+    }
+
+    private void NavigateToEdit(Guid id)
+    {
+        Navigation.NavigateTo($"/controlpoints/edit/{id}");
+    }
+
+    private async Task DeleteControlPoint(Guid id)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Êtes-vous sûr de vouloir supprimer ce point de contrôle ?");
+        if (!confirmed) return;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+                Http.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            }
+
+            var response = await Http.DeleteAsync($"api/controlpoints/{id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadControlPoints();
+            }
+            else
+            {
+                errorMessage = "Erreur lors de la suppression";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+    }
+
+    private class ControlPointItem
+    {
+        public Guid Id { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string LocationDescription { get; set; } = "";
+        public string MeasurementType { get; set; } = "";
+        public Guid? RfidChipId { get; set; }
+        public string? RfidChipCode { get; set; }
+        public Guid? ZoneId { get; set; }
+        public string? ZoneName { get; set; }
+        public Guid? AssetId { get; set; }
+        public string? AssetName { get; set; }
+    }
+}

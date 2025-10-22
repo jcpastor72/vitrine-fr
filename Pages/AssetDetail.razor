@@ -1,0 +1,899 @@
+@page "/assets/{id:guid}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Détail de l'équipement - Labor Control</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-7xl mx-auto px-4">
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                <p class="text-red-700">@errorMessage</p>
+            </div>
+        }
+        else if (asset != null)
+        {
+            <!-- Header -->
+            <div class="mb-6">
+                <button @onclick="GoBack"
+                        class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Retour
+                </button>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h1 class="lc-heading-1">@asset.Name</h1>
+                        <div class="flex items-center gap-3 mt-2">
+                            @if (!string.IsNullOrEmpty(asset.Code))
+                            {
+                                <p class="lc-text-muted">Code: @asset.Code</p>
+                            }
+                            @if (!string.IsNullOrEmpty(asset.Type))
+                            {
+                                <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">@GetTypeLabel(asset.Type)</span>
+                            }
+                            @if (!string.IsNullOrEmpty(asset.Category))
+                            {
+                                <span class="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full">@GetCategoryLabel(asset.Category)</span>
+                            }
+                            @if (!string.IsNullOrEmpty(asset.Status))
+                            {
+                                <span class="px-3 py-1 @GetStatusColor(asset.Status) text-sm rounded-full">@GetStatusLabel(asset.Status)</span>
+                            }
+                            @if (!asset.IsActive)
+                            {
+                                <span class="px-3 py-1 bg-red-100 text-red-800 text-sm rounded-full">Inactif</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button @onclick="EditAsset"
+                                class="lc-btn lc-btn-secondary inline-flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Modifier
+                        </button>
+                        <button @onclick="DeleteAsset"
+                                class="px-4 py-2 bg-red-50 text-red-600 rounded-lg font-medium hover:bg-red-100 transition inline-flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Supprimer
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations générales -->
+            <div class="lc-card mb-6">
+                <h2 class="lc-heading-3 mb-4">Informations générales</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-sm lc-text-muted mb-1">Zone</p>
+                        <p class="text-gray-900 font-medium">@asset.ZoneName</p>
+                    </div>
+
+                    @if (asset.ParentAssetName != null)
+                    {
+                        <div>
+                            <p class="text-sm lc-text-muted mb-1">Équipement parent</p>
+                            <p class="text-gray-900 font-medium">@asset.ParentAssetName</p>
+                        </div>
+                    }
+
+                    <div>
+                        <p class="text-sm lc-text-muted mb-1">Niveau hiérarchique</p>
+                        <p class="text-gray-900 font-medium">Niveau @asset.Level</p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(asset.Manufacturer))
+                    {
+                        <div>
+                            <p class="text-sm lc-text-muted mb-1">Fabricant</p>
+                            <p class="text-gray-900 font-medium">@asset.Manufacturer</p>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(asset.Model))
+                    {
+                        <div>
+                            <p class="text-sm lc-text-muted mb-1">Modèle</p>
+                            <p class="text-gray-900 font-medium">@asset.Model</p>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(asset.SerialNumber))
+                    {
+                        <div>
+                            <p class="text-sm lc-text-muted mb-1">Numéro de série</p>
+                            <p class="text-gray-900 font-medium">@asset.SerialNumber</p>
+                        </div>
+                    }
+
+                    @if (asset.InstallationDate.HasValue)
+                    {
+                        <div>
+                            <p class="text-sm lc-text-muted mb-1">Date d'installation</p>
+                            <p class="text-gray-900 font-medium">@asset.InstallationDate.Value.ToString("dd/MM/yyyy")</p>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Composants -->
+            <div class="lc-card mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="lc-heading-3">Composants (@asset.SubAssets.Count)</h2>
+                    <button @onclick="CreateSubAsset"
+                            class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Ajouter un composant
+                    </button>
+                </div>
+
+                @if (asset.SubAssets.Count == 0)
+                {
+                    <div class="text-center py-8 bg-gray-50 rounded-lg">
+                        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                        <p class="lc-text-muted">Aucun composant</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach (var subAsset in asset.SubAssets)
+                        {
+                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                                 @onclick="() => ViewAsset(subAsset.Id)">
+                                <h3 class="font-bold text-gray-900">@subAsset.Name</h3>
+                                @if (!string.IsNullOrEmpty(subAsset.Code))
+                                {
+                                    <p class="text-sm text-gray-600">Code: @subAsset.Code</p>
+                                }
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">@subAsset.Type</span>
+                                    @if (!string.IsNullOrEmpty(subAsset.Status))
+                                    {
+                                        <span class="px-2 py-1 @GetStatusColor(subAsset.Status) text-xs rounded">@GetStatusLabel(subAsset.Status)</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Gammes de maintenance -->
+            <div class="lc-card mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="lc-heading-3">Gammes de maintenance (@maintenanceSchedules.Count)</h2>
+                    <button @onclick="CreateMaintenanceSchedule"
+                            class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Créer une gamme de maintenance
+                    </button>
+                </div>
+
+                @if (loadingMaintenanceSchedules)
+                {
+                    <div class="text-center py-4">
+                        <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                        <p class="mt-2 text-sm lc-text-muted">Chargement des gammes de maintenance...</p>
+                    </div>
+                }
+                else if (maintenanceSchedules.Count == 0)
+                {
+                    <div class="text-center py-8 bg-gray-50 rounded-lg">
+                        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v1a2 2 0 002 2h2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v1a2 2 0 01-2 2H9V9z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4" />
+                            </svg>
+                        </div>
+                        <p class="lc-text-muted">Aucune gamme de maintenance configurée</p>
+                        <p class="text-sm lc-text-muted mt-2">Créez une gamme pour planifier la maintenance de cet équipement</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="space-y-4">
+                        @foreach (var schedule in maintenanceSchedules)
+                        {
+                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                                 @onclick="() => ViewMaintenanceSchedule(schedule.Id)">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-3 mb-2">
+                                            <h3 class="font-bold text-gray-900">@schedule.Name</h3>
+                                            <span class="px-2 py-1 @GetMaintenanceTypeColor(schedule.Type) text-xs rounded-full">
+                                                @GetMaintenanceTypeLabel(schedule.Type)
+                                            </span>
+                                            <span class="px-2 py-1 @GetMaintenancePriorityColor(schedule.Priority) text-xs rounded-full">
+                                                @GetMaintenancePriorityLabel(schedule.Priority)
+                                            </span>
+                                            <span class="px-2 py-1 @GetMaintenanceStatusColor(schedule.Status) text-xs rounded-full">
+                                                @GetMaintenanceStatusLabel(schedule.Status)
+                                            </span>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(schedule.Description))
+                                        {
+                                            <p class="text-sm text-gray-600 mb-2">@schedule.Description</p>
+                                        }
+                                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                            <div>
+                                                <span class="lc-text-muted">Fréquence:</span>
+                                                <p class="font-medium">@GetFrequencyLabel(schedule.Frequency) (@schedule.Interval)</p>
+                                            </div>
+                                            <div>
+                                                <span class="lc-text-muted">Durée estimée:</span>
+                                                <p class="font-medium">@schedule.EstimatedDurationMinutes min</p>
+                                            </div>
+                                            @if (schedule.NextMaintenanceDate.HasValue)
+                                            {
+                                                <div>
+                                                    <span class="lc-text-muted">Prochaine maintenance:</span>
+                                                    <p class="font-medium @GetNextMaintenanceDateColor(schedule.NextMaintenanceDate.Value)">
+                                                        @schedule.NextMaintenanceDate.Value.ToString("dd/MM/yyyy")
+                                                    </p>
+                                                </div>
+                                            }
+                                            @if (schedule.LastMaintenanceDate.HasValue)
+                                            {
+                                                <div>
+                                                    <span class="lc-text-muted">Dernière maintenance:</span>
+                                                    <p class="font-medium">@schedule.LastMaintenanceDate.Value.ToString("dd/MM/yyyy")</p>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="ml-4">
+                                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Points de contrôle -->
+            <div class="lc-card">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="lc-heading-3">Points de contrôle NFC (@asset.ControlPoints.Count)</h2>
+                    <button @onclick="CreateControlPoint"
+                            class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Ajouter un point de contrôle
+                    </button>
+                </div>
+
+                @if (asset.ControlPoints.Count == 0)
+                {
+                    <div class="text-center py-8 bg-gray-50 rounded-lg">
+                        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                        <p class="lc-text-muted">Aucun point de contrôle</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="space-y-3">
+                        @foreach (var cp in asset.ControlPoints)
+                        {
+                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                                 @onclick="() => ViewControlPoint(cp.Id)">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="font-bold text-gray-900">@cp.Name</h3>
+                                        <p class="text-sm text-gray-600">Code: @cp.Code</p>
+                                    </div>
+                                    <span class="px-3 py-1 bg-indigo-100 text-indigo-800 text-sm rounded">@cp.MeasurementType</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal d'avertissement -->
+@if (showWarningModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseWarningModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full" @onclick:stopPropagation>
+            <!-- Header -->
+            <div class="bg-orange-500 p-6 rounded-t-xl">
+                <h3 class="text-xl font-bold text-white">Attention !</h3>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                <p class="text-gray-900">@warningMessage</p>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-end">
+                <button @onclick="CloseWarningModal" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal d'information -->
+@if (showInfoModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseInfoModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full" @onclick:stopPropagation>
+            <!-- Header -->
+            <div class="bg-blue-600 p-6 rounded-t-xl">
+                <h3 class="text-xl font-bold text-white">INFORMATION</h3>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                <p class="text-gray-900">@infoMessage</p>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-end">
+                <button @onclick="CloseInfoModal" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                    J'ai compris
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de confirmation de suppression -->
+@if (showDeleteModal && asset != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseDeleteModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full" @onclick:stopPropagation>
+            <!-- Header -->
+            <div class="bg-red-600 p-6 rounded-t-xl">
+                <h3 class="text-xl font-bold text-white">Confirmation ?</h3>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                <p class="text-gray-900 mb-4">
+                    Vous êtes sur le point de supprimer l'équipement <strong>@asset.Name</strong> !
+                </p>
+                <p class="text-gray-900 mb-4">
+                    Cette action est irréversible.
+                </p>
+                <p class="text-gray-900">
+                    Si des opérations de maintenance ont été réalisées celui-ci sera désactivé et conservé en archives.
+                </p>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-end space-x-3">
+                <button @onclick="CloseDeleteModal" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium">
+                    Annuler
+                </button>
+                <button @onclick="ConfirmDeleteAsset" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium">
+                    Supprimer
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private AssetDetailDto? asset;
+    private bool loading = true;
+    private string errorMessage = "";
+    private List<MaintenanceScheduleDto> maintenanceSchedules = new();
+    private bool loadingMaintenanceSchedules = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsset();
+        await LoadMaintenanceSchedules();
+    }
+
+    private async Task LoadAsset()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/assets/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                asset = await response.Content.ReadFromJsonAsync<AssetDetailDto>();
+            }
+            else
+            {
+                errorMessage = $"Erreur {(int)response.StatusCode}: Équipement introuvable";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task LoadMaintenanceSchedules()
+    {
+        loadingMaintenanceSchedules = true;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/maintenanceschedules/asset/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                maintenanceSchedules = await response.Content.ReadFromJsonAsync<List<MaintenanceScheduleDto>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Erreur silencieuse pour les gammes de maintenance
+            Console.WriteLine($"Erreur lors du chargement des gammes de maintenance: {ex.Message}");
+        }
+        finally
+        {
+            loadingMaintenanceSchedules = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private void EditAsset()
+    {
+        Navigation.NavigateTo($"/assets/edit/{Id}");
+    }
+
+    private bool showDeleteModal = false;
+    private bool showWarningModal = false;
+    private bool showInfoModal = false;
+    private string warningMessage = "";
+    private string infoMessage = "";
+
+    private void DeleteAsset()
+    {
+        if (asset == null) return;
+
+        // Vérifier s'il y a des points de contrôle
+        if (asset.ControlPoints.Count > 0)
+        {
+            warningMessage = $"Impossible de supprimer cet équipement car il possède {asset.ControlPoints.Count} point(s) de contrôle. Veuillez d'abord supprimer les points de contrôle associés.";
+            showWarningModal = true;
+            return;
+        }
+
+        // Vérifier s'il y a des composants enfants
+        if (asset.SubAssets.Count > 0)
+        {
+            warningMessage = $"Impossible de supprimer cet équipement car il possède {asset.SubAssets.Count} composant(s). Veuillez d'abord supprimer les composants associés.";
+            showWarningModal = true;
+            return;
+        }
+
+        // Si pas de points de contrôle ni de composants, afficher le modal de confirmation
+        showDeleteModal = true;
+    }
+
+    private void CloseDeleteModal()
+    {
+        showDeleteModal = false;
+    }
+
+    private void CloseWarningModal()
+    {
+        showWarningModal = false;
+        warningMessage = "";
+    }
+
+    private void CloseInfoModal()
+    {
+        showInfoModal = false;
+        infoMessage = "";
+        // Rediriger après fermeture du modal d'information
+        if (asset != null)
+        {
+            Navigation.NavigateTo($"/zones/{asset.ZoneId}/assets");
+        }
+    }
+
+    private async Task ConfirmDeleteAsset()
+    {
+        if (asset == null) return;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            // 1. Récupérer le nombre de tâches planifiées pour cet équipement
+            var tasksResponse = await Http.GetAsync($"api/assets/{Id}/scheduled-tasks");
+            int scheduledTasksCount = 0;
+            if (tasksResponse.IsSuccessStatusCode)
+            {
+                var tasks = await tasksResponse.Content.ReadFromJsonAsync<List<ScheduledTaskDto>>();
+                scheduledTasksCount = tasks?.Count ?? 0;
+            }
+
+            // 2. Vérifier s'il y a des opérations de maintenance réalisées
+            var executionsResponse = await Http.GetAsync($"api/assets/{Id}/task-executions");
+            bool hasExecutions = false;
+            if (executionsResponse.IsSuccessStatusCode)
+            {
+                var executions = await executionsResponse.Content.ReadFromJsonAsync<List<TaskExecutionDto>>();
+                hasExecutions = executions?.Any() ?? false;
+            }
+
+            // 3. Supprimer les tâches planifiées si elles existent
+            if (scheduledTasksCount > 0)
+            {
+                var deleteTasksResponse = await Http.DeleteAsync($"api/assets/{Id}/scheduled-tasks");
+                if (!deleteTasksResponse.IsSuccessStatusCode)
+                {
+                    errorMessage = "Erreur lors de la suppression des tâches planifiées";
+                    CloseDeleteModal();
+                    return;
+                }
+            }
+
+            // 4. Supprimer ou archiver l'équipement
+            var response = await Http.DeleteAsync($"api/assets/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                CloseDeleteModal();
+
+                // Déterminer si l'équipement a été archivé ou supprimé
+                string action = hasExecutions ? "archivé" : "supprimé";
+
+                // Construire le message d'information
+                if (scheduledTasksCount > 0)
+                {
+                    infoMessage = $"Équipement {asset.Name} {action} ! {scheduledTasksCount} opération(s) planifiée(s) pour cet équipement supprimée(s) et journalisée(s) !";
+                }
+                else
+                {
+                    infoMessage = $"Équipement {asset.Name} {action} avec succès !";
+                }
+
+                showInfoModal = true;
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la suppression : {errorContent}";
+                CloseDeleteModal();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+            CloseDeleteModal();
+        }
+    }
+
+    private class ScheduledTaskDto
+    {
+        public Guid Id { get; set; }
+    }
+
+    private class TaskExecutionDto
+    {
+        public Guid Id { get; set; }
+    }
+
+    private void ViewAsset(Guid assetId)
+    {
+        Navigation.NavigateTo($"/assets/{assetId}");
+    }
+
+    private void CreateSubAsset()
+    {
+        if (asset != null)
+        {
+            Navigation.NavigateTo($"/zones/{asset.ZoneId}/assets/create?parentAssetId={Id}");
+        }
+    }
+
+    private void CreateControlPoint()
+    {
+        Navigation.NavigateTo($"/assets/{Id}/control-points/create");
+    }
+
+    private void ViewControlPoint(Guid controlPointId)
+    {
+        Navigation.NavigateTo($"/controlpoints/edit/{controlPointId}");
+    }
+
+    private void CreateMaintenanceSchedule()
+    {
+        Navigation.NavigateTo($"/assets/{Id}/maintenance/create");
+    }
+
+    private void ViewMaintenanceSchedule(Guid scheduleId)
+    {
+        Navigation.NavigateTo($"/maintenance/{scheduleId}");
+    }
+
+    private string GetTypeLabel(string? type)
+    {
+        return type switch
+        {
+            "EXCHANGER" => "Échangeur",
+            "PUMP" => "Pompe",
+            "COMPRESSOR" => "Compresseur",
+            "VALVE" => "Vanne",
+            "MOTOR" => "Moteur",
+            "TANK" => "Réservoir",
+            "FILTER" => "Filtre",
+            "SENSOR" => "Capteur",
+            "OTHER" => "Autre",
+            _ => type ?? ""
+        };
+    }
+
+    private string GetCategoryLabel(string? category)
+    {
+        return category switch
+        {
+            "CRITICAL" => "Critique",
+            "STANDARD" => "Standard",
+            "SAFETY" => "Sécurité",
+            _ => category ?? ""
+        };
+    }
+
+    private string GetStatusLabel(string? status)
+    {
+        return status switch
+        {
+            "OPERATIONAL" => "Opérationnel",
+            "MAINTENANCE" => "En maintenance",
+            "STOPPED" => "Arrêté",
+            _ => status ?? ""
+        };
+    }
+
+    private string GetStatusColor(string? status)
+    {
+        return status?.ToUpper() switch
+        {
+            "OPERATIONAL" => "bg-green-100 text-green-800",
+            "MAINTENANCE" => "bg-yellow-100 text-yellow-800",
+            "STOPPED" => "bg-red-100 text-red-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+
+    private string GetMaintenanceTypeLabel(string? type)
+    {
+        return type switch
+        {
+            "PREVENTIVE" => "Préventive",
+            "CORRECTIVE" => "Corrective",
+            "PREDICTIVE" => "Prédictive",
+            _ => type ?? ""
+        };
+    }
+
+    private string GetMaintenanceTypeColor(string? type)
+    {
+        return type?.ToUpper() switch
+        {
+            "PREVENTIVE" => "bg-blue-100 text-blue-800",
+            "CORRECTIVE" => "bg-red-100 text-red-800",
+            "PREDICTIVE" => "bg-purple-100 text-purple-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+
+    private string GetMaintenancePriorityLabel(string? priority)
+    {
+        return priority switch
+        {
+            "CRITICAL" => "Critique",
+            "HIGH" => "Haute",
+            "NORMAL" => "Normale",
+            "LOW" => "Basse",
+            _ => priority ?? ""
+        };
+    }
+
+    private string GetMaintenancePriorityColor(string? priority)
+    {
+        return priority?.ToUpper() switch
+        {
+            "CRITICAL" => "bg-red-100 text-red-800",
+            "HIGH" => "bg-orange-100 text-orange-800",
+            "NORMAL" => "bg-green-100 text-green-800",
+            "LOW" => "bg-gray-100 text-gray-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+
+    private string GetMaintenanceStatusLabel(string? status)
+    {
+        return status switch
+        {
+            "ACTIVE" => "Active",
+            "INACTIVE" => "Inactive",
+            "DRAFT" => "Brouillon",
+            _ => status ?? ""
+        };
+    }
+
+    private string GetMaintenanceStatusColor(string? status)
+    {
+        return status?.ToUpper() switch
+        {
+            "ACTIVE" => "bg-green-100 text-green-800",
+            "INACTIVE" => "bg-gray-100 text-gray-800",
+            "DRAFT" => "bg-yellow-100 text-yellow-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+
+    private string GetFrequencyLabel(string? frequency)
+    {
+        return frequency switch
+        {
+            "DAILY" => "Quotidienne",
+            "WEEKLY" => "Hebdomadaire",
+            "MONTHLY" => "Mensuelle",
+            "QUARTERLY" => "Trimestrielle",
+            "YEARLY" => "Annuelle",
+            _ => frequency ?? ""
+        };
+    }
+
+    private string GetNextMaintenanceDateColor(DateTime nextDate)
+    {
+        var daysUntil = (nextDate - DateTime.Now).TotalDays;
+
+        if (daysUntil < 0)
+            return "text-red-600"; // En retard
+        else if (daysUntil <= 7)
+            return "text-orange-600"; // Urgent (dans la semaine)
+        else if (daysUntil <= 30)
+            return "text-yellow-600"; // Attention (dans le mois)
+        else
+            return "text-green-600"; // Normal
+    }
+
+    private class AssetDetailDto
+    {
+        public Guid Id { get; set; }
+        public Guid ZoneId { get; set; }
+        public string ZoneName { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string Type { get; set; } = "";
+        public string? Category { get; set; }
+        public string? Status { get; set; }
+        public Guid? ParentAssetId { get; set; }
+        public string? ParentAssetName { get; set; }
+        public int Level { get; set; }
+        public string? Manufacturer { get; set; }
+        public string? Model { get; set; }
+        public string? SerialNumber { get; set; }
+        public DateTime? InstallationDate { get; set; }
+        public bool IsActive { get; set; }
+        public List<SubAssetDto> SubAssets { get; set; } = new();
+        public List<ControlPointDto> ControlPoints { get; set; } = new();
+    }
+
+    private class SubAssetDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string Type { get; set; } = "";
+        public string? Status { get; set; }
+    }
+
+    private class ControlPointDto
+    {
+        public Guid Id { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string MeasurementType { get; set; } = "";
+    }
+
+    private class MaintenanceScheduleDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string Type { get; set; } = "";
+        public string Priority { get; set; } = "";
+        public string Frequency { get; set; } = "";
+        public int Interval { get; set; }
+        public int EstimatedDurationMinutes { get; set; }
+        public string Status { get; set; } = "";
+        public DateTime? NextMaintenanceDate { get; set; }
+        public DateTime? LastMaintenanceDate { get; set; }
+    }
+}

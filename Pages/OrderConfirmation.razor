@@ -1,0 +1,198 @@
+@page "/order-confirmation"
+@using LaborControl.Web.Services
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+
+<div class="min-h-screen bg-gradient-to-br from-green-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl mx-auto">
+        @if (isLoading)
+        {
+            <div class="bg-white rounded-xl shadow-2xl p-12 text-center">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto"></div>
+                <p class="mt-4 text-gray-600">Chargement des détails de votre commande...</p>
+            </div>
+        }
+        else if (order != null)
+        {
+            <div class="bg-white rounded-xl shadow-2xl overflow-hidden">
+                <!-- Header Success -->
+                <div class="bg-green-500 px-6 py-8 text-center">
+                    <div class="text-6xl mb-4">✅</div>
+                    <h1 class="text-3xl font-bold text-white">
+                        Commande confirmée !
+                    </h1>
+                    <p class="mt-2 text-green-100 text-lg">
+                        Numéro de commande : <strong>@order.OrderNumber</strong>
+                    </p>
+                </div>
+
+                <!-- Détails commande -->
+                <div class="p-8">
+                    <div class="mb-8">
+                        <h2 class="text-2xl font-semibold text-gray-900 mb-4">Merci pour votre commande !</h2>
+                        <p class="text-gray-600">
+                            Nous avons bien reçu votre commande de <strong>@order.ChipsQuantity puces NFC</strong>. 
+                            Vos puces seront expédiées sous 48 heures ouvrées.
+                        </p>
+                    </div>
+
+                    <!-- Informations livraison -->
+                    <div class="bg-gray-50 rounded-lg p-6 mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">📦 Adresse de livraison</h3>
+                        <div class="text-gray-700">
+                            <p>@order.DeliveryAddress</p>
+                            <p>@order.DeliveryPostalCode @order.DeliveryCity</p>
+                            <p>@order.DeliveryCountry</p>
+                        </div>
+                    </div>
+
+                    <!-- Résumé produits -->
+                    <div class="bg-gray-50 rounded-lg p-6 mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">🏷️ Détails de la commande</h3>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-700">@order.ChipsQuantity puces NFC NTAG213</span>
+                            <span class="text-gray-900 font-semibold">GRATUIT</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm text-gray-600">
+                            <span>Livraison standard</span>
+                            <span>Offert</span>
+                        </div>
+                        <div class="border-t border-gray-300 mt-3 pt-3 flex justify-between items-center">
+                            <span class="text-lg font-bold text-gray-900">Total</span>
+                            <span class="text-2xl font-bold text-green-600">0,00 €</span>
+                        </div>
+                    </div>
+
+                    <!-- Prochaines étapes -->
+                    <div class="bg-indigo-50 rounded-lg p-6 mb-6">
+                        <h3 class="text-lg font-semibold text-indigo-900 mb-3">📋 Prochaines étapes</h3>
+                        <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                            <li>Vous recevrez un <strong>email de confirmation</strong> dans quelques minutes</li>
+                            <li>Vos puces seront <strong>expédiées sous 48h</strong> (hors week-end)</li>
+                            <li>Vous recevrez le <strong>numéro de suivi</strong> par email</li>
+                            <li>À réception, connectez-vous à votre <strong>interface d'administration</strong> pour enregistrer vos puces</li>
+                        </ol>
+                    </div>
+
+                    <!-- Aide -->
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-yellow-700">
+                                    <strong>Besoin d'aide ?</strong> Notre équipe est disponible pour vous accompagner dans la configuration de vos puces.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button @onclick="GoToDashboard"
+                                class="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-md font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            🏠 Accéder à mon espace
+                        </button>
+                        <button @onclick="DownloadInvoice"
+                                class="flex-1 bg-white text-indigo-600 border-2 border-indigo-600 px-6 py-3 rounded-md font-medium hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            📄 Télécharger la confirmation
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="bg-white rounded-xl shadow-2xl p-12 text-center">
+                <div class="text-6xl mb-4">❌</div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Commande introuvable</h2>
+                <p class="text-gray-600 mb-6">Nous n'avons pas pu retrouver les détails de votre commande.</p>
+                <button @onclick='() => Navigation.NavigateTo("/")'
+                        class="bg-indigo-600 text-white px-6 py-3 rounded-md font-medium hover:bg-indigo-700">
+                    Retour à l'accueil
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private bool isLoading = true;
+    private OrderDetails? order;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Récupérer l'ID de la dernière commande
+            var orderIdStr = await LocalStorage.GetItemAsync<string>("lastOrderId");
+            
+            if (string.IsNullOrEmpty(orderIdStr))
+            {
+                isLoading = false;
+                return;
+            }
+
+            // Récupérer le token
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            // Récupérer les détails de la commande
+            Http.DefaultRequestHeaders.Authorization = 
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync($"api/orders/{orderIdStr}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                order = await response.Content.ReadFromJsonAsync<OrderDetails>();
+            }
+
+            // Nettoyer le localStorage
+            await LocalStorage.RemoveItemAsync("lastOrderId");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur : {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private void DownloadInvoice()
+    {
+        // TODO: Implémenter le téléchargement du PDF de confirmation
+        // Pour l'instant, on peut rediriger vers l'API qui génère le PDF
+        Navigation.NavigateTo($"/api/orders/{order?.Id}/invoice", forceLoad: true);
+    }
+
+    private class OrderDetails
+    {
+        public Guid Id { get; set; }
+        public string OrderNumber { get; set; } = "";
+        public int ChipsQuantity { get; set; }
+        public decimal TotalAmount { get; set; }
+        public string Status { get; set; } = "";
+        public string DeliveryAddress { get; set; } = "";
+        public string DeliveryCity { get; set; } = "";
+        public string DeliveryPostalCode { get; set; } = "";
+        public string DeliveryCountry { get; set; } = "";
+        public DateTime CreatedAt { get; set; }
+    }
+}

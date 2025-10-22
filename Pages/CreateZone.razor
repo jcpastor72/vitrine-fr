@@ -1,0 +1,442 @@
+@page "/zones/create"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Créer une zone - Labor Control</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-3xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <button @onclick="GoBack"
+                    class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-md mb-4">
+                ← Retour aux zones
+            </button>
+            <h1 class="text-3xl font-bold text-gray-900">Créer une zone</h1>
+            <p class="text-gray-600 mt-2">Ajoutez une nouvelle zone à votre site</p>
+        </div>
+
+        <!-- Formulaire -->
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                    <p class="text-red-700">@errorMessage</p>
+                </div>
+            }
+
+            <form @onsubmit="HandleSubmit">
+                <!-- Site parent -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Site parent <span class="text-red-500">*</span>
+                    </label>
+                    @if (loadingSites)
+                    {
+                        <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                            Chargement des sites...
+                        </div>
+                    }
+                    else if (availableSites.Count == 0)
+                    {
+                        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg">
+                            <p class="text-yellow-700">Aucun site disponible. Veuillez d'abord créer un site.</p>
+                            <a href="/sites" class="text-blue-600 hover:underline mt-2 inline-block">Aller aux sites</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <select @bind="selectedSiteId"
+                                @bind:after="OnSiteChanged"
+                                required
+                                disabled="@isPrefilledFromQuery"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @(isPrefilledFromQuery ? "bg-blue-50 cursor-not-allowed" : "")">
+                            <option value="">-- Sélectionnez un site --</option>
+                            @foreach (var site in availableSites)
+                            {
+                                <option value="@site.Id">@site.Name</option>
+                            }
+                        </select>
+                    }
+                    @if (isPrefilledFromQuery)
+                    {
+                        <p class="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Site pré-sélectionné depuis la zone parente
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-xs text-gray-500 mt-1">
+                            💡 Sélectionnez le site auquel appartient cette zone
+                        </p>
+                    }
+                </div>
+
+                <!-- Nom de la zone -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Nom de la zone <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text"
+                           @bind="zoneName"
+                           required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Ex: Bâtiment A, Étage 2, Salle des machines" />
+                </div>
+
+                <!-- Code (optionnel) -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Code (optionnel)
+                    </label>
+                    <input type="text"
+                           @bind="code"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Ex: BAT-A, E2, SM" />
+                </div>
+
+                <!-- Type (optionnel) -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Type (optionnel)
+                    </label>
+                    <select @bind="zoneType"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">-- Sélectionnez un type --</option>
+                        <option value="BUILDING">Bâtiment</option>
+                        <option value="FLOOR">Étage</option>
+                        <option value="WING">Aile</option>
+                        <option value="AREA">Zone/Secteur</option>
+                        <option value="ROOM">Salle</option>
+                        <option value="CORRIDOR">Couloir</option>
+                        <option value="DEPARTMENT">Département</option>
+                        <option value="OTHER">Autre</option>
+                    </select>
+                </div>
+
+                <!-- Zone parente (optionnel) -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Zone parente (optionnel)
+                    </label>
+                    @if (string.IsNullOrEmpty(selectedSiteId))
+                    {
+                        <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                            Sélectionnez d'abord un site
+                        </div>
+                    }
+                    else if (loadingZones)
+                    {
+                        <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                            Chargement des zones...
+                        </div>
+                    }
+                    else
+                    {
+                        <select @bind="parentZoneId"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @(isParentZonePrefilledFromQuery ? "bg-blue-50 cursor-not-allowed" : "")"
+                                disabled="@(availableZones.Count == 0 || isParentZonePrefilledFromQuery)">
+                            <option value="">-- Aucune (zone racine) --</option>
+                            @foreach (var zone in availableZones)
+                            {
+                                <option value="@zone.Id">@GetZoneHierarchyName(zone)</option>
+                            }
+                        </select>
+                        @if (availableZones.Count == 0 && !isParentZonePrefilledFromQuery)
+                        {
+                            <p class="text-xs text-gray-500 mt-1">
+                                Aucune zone existante dans ce site
+                            </p>
+                        }
+                    }
+                    @if (isParentZonePrefilledFromQuery)
+                    {
+                        <p class="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Zone parente pré-sélectionnée - création d'une sous-zone
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-xs text-gray-500 mt-1">
+                            💡 Créez une hiérarchie : Bâtiment > Étage > Couloir
+                        </p>
+                    }
+                </div>
+
+                <!-- Description (optionnel) -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Description (optionnel)
+                    </label>
+                    <textarea @bind="description"
+                              rows="3"
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Ex: Zone de production principale"></textarea>
+                </div>
+
+                <!-- Boutons -->
+                <div class="flex gap-4 pt-4">
+                    <button type="submit"
+                            disabled="@isSubmitting"
+                            class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                        @if (isSubmitting)
+                        {
+                            <span>Création en cours...</span>
+                        }
+                        else
+                        {
+                            <span>✓ Créer la zone</span>
+                        }
+                    </button>
+                    <button type="button"
+                            @onclick="GoBack"
+                            class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "siteId")]
+    public Guid SiteId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "parentZoneId")]
+    public Guid ParentZoneId { get; set; }
+
+    private string zoneName = "";
+    private string code = "";
+    private string zoneType = "";
+    private string parentZoneId = "";
+    private string description = "";
+    private string selectedSiteId = "";
+    private bool isSubmitting = false;
+    private bool loadingZones = true;
+    private bool loadingSites = true;
+    private string errorMessage = "";
+    private List<ZoneInfo> availableZones = new();
+    private List<SiteInfo> availableSites = new();
+    private bool isPrefilledFromQuery = false;
+    private bool isParentZonePrefilledFromQuery = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableSites();
+
+        // Si un siteId est passé en paramètre, le sélectionner
+        if (SiteId != Guid.Empty)
+        {
+            selectedSiteId = SiteId.ToString();
+            isPrefilledFromQuery = true;
+            await LoadAvailableZones();
+        }
+
+        // Si un parentZoneId est passé en paramètre, le sélectionner
+        if (ParentZoneId != Guid.Empty)
+        {
+            parentZoneId = ParentZoneId.ToString();
+            isParentZonePrefilledFromQuery = true;
+        }
+    }
+
+    private async Task LoadAvailableSites()
+    {
+        loadingSites = true;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync("api/sites");
+
+            if (response.IsSuccessStatusCode)
+            {
+                availableSites = await response.Content.ReadFromJsonAsync<List<SiteInfo>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Erreur lors du chargement des sites: {ex.Message}");
+        }
+        finally
+        {
+            loadingSites = false;
+        }
+    }
+
+    private async Task OnSiteChanged()
+    {
+        // Réinitialiser la zone parente lors du changement de site
+        parentZoneId = "";
+        await LoadAvailableZones();
+    }
+
+    private async Task LoadAvailableZones()
+    {
+        loadingZones = true;
+        availableZones.Clear();
+
+        try
+        {
+            if (string.IsNullOrEmpty(selectedSiteId) || !Guid.TryParse(selectedSiteId, out var siteGuid))
+            {
+                loadingZones = false;
+                return;
+            }
+
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/zones?siteId={siteGuid}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                availableZones = await response.Content.ReadFromJsonAsync<List<ZoneInfo>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Erreur lors du chargement des zones: {ex.Message}");
+        }
+        finally
+        {
+            loadingZones = false;
+        }
+    }
+
+    private string GetZoneHierarchyName(ZoneInfo zone)
+    {
+        var prefix = new string('→', zone.Level);
+        return string.IsNullOrEmpty(prefix) ? zone.Name : $"{prefix} {zone.Name}";
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(zoneName))
+        {
+            errorMessage = "Le nom de la zone est obligatoire";
+            return;
+        }
+
+        if (string.IsNullOrEmpty(selectedSiteId) || !Guid.TryParse(selectedSiteId, out var siteGuid))
+        {
+            errorMessage = "Veuillez sélectionner un site";
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            var request = new CreateZoneRequest
+            {
+                SiteId = siteGuid,
+                Name = zoneName.Trim(),
+                Code = string.IsNullOrWhiteSpace(code) ? null : code.Trim(),
+                Type = string.IsNullOrWhiteSpace(zoneType) ? null : zoneType,
+                Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                ParentZoneId = string.IsNullOrWhiteSpace(parentZoneId) ? null : Guid.Parse(parentZoneId)
+            };
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.PostAsJsonAsync("api/zones", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/zones");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la création : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private class SiteInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public bool IsActive { get; set; }
+    }
+
+    private class ZoneInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public int Level { get; set; }
+    }
+
+    private class CreateZoneRequest
+    {
+        public Guid SiteId { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Type { get; set; }
+        public string? Description { get; set; }
+        public Guid? ParentZoneId { get; set; }
+    }
+}

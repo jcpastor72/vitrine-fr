@@ -1,0 +1,424 @@
+@page "/zones"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Zones - Labor Control</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-7xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="GoToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h1 class="lc-heading-2">Zones</h1>
+                    <p class="lc-text-muted mt-1">Vue d'ensemble de toutes vos zones organisées par site</p>
+                </div>
+                @if (sites.Count > 0)
+                {
+                    <button @onclick="CreateZone"
+                            class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Créer une zone
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Filtres -->
+        <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Filtrer par site</label>
+                    <select @bind="selectedSiteId" @bind:after="OnSiteChanged" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Tous les sites</option>
+                        @foreach (var site in sites)
+                        {
+                            <option value="@site.Id">@site.Name</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Filtrer par zone</label>
+                    <select @bind="selectedZoneId" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            disabled="@string.IsNullOrEmpty(selectedSiteId)">
+                        <option value="">Toutes les zones</option>
+                        @foreach (var zone in GetHierarchicalZones(availableZones))
+                        {
+                            var prefix = zone.Level > 0 ? "└" + new string('─', zone.Level) + " " : "";
+                            var displayName = $"{prefix}{zone.Name}";
+                            <option value="@zone.Id">@displayName</option>
+                        }
+                    </select>
+                    @if (string.IsNullOrEmpty(selectedSiteId))
+                    {
+                        <p class="text-xs text-gray-500 mt-1">Sélectionnez d'abord un site</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                <p class="mt-4 text-gray-600">Chargement des zones...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                <p class="text-red-700">@errorMessage</p>
+            </div>
+        }
+        else if (filteredZones.Count == 0)
+        {
+            <div class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Aucune zone trouvée</h3>
+                <p class="lc-text-muted mb-6">
+                    @if (!string.IsNullOrEmpty(searchText) || !string.IsNullOrEmpty(selectedSiteId))
+                    {
+                        <span>Aucune zone ne correspond à vos critères de recherche.</span>
+                    }
+                    else
+                    {
+                        <span>Commencez par créer un site, puis ajoutez-y des zones.</span>
+                    }
+                </p>
+                <a href="/sites" class="lc-btn lc-btn-primary inline-flex items-center">
+                    Aller aux sites
+                </a>
+            </div>
+        }
+        else
+        {
+            <!-- Grouper par site -->
+            @foreach (var siteGroup in filteredZones.GroupBy(z => z.SiteName).OrderBy(g => g.Key))
+            {
+                <div class="mb-6">
+                    <!-- En-tête du site -->
+                    <div class="bg-gray-100 border border-gray-200 rounded-t-lg border-b-0 p-4 flex justify-between items-center">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900">@siteGroup.Key</h2>
+                            <p class="lc-text-muted text-sm mt-0.5">@siteGroup.Count() zone@(siteGroup.Count() > 1 ? "s" : "")</p>
+                        </div>
+                        <button @onclick="() => ViewSite(siteGroup.First().SiteId)"
+                                class="lc-btn lc-btn-secondary text-sm inline-flex items-center">
+                            Voir le site
+                            <svg class="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Liste des zones du site -->
+                    <div class="bg-white border border-gray-200 rounded-b-lg divide-y divide-gray-200">
+                        @foreach (var zone in GetHierarchicalZones(siteGroup.ToList()))
+                        {
+                            var indentClass = zone.Level > 0 ? $"pl-{zone.Level * 8}" : "";
+                            <div @onclick="() => ViewZone(zone.Id)"
+                                 class="p-4 hover:bg-blue-50 cursor-pointer transition @(zone.IsActive ? "" : "opacity-60 bg-gray-50") @indentClass"
+                                 style="@(zone.Level > 0 ? $"padding-left: {zone.Level * 2}rem;" : "")">
+                                <div class="flex items-center gap-3 mb-2">
+                                    @if (zone.Level > 0)
+                                    {
+                                        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    }
+                                    <h3 class="text-base font-semibold text-gray-900">@zone.Name</h3>
+                                    @if (!zone.IsActive)
+                                    {
+                                        <span class="bg-gray-200 text-gray-600 px-2 py-0.5 rounded text-xs font-medium">
+                                            Inactif
+                                        </span>
+                                    }
+                                </div>
+
+                                <div class="flex flex-wrap gap-4 text-sm lc-text-muted" style="@(zone.Level > 0 ? $"margin-left: {zone.Level * 2}rem;" : "")">
+                                    @if (!string.IsNullOrEmpty(zone.Code))
+                                    {
+                                        <span>Code: <span class="font-mono font-medium">@zone.Code</span></span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(zone.Type))
+                                    {
+                                        <span>Type: <span class="font-medium">@GetTypeLabel(zone.Type)</span></span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private List<SiteInfo> sites = new();
+    private List<ZoneWithSiteInfo> allZones = new();
+    private bool loading = true;
+    private string errorMessage = "";
+    private string searchText = "";
+    private string selectedSiteId = "";
+    private string selectedZoneId = "";
+
+    private List<ZoneWithSiteInfo> availableZones =>
+        string.IsNullOrEmpty(selectedSiteId)
+            ? new List<ZoneWithSiteInfo>()
+            : allZones.Where(z => z.SiteId.ToString() == selectedSiteId).ToList();
+
+    private List<ZoneWithSiteInfo> filteredZones
+    {
+        get
+        {
+            var filtered = allZones.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(selectedSiteId) && Guid.TryParse(selectedSiteId, out var siteGuid))
+            {
+                filtered = filtered.Where(z => z.SiteId == siteGuid);
+            }
+
+            if (!string.IsNullOrEmpty(selectedZoneId) && Guid.TryParse(selectedZoneId, out var zoneGuid))
+            {
+                // Obtenir la zone sélectionnée + toutes ses sous-zones
+                var zoneIds = new List<Guid> { zoneGuid };
+                zoneIds.AddRange(GetAllSubZoneIds(zoneGuid));
+                filtered = filtered.Where(z => zoneIds.Contains(z.Id));
+            }
+
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                var search = searchText.ToLower();
+                filtered = filtered.Where(z =>
+                    z.Name.ToLower().Contains(search) ||
+                    (z.Code != null && z.Code.ToLower().Contains(search)) ||
+                    (z.Type != null && z.Type.ToLower().Contains(search))
+                );
+            }
+
+            return filtered.ToList();
+        }
+    }
+
+    private List<Guid> GetAllSubZoneIds(Guid parentId)
+    {
+        var subZones = allZones.Where(z => z.ParentZoneId == parentId).ToList();
+        var ids = subZones.Select(z => z.Id).ToList();
+
+        foreach (var subZone in subZones)
+        {
+            ids.AddRange(GetAllSubZoneIds(subZone.Id));
+        }
+
+        return ids;
+    }
+
+    private List<ZoneWithSiteInfo> GetHierarchicalZones(List<ZoneWithSiteInfo> zones)
+    {
+        var result = new List<ZoneWithSiteInfo>();
+
+        // Obtenir les zones racines (sans parent)
+        var rootZones = zones.Where(z => z.ParentZoneId == null).OrderBy(z => z.Name).ToList();
+
+        foreach (var rootZone in rootZones)
+        {
+            result.Add(rootZone);
+            AddChildZones(zones, rootZone.Id, result);
+        }
+
+        return result;
+    }
+
+    private void AddChildZones(List<ZoneWithSiteInfo> allZones, Guid parentId, List<ZoneWithSiteInfo> result)
+    {
+        var childZones = allZones.Where(z => z.ParentZoneId == parentId).OrderBy(z => z.Name).ToList();
+
+        foreach (var child in childZones)
+        {
+            result.Add(child);
+            AddChildZones(allZones, child.Id, result);
+        }
+    }
+
+    private void OnSiteChanged()
+    {
+        selectedZoneId = "";
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            // Charger les sites
+            var sitesResponse = await Http.GetAsync("api/sites");
+            if (sitesResponse.IsSuccessStatusCode)
+            {
+                sites = await sitesResponse.Content.ReadFromJsonAsync<List<SiteInfo>>() ?? new();
+            }
+
+            // Charger toutes les zones de tous les sites
+            foreach (var site in sites)
+            {
+                var zonesResponse = await Http.GetAsync($"api/sites/{site.Id}");
+                if (zonesResponse.IsSuccessStatusCode)
+                {
+                    var siteDetail = await zonesResponse.Content.ReadFromJsonAsync<SiteDetail>();
+                    if (siteDetail != null && siteDetail.Zones != null)
+                    {
+                        foreach (var zone in siteDetail.Zones)
+                        {
+                            var parentZone = siteDetail.Zones.FirstOrDefault(z => z.Id == zone.ParentZoneId);
+                            allZones.Add(new ZoneWithSiteInfo
+                            {
+                                Id = zone.Id,
+                                Name = zone.Name,
+                                Code = zone.Code,
+                                Type = zone.Type,
+                                Level = zone.Level,
+                                ParentZoneId = zone.ParentZoneId,
+                                ParentZoneName = parentZone?.Name,
+                                IsActive = zone.IsActive,
+                                SiteId = site.Id,
+                                SiteName = site.Name
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private void ViewSite(Guid siteId)
+    {
+        Navigation.NavigateTo($"/sites/{siteId}");
+    }
+
+    private void ViewZone(Guid zoneId)
+    {
+        Navigation.NavigateTo($"/zones/{zoneId}");
+    }
+
+    private void CreateZone()
+    {
+        // Si un site est filtré, rediriger vers la création de zone pour ce site
+        if (!string.IsNullOrEmpty(selectedSiteId) && Guid.TryParse(selectedSiteId, out var siteGuid))
+        {
+            Navigation.NavigateTo($"/zones/create?siteId={siteGuid}");
+        }
+        // Sinon, rediriger vers le premier site disponible
+        else if (sites.Count > 0)
+        {
+            Navigation.NavigateTo($"/zones/create?siteId={sites[0].Id}");
+        }
+    }
+
+    private string GetTypeLabel(string? type)
+    {
+        return type switch
+        {
+            "BUILDING" => "Bâtiment",
+            "FLOOR" => "Étage",
+            "WING" => "Aile",
+            "AREA" => "Zone/Secteur",
+            "ROOM" => "Salle",
+            "CORRIDOR" => "Couloir",
+            "DEPARTMENT" => "Département",
+            "OTHER" => "Autre",
+            _ => type ?? ""
+        };
+    }
+
+    private class SiteInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public bool IsActive { get; set; }
+    }
+
+    private class SiteDetail
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public List<ZoneInfo>? Zones { get; set; }
+    }
+
+    private class ZoneInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Type { get; set; }
+        public int Level { get; set; }
+        public Guid? ParentZoneId { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    private class ZoneWithSiteInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Type { get; set; }
+        public int Level { get; set; }
+        public Guid? ParentZoneId { get; set; }
+        public string? ParentZoneName { get; set; }
+        public bool IsActive { get; set; }
+        public Guid SiteId { get; set; }
+        public string SiteName { get; set; } = "";
+    }
+}

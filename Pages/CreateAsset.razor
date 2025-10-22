@@ -1,0 +1,458 @@
+@page "/zones/{zoneId:guid}/assets/create"
+@page "/assets/create"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Créer un équipement - Labor Control</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-4xl mx-auto px-4">
+        <button @onclick="GoBack"
+                class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-md mb-6">
+            ← Retour
+        </button>
+
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-6">Créer un équipement</h1>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                    <p class="text-red-700">@errorMessage</p>
+                </div>
+            }
+
+            <form @onsubmit="HandleSubmit" class="space-y-6">
+                <!-- Sélection Site/Zone (uniquement si pas de zoneId prédéfini) -->
+                @if (!ZoneId.HasValue)
+                {
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg mb-6">
+                        <h3 class="font-semibold text-blue-900 mb-3">Emplacement de l'équipement</h3>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <!-- Sélecteur de site -->
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Site <span class="text-red-500">*</span>
+                                </label>
+                                <select @bind="selectedSiteId" @bind:after="OnSiteChanged" required
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="">-- Sélectionner un site --</option>
+                                    @foreach (var site in sites)
+                                    {
+                                        <option value="@site.Id">@site.Name</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <!-- Sélecteur de zone -->
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Zone <span class="text-red-500">*</span>
+                                </label>
+                                <select @bind="selectedZoneId" @bind:after="OnZoneChanged" required
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        disabled="@string.IsNullOrEmpty(selectedSiteId)">
+                                    <option value="">-- Sélectionner une zone --</option>
+                                    @foreach (var zone in zones)
+                                    {
+                                        var prefix = new string('─', zone.Level * 2);
+                                        var displayName = zone.Level > 0 ? $"{prefix} {zone.Name}" : zone.Name;
+                                        <option value="@zone.Id">@displayName</option>
+                                    }
+                                </select>
+                                @if (string.IsNullOrEmpty(selectedSiteId))
+                                {
+                                    <p class="text-xs text-gray-500 mt-1">Sélectionnez d'abord un site</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Nom -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Nom de l'équipement <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" @bind="name" required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           placeholder="Ex: Échangeur E-101, Compresseur C-01" />
+                </div>
+
+                <!-- Code -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Code
+                    </label>
+                    <input type="text" @bind="code"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           placeholder="Ex: E-101, C-01" />
+                </div>
+
+                <!-- Type et Catégorie -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Type <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="type" required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            <option value="">-- Sélectionner --</option>
+                            <option value="EXCHANGER">Échangeur</option>
+                            <option value="PUMP">Pompe</option>
+                            <option value="COMPRESSOR">Compresseur</option>
+                            <option value="VALVE">Vanne</option>
+                            <option value="MOTOR">Moteur</option>
+                            <option value="TANK">Réservoir</option>
+                            <option value="FILTER">Filtre</option>
+                            <option value="SENSOR">Capteur</option>
+                            <option value="OTHER">Autre</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Catégorie
+                        </label>
+                        <select @bind="category"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            <option value="">-- Aucune --</option>
+                            <option value="CRITICAL">Critique</option>
+                            <option value="STANDARD">Standard</option>
+                            <option value="SAFETY">Sécurité</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Équipement parent -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Équipement parent
+                    </label>
+                    <select @bind="selectedParentAssetId"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        <option value="">-- Aucun (équipement principal) --</option>
+                        @foreach (var asset in availableAssets)
+                        {
+                            <option value="@asset.Id">@GetAssetHierarchyName(asset)</option>
+                        }
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">
+                        💡 Sélectionnez un équipement parent pour créer une hiérarchie (ex: Manomètre sous Compresseur)
+                    </p>
+                </div>
+
+                <!-- Fabricant, Modèle, N° de série -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Fabricant
+                        </label>
+                        <input type="text" @bind="manufacturer"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                               placeholder="Ex: Schneider" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Modèle
+                        </label>
+                        <input type="text" @bind="model"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                               placeholder="Ex: ABC-123" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            N° de série
+                        </label>
+                        <input type="text" @bind="serialNumber"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                               placeholder="Ex: SN123456" />
+                    </div>
+                </div>
+
+                <!-- Boutons -->
+                <div class="flex gap-4 pt-6">
+                    <button type="submit" disabled="@isSubmitting"
+                            class="flex-1 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition disabled:bg-gray-400">
+                        @(isSubmitting ? "Création en cours..." : "Créer l'équipement")
+                    </button>
+                    <button type="button" @onclick="GoBack"
+                            class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid? ZoneId { get; set; }
+
+    private List<SiteInfo> sites = new();
+    private List<ZoneInfo> zones = new();
+    private string selectedSiteId = "";
+    private string selectedZoneId = "";
+
+    private string name = "";
+    private string code = "";
+    private string type = "";
+    private string? category = "";
+    private string? manufacturer = "";
+    private string? model = "";
+    private string? serialNumber = "";
+    private string selectedParentAssetId = "";
+
+    private List<AssetInfo> availableAssets = new();
+    private bool isSubmitting = false;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ZoneId.HasValue)
+        {
+            // Mode avec zone prédéfinie
+            selectedZoneId = ZoneId.Value.ToString();
+        }
+        else
+        {
+            // Mode sélection de site/zone
+            await LoadSites();
+        }
+
+        await LoadAvailableAssets();
+    }
+
+    private async Task LoadSites()
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync("api/sites");
+            if (response.IsSuccessStatusCode)
+            {
+                sites = await response.Content.ReadFromJsonAsync<List<SiteInfo>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur lors du chargement des sites: {ex.Message}";
+        }
+    }
+
+    private async Task OnSiteChanged()
+    {
+        selectedZoneId = "";
+        zones.Clear();
+        availableAssets.Clear();
+
+        if (!string.IsNullOrEmpty(selectedSiteId))
+        {
+            await LoadZones();
+        }
+    }
+
+    private async Task LoadZones()
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/sites/{selectedSiteId}/zones");
+            if (response.IsSuccessStatusCode)
+            {
+                zones = await response.Content.ReadFromJsonAsync<List<ZoneInfo>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur lors du chargement des zones: {ex.Message}";
+        }
+    }
+
+    private async Task OnZoneChanged()
+    {
+        availableAssets.Clear();
+
+        if (!string.IsNullOrEmpty(selectedZoneId))
+        {
+            await LoadAvailableAssets();
+        }
+    }
+
+    private async Task LoadAvailableAssets()
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var zoneIdToUse = ZoneId ?? (string.IsNullOrEmpty(selectedZoneId) ? Guid.Empty : Guid.Parse(selectedZoneId));
+
+            if (zoneIdToUse != Guid.Empty)
+            {
+                var response = await Http.GetAsync($"api/assets?zoneId={zoneIdToUse}");
+                if (response.IsSuccessStatusCode)
+                {
+                    availableAssets = await response.Content.ReadFromJsonAsync<List<AssetInfo>>() ?? new();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur lors du chargement des équipements: {ex.Message}";
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var zoneIdToUse = ZoneId ?? Guid.Parse(selectedZoneId);
+
+            // Formatage des champs selon les règles
+            var formattedManufacturer = FormatAllWordsUpperCase(manufacturer);
+            var formattedType = FormatAllWordsUpperCase(type);
+            var formattedName = FormatFirstLetterUpperCase(name);
+            var formattedCode = FormatFirstLetterUpperCase(code);
+            var formattedModel = FormatFirstLetterUpperCase(model);
+            var formattedSerialNumber = FormatFirstLetterUpperCase(serialNumber);
+            var formattedCategory = FormatFirstLetterUpperCase(category);
+
+            var request = new
+            {
+                zoneId = zoneIdToUse,
+                name = formattedName,
+                code = string.IsNullOrWhiteSpace(formattedCode) ? null : formattedCode,
+                type = formattedType,
+                category = string.IsNullOrWhiteSpace(formattedCategory) ? null : formattedCategory,
+                parentAssetId = string.IsNullOrWhiteSpace(selectedParentAssetId) ? (Guid?)null : Guid.Parse(selectedParentAssetId),
+                manufacturer = string.IsNullOrWhiteSpace(formattedManufacturer) ? null : formattedManufacturer,
+                model = string.IsNullOrWhiteSpace(formattedModel) ? null : formattedModel,
+                serialNumber = string.IsNullOrWhiteSpace(formattedSerialNumber) ? null : formattedSerialNumber
+            };
+
+            var response = await Http.PostAsJsonAsync("api/assets", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Rediriger vers Equipment si on vient de là, sinon vers la liste des assets de la zone
+                if (ZoneId.HasValue)
+                {
+                    Navigation.NavigateTo($"/zones/{zoneIdToUse}/assets");
+                }
+                else
+                {
+                    Navigation.NavigateTo("/equipment");
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    // Formate tous les mots entiers en majuscules (pour marque et type)
+    private string FormatAllWordsUpperCase(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return "";
+
+        return input.ToUpper();
+    }
+
+    // Formate première lettre en majuscule, reste en minuscule (pour les autres champs)
+    private string FormatFirstLetterUpperCase(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return "";
+
+        input = input.Trim();
+
+        if (input.Length == 0)
+            return "";
+
+        if (input.Length == 1)
+            return input.ToUpper();
+
+        return char.ToUpper(input[0]) + input.Substring(1).ToLower();
+    }
+
+    private string GetAssetHierarchyName(AssetInfo asset)
+    {
+        var prefix = new string('─', asset.Level * 2);
+        return asset.Level > 0 ? $"{prefix} {asset.Name}" : asset.Name;
+    }
+
+    private class SiteInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+    }
+
+    private class ZoneInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public int Level { get; set; }
+    }
+
+    private class AssetInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public int Level { get; set; }
+    }
+}

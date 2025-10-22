@@ -1,0 +1,1615 @@
+@page "/task-templates"
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@using LaborControl.Web.Services
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject AuthService AuthService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Protocoles d'interventions - Labor Control</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<style>
+    @@keyframes fade-in {
+        from {
+            opacity: 0;
+            transform: translateY(-10px) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .animate-fade-in {
+        animation: fade-in 0.15s ease-out;
+    }
+</style>
+
+<div class="min-h-screen bg-gray-50 py-8 px-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="NavigateToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h1 class="lc-heading-1">Protocoles d'interventions</h1>
+                        <button @onmouseenter="ShowInfoModal" @onmouseleave="HideInfoModal"
+                                class="relative w-7 h-7 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center transition-all duration-200 cursor-help p-1">
+                            <span class="text-white text-sm font-bold leading-none">i</span>
+                        </button>
+                    </div>
+                    <p class="lc-text-muted mt-1">Activez les protocoles correspondant à vos métiers</p>
+                </div>
+                <div class="flex gap-3 flex-wrap">
+                    <a href="/industries"
+                       class="lc-btn lc-btn-secondary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                        Gérer les métiers
+                    </a>
+                    <button @onclick="OpenCreateModal"
+                            class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Protocole personnalisé
+                    </button>
+                </div>
+            </div>
+
+
+            <!-- Filtres Secteur et Métier -->
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Sector Filter -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Filtrer par secteur
+                    </label>
+                    <select @onchange="OnSectorFilterChange"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">Tous les secteurs</option>
+                        @foreach (var sector in sectors)
+                        {
+                            <option value="@sector.Id" selected="@(selectedSectorId == sector.Id)">
+                                @sector.Icon @sector.Name
+                            </option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Industry Filter -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Filtrer par métier
+                    </label>
+                    <select @onchange="OnIndustryFilterChange"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">Tous les métiers</option>
+                        @foreach (var industry in filteredIndustries.OrderBy(i => i.DisplayOrder))
+                        {
+                            <option value="@industry.Id" selected="@(selectedIndustryId == industry.Id)">
+                                @industry.Icon @industry.Name
+                            </option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        @if (isLoading)
+        {
+            <div class="text-center py-20">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 lc-text-muted">Chargement des protocoles...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+                @errorMessage
+            </div>
+        }
+        else if (allProtocols.Count == 0 && industries.Count == 0)
+        {
+            <div class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Aucun métier activé</h3>
+                <p class="lc-text-muted mb-6">Commencez par activer vos métiers pour accéder aux protocoles correspondants</p>
+                <a href="/industries"
+                   class="lc-btn lc-btn-primary inline-flex items-center">
+                    Activer des métiers
+                </a>
+            </div>
+        }
+        else if (allProtocols.Count == 0 && selectedIndustryId.HasValue)
+        {
+            <div class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Aucun protocole pour ce métier</h3>
+                <p class="lc-text-muted mb-6">Initialisez les protocoles prédéfinis pour ce métier</p>
+                <button @onclick="InitPredefinedProtocols"
+                        disabled="@isInitializing"
+                        class="lc-btn lc-btn-primary disabled:opacity-50">
+                    @(isInitializing ? "Initialisation..." : "Initialiser les protocoles prédéfinis")
+                </button>
+            </div>
+        }
+        else
+        {
+            <!-- Active Protocols -->
+            @if (activeProtocols.Count > 0)
+            {
+                <div class="mb-8">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="lc-heading-2">Protocoles activés (@activeProtocols.Count)</h2>
+                        <button @onclick="NavigateToDashboard"
+                                class="lc-btn lc-btn-primary">
+                            Valider mon choix
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        @foreach (var protocol in activeProtocols.OrderBy(p => p.Category).ThenBy(p => p.Name))
+                        {
+                            <div class="bg-white border border-green-500 rounded-lg p-6 hover:shadow-md transition-all">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="flex-1">
+                                        <div class="text-xs font-medium text-blue-600 mb-1">
+                                            @GetCategoryLabel(protocol.Category)
+                                        </div>
+                                        <h3 class="text-lg font-semibold text-gray-900">@protocol.Name</h3>
+                                        @if (protocol.IsPredefined)
+                                        {
+                                            <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-1">Prédéfini</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded mt-1">Personnalisé</span>
+                                        }
+                                    </div>
+                                    <div class="flex gap-2 ml-2">
+                                        <button @onclick="() => ViewProtocol(protocol)"
+                                                class="text-blue-600 hover:text-blue-800 p-1"
+                                                title="Voir">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                        </button>
+                                        @if (!protocol.IsPredefined)
+                                        {
+                                            <button @onclick="() => OpenEditModal(protocol)"
+                                                    class="text-blue-600 hover:text-blue-800 p-1"
+                                                    title="Modifier">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                </svg>
+                                            </button>
+                                        }
+                                        <button @onclick="() => ToggleProtocol(protocol)"
+                                                class="text-red-600 hover:text-red-800 p-1"
+                                                title="Désactiver">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Qualification requise -->
+                                <div class="mb-3">
+                                    <div class="text-xs lc-text-muted">
+                                        <strong>Qualification:</strong> @GetQualificationLabel(protocol.RequiredQualification)
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(protocol.LegalWarning))
+                                    {
+                                        <div class="mt-2 text-xs bg-red-50 border border-red-200 text-red-700 px-2 py-1 rounded flex items-start">
+                                            <svg class="w-3 h-3 mr-1 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
+                                            </svg>
+                                            @protocol.LegalWarning
+                                        </div>
+                                    }
+                                </div>
+
+                                <!-- Industry Badge -->
+                                @if (!string.IsNullOrEmpty(protocol.IndustryName))
+                                {
+                                    <div class="pt-3 border-t border-gray-100">
+                                        <div class="inline-flex items-center px-3 py-1 rounded-full text-xs bg-gray-100">
+                                            @if (!string.IsNullOrEmpty(protocol.IndustryIcon))
+                                            {
+                                                <span class="mr-1">@protocol.IndustryIcon</span>
+                                            }
+                                            <span class="font-semibold">@protocol.IndustryName</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Inactive Protocols -->
+            @if (inactiveProtocols.Count > 0)
+            {
+                <div>
+                    <h2 class="lc-heading-2 mb-4">Protocoles disponibles (@inactiveProtocols.Count)</h2>
+                    <p class="lc-text-muted mb-4">Cliquez sur un protocole pour l'activer</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        @foreach (var protocol in inactiveProtocols.OrderBy(p => p.Category).ThenBy(p => p.Name))
+                        {
+                            <button @onclick="() => ToggleProtocol(protocol)"
+                                    class="bg-gray-50 border border-gray-300 rounded-lg p-6 hover:border-blue-400 hover:bg-white transition-all text-left opacity-60 hover:opacity-100">
+                                <div class="flex items-start mb-3">
+                                    <div class="flex-1">
+                                        <div class="text-xs font-medium lc-text-muted mb-1">
+                                            @GetCategoryLabel(protocol.Category)
+                                        </div>
+                                        <h3 class="text-lg font-semibold text-gray-900">@protocol.Name</h3>
+                                        @if (protocol.IsPredefined)
+                                        {
+                                            <span class="inline-block bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded mt-1">Prédéfini</span>
+                                        }
+                                    </div>
+                                    <svg class="w-5 h-5 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                </div>
+
+                                <!-- Qualification -->
+                                <div class="text-xs lc-text-muted mb-2">
+                                    <strong>Qualification:</strong> @GetQualificationLabel(protocol.RequiredQualification)
+                                </div>
+
+                                <!-- Industry Badge -->
+                                @if (!string.IsNullOrEmpty(protocol.IndustryName))
+                                {
+                                    <div class="inline-flex items-center px-3 py-1 rounded-full text-xs bg-gray-200">
+                                        @if (!string.IsNullOrEmpty(protocol.IndustryIcon))
+                                        {
+                                            <span class="mr-1">@protocol.IndustryIcon</span>
+                                        }
+                                        <span class="font-semibold">@protocol.IndustryName</span>
+                                    </div>
+                                }
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Initialize button if industry selected but no predefined protocols -->
+            @if (selectedIndustryId.HasValue && !allProtocols.Any(p => p.IsPredefined))
+            {
+                <div class="mt-8 bg-white border border-gray-200 rounded-lg p-6 text-center">
+                    <p class="lc-text-muted mb-4">Vous pouvez initialiser les protocoles prédéfinis pour ce métier</p>
+                    <button @onclick="InitPredefinedProtocols"
+                            disabled="@isInitializing"
+                            class="lc-btn lc-btn-primary disabled:opacity-50">
+                        @(isInitializing ? "Initialisation..." : "Initialiser les protocoles prédéfinis")
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<!-- View Protocol Modal -->
+@if (showViewModal && viewingProtocol != null)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @onclick="CloseViewModal">
+        <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" @onclick:stopPropagation>
+            <div class="p-8">
+                <div class="flex justify-between items-start mb-6">
+                    <h2 class="lc-heading-2">@viewingProtocol.Name</h2>
+                    <button @onclick="CloseViewModal" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-sm font-medium text-gray-600">Catégorie</label>
+                        <div class="text-lg text-gray-900">@GetCategoryLabel(viewingProtocol.Category)</div>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-600">Qualification requise</label>
+                        <div class="text-lg text-gray-900">@GetQualificationLabel(viewingProtocol.RequiredQualification)</div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(viewingProtocol.LegalWarning))
+                    {
+                        <div>
+                            <label class="text-sm font-medium text-gray-600">Avertissement légal</label>
+                            <div class="text-red-700 bg-red-50 p-3 rounded-lg">@viewingProtocol.LegalWarning</div>
+                        </div>
+                    }
+                    <div>
+                        <label class="text-sm font-medium text-gray-600">Définition du formulaire (JSON)</label>
+                        <pre class="bg-gray-50 p-4 rounded-lg overflow-x-auto text-xs">@viewingProtocol.FormTemplate</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Create/Edit Modal -->
+@if (showModal)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-8">
+                <h2 class="lc-heading-2 mb-6">
+                    @(isEditMode ? "Modifier le protocole" : "Nouveau protocole personnalisé")
+                </h2>
+
+                @if (!string.IsNullOrEmpty(modalErrorMessage))
+                {
+                    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
+                        @modalErrorMessage
+                    </div>
+                }
+
+                <div class="space-y-6">
+                    <!-- Sector Selection -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Secteur <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="formSectorId" @bind:after="OnFormSectorChanged"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">-- Sélectionnez un secteur --</option>
+                            @foreach (var sector in sectors)
+                            {
+                                <option value="@sector.Id">@sector.Icon @sector.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Industry Selection -->
+                    @if (!string.IsNullOrEmpty(formSectorId))
+                    {
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Métier <span class="text-red-500">*</span>
+                            </label>
+                            <select @bind="formIndustryId" @bind:after="OnIndustryChanged"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">-- Sélectionnez un métier --</option>
+                                @foreach (var industry in GetIndustriesForFormSector().OrderBy(i => i.Name))
+                                {
+                                    <option value="@industry.Id">@industry.Icon @industry.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(formIndustryId))
+                    {
+                        <!-- Name -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Nom du protocole <span class="text-red-500">*</span>
+                            </label>
+                            <input @bind="formName"
+                                   type="text"
+                                   required
+                                   placeholder="Ex: Contrôle visuel journalier"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                        </div>
+
+                        <!-- Category -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Type d'intervention <span class="text-red-500">*</span>
+                            </label>
+                            @if (availableCategories.Count > 0)
+                            {
+                                <select @bind="formCategory"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    @foreach (var cat in availableCategories)
+                                    {
+                                        <option value="@cat.Code">@cat.Label</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                <p class="text-sm text-gray-500 italic">Chargement...</p>
+                            }
+                        </div>
+
+                        <!-- Required Qualification -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Qualification requise pour effectuer cette intervention
+                            </label>
+                            @if (availableQualifications.Count > 0)
+                            {
+                                <select @bind="formRequiredQualification"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    @foreach (var qual in availableQualifications)
+                                    {
+                                        <option value="@qual.Code">@qual.Label</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                <p class="text-sm text-gray-500 italic">Chargement...</p>
+                            }
+                        </div>
+
+                        <!-- Legal Warning -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Avertissement réglementaire (optionnel)
+                            </label>
+                            <textarea @bind="formLegalWarning"
+                                      rows="2"
+                                      placeholder="Ex: Intervention réservée aux personnes habilitées selon NFC 18-510"
+                                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                            <p class="mt-1 text-xs text-gray-500">
+                                Affichage d'un rappel réglementaire lors de l'exécution du protocole (habilitations, normes, etc.)
+                            </p>
+                        </div>
+
+                        <!-- Double Bornage NFC -->
+                        <div>
+                            <div class="flex items-start space-x-3">
+                                <input type="checkbox" @bind="formRequireDoubleScan"
+                                       id="requireDoubleScan"
+                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1">
+                                <div class="flex-1">
+                                    <label for="requireDoubleScan" class="text-sm font-semibold text-gray-700">
+                                        Double bornage NFC requis
+                                    </label>
+                                    <p class="mt-1 text-xs text-gray-500">
+                                        @if (formRequireDoubleScan)
+                                        {
+                                            <span class="text-orange-600 font-medium">⚠️ Les intervenants devront scanner 2 fois : 1 fois pour ouvrir la tâche, puis 1 fois pour la valider</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Un seul scan NFC sera nécessaire pour valider la tâche</span>
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+                            @if (formRequireDoubleScan)
+                            {
+                                <div class="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                                    <p class="text-xs text-orange-800">
+                                        <strong>Mode renforcé :</strong> Cette option garantit la présence physique de l'intervenant
+                                        au début ET à la fin de l'intervention. Recommandée pour les protocoles critiques ou sensibles.
+                                    </p>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Visual Form Builder -->
+                        <div class="border-t pt-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-4">
+                                Contenu du protocole <span class="text-red-500">*</span>
+                            </label>
+                            <p class="text-sm text-gray-600 mb-4">
+                                Composez votre protocole en ajoutant des éléments (questions, tâches, photos)
+                            </p>
+
+                            <!-- Form Elements List -->
+                            <div class="space-y-3 mb-4">
+                                @for (int i = 0; i < formElements.Count; i++)
+                                {
+                                    var index = i;
+                                    var element = formElements[index];
+                                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                        <div class="flex items-start gap-3">
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    @if (element.Type == "question")
+                                                    {
+                                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                        </svg>
+                                                    }
+                                                    else if (element.Type == "task")
+                                                    {
+                                                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                        </svg>
+                                                    }
+                                                    else
+                                                    {
+                                                        <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                        </svg>
+                                                    }
+                                                    <span class="font-semibold text-sm text-gray-700">
+                                                        @(element.Type == "question" ? "Question" : element.Type == "task" ? "Tâche à effectuer" : "Photo")
+                                                    </span>
+                                                </div>
+
+                                                <input @bind="element.Label"
+                                                       type="text"
+                                                       placeholder="@(element.Type == "question" ? "Ex: L'équipement est-il en bon état ?" : element.Type == "task" ? "Ex: Vérifier le niveau d'huile" : "Ex: Photo de l'équipement")"
+                                                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2" />
+
+                                                @if (element.Type == "question")
+                                                {
+                                                    <div class="flex items-center gap-2">
+                                                        <label class="flex items-center gap-1 text-xs text-gray-600">
+                                                            <input type="checkbox" @bind="element.Required" class="rounded" />
+                                                            Réponse obligatoire
+                                                        </label>
+                                                    </div>
+                                                }
+                                                else if (element.Type == "task")
+                                                {
+                                                    <div class="flex items-center gap-2">
+                                                        <label class="flex items-center gap-1 text-xs text-gray-600">
+                                                            <input type="checkbox" @bind="element.Required" class="rounded" />
+                                                            Validation obligatoire
+                                                        </label>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="flex items-center gap-2">
+                                                        <label class="flex items-center gap-1 text-xs text-gray-600">
+                                                            <input type="checkbox" @bind="element.Required" class="rounded" />
+                                                            Photo obligatoire
+                                                        </label>
+                                                    </div>
+                                                }
+                                            </div>
+
+                                            <div class="flex flex-col gap-1">
+                                                @if (index > 0)
+                                                {
+                                                    <button @onclick="() => MoveElementUp(index)"
+                                                            type="button"
+                                                            class="text-gray-400 hover:text-gray-600 p-1">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                                                        </svg>
+                                                    </button>
+                                                }
+                                                @if (index < formElements.Count - 1)
+                                                {
+                                                    <button @onclick="() => MoveElementDown(index)"
+                                                            type="button"
+                                                            class="text-gray-400 hover:text-gray-600 p-1">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                        </svg>
+                                                    </button>
+                                                }
+                                                <button @onclick="() => RemoveElement(index)"
+                                                        type="button"
+                                                        class="text-red-400 hover:text-red-600 p-1 mt-1">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+
+                                @if (formElements.Count == 0)
+                                {
+                                    <div class="text-center py-8 text-gray-400">
+                                        Aucun élément ajouté. Cliquez sur un bouton ci-dessous pour commencer.
+                                    </div>
+                                }
+                            </div>
+
+                            <!-- Add Element Buttons -->
+                            <div class="flex gap-3 flex-wrap">
+                                <button @onclick='() => AddElement("question")'
+                                        type="button"
+                                        class="flex-1 bg-blue-50 text-blue-700 px-4 py-3 rounded-lg hover:bg-blue-100 transition-colors font-medium border border-blue-200 inline-flex items-center justify-center">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Ajouter une question
+                                </button>
+                                <button @onclick='() => AddElement("task")'
+                                        type="button"
+                                        class="flex-1 bg-green-50 text-green-700 px-4 py-3 rounded-lg hover:bg-green-100 transition-colors font-medium border border-green-200 inline-flex items-center justify-center">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Ajouter une tâche
+                                </button>
+                                <button @onclick='() => AddElement("photo")'
+                                        type="button"
+                                        class="flex-1 bg-purple-50 text-purple-700 px-4 py-3 rounded-lg hover:bg-purple-100 transition-colors font-medium border border-purple-200 inline-flex items-center justify-center">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    </svg>
+                                    Ajouter une photo
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-8 lc-text-muted">
+                            Sélectionnez d'abord un métier pour continuer
+                        </div>
+                    }
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-4 mt-8">
+                    <button @onclick="CloseModal"
+                            class="flex-1 lc-btn lc-btn-secondary">
+                        Annuler
+                    </button>
+                    <button @onclick="SaveProtocol"
+                            disabled="@isSaving"
+                            class="flex-1 lc-btn lc-btn-primary disabled:opacity-50">
+                        @(isSaving ? "Enregistrement..." : isEditMode ? "Mettre à jour" : "Créer")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de suggestion IA pour le double bornage -->
+@if (showDoubleScanSuggestion)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md mx-4 transform animate-bounce">
+            <div class="p-6">
+                <!-- Header avec icône IA -->
+                <div class="flex items-center mb-4">
+                    <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center mr-3">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">🤖 Suggestion IA</h3>
+                        <p class="text-sm text-gray-500">Assistant sécurité Labor Control</p>
+                    </div>
+                </div>
+
+                <!-- Contenu -->
+                <div class="mb-6">
+                    <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-start">
+                            <svg class="w-5 h-5 text-orange-600 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-medium text-orange-800">
+                                    Double bornage NFC recommandé
+                                </p>
+                                <p class="text-xs text-orange-700 mt-1">
+                                    @suggestionReason
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-sm text-gray-700 mb-3">
+                        L'assistant IA détecte que ce protocole pourrait nécessiter un **double bornage NFC**
+                        pour renforcer la sécurité et garantir la présence physique de l'intervenant.
+                    </p>
+
+                    <div class="bg-blue-50 rounded-lg p-3">
+                        <p class="text-xs text-blue-800">
+                            <strong>Double bornage :</strong> 1 scan pour ouvrir + 1 scan pour valider = Sécurité maximale
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Boutons -->
+                <div class="flex gap-3">
+                    <button @onclick="DismissDoubleScanSuggestion"
+                            class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium">
+                        Non merci
+                    </button>
+                    <button @onclick="AcceptDoubleScanSuggestion"
+                            class="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition font-medium">
+                        ✨ Activer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal d'information -->
+@if (showInfoModal)
+{
+    <div class="fixed inset-0 z-50 pointer-events-none">
+        <div class="absolute top-48 left-1/2 transform -translate-x-1/2 pointer-events-auto">
+            <div class="bg-white border border-gray-200 rounded-xl shadow-2xl max-w-2xl w-full mx-4 p-6 animate-fade-in">
+                <!-- Header -->
+                <div class="flex items-start mb-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-lg font-semibold text-gray-900">Qu'est-ce qu'un protocole d'intervention ?</h3>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="text-gray-700 space-y-3">
+                    <p>
+                        Un protocole d'intervention est un <strong>modèle de formulaire standardisé</strong> qui définit précisément les tâches à effectuer, les contrôles et/ou les informations à collecter lors d'une intervention près d'un point de contrôle.
+                    </p>
+                    <p>
+                        Il permet de <strong>garantir la traçabilité, la qualité et la conformité réglementaire</strong> de vos interventions en s'assurant que chaque intervenant suive le même processus et collecte les mêmes données.
+                    </p>
+                    <p>
+                        <strong>Exemples :</strong> Protocole de contrôle visuel mensuel, protocole de vérification réglementaire, protocole d'inspection QHSE, protocole de nettoyage, etc.
+                    </p>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-3 mt-4">
+                        <p class="text-red-700 text-sm font-medium">
+                            Les opérations de maintenances sont gérées dans la section Équipements / Gammes de maintenance.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ProtocolDto> allProtocols = new();
+    private List<ProtocolDto> activeProtocols => allProtocols.Where(p => p.IsActive).ToList();
+    private List<ProtocolDto> inactiveProtocols => allProtocols.Where(p => !p.IsActive).ToList();
+
+    // Métiers filtrés par secteur sélectionné
+    private List<IndustryDto> filteredIndustries => selectedSectorId.HasValue
+        ? industries.Where(i => i.SectorId == selectedSectorId.Value).ToList()
+        : industries.Where(i => i.SectorName != "Maintenance industrielle").ToList();
+
+    private List<IndustryDto> industries = new();
+    private List<SectorDto> sectors = new();
+    private bool isLoading = true;
+    private bool isInitializing = false;
+    private string? errorMessage;
+    private Guid? selectedSectorId;
+    private Guid? selectedIndustryId;
+
+    // Info Modal
+    private bool showInfoModal = false;
+
+    // View Modal
+    private bool showViewModal = false;
+    private ProtocolDto? viewingProtocol;
+
+    // Create/Edit Modal
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    private Guid? editingId;
+    private string? modalErrorMessage;
+
+    // Form fields
+    private string formSectorId = "";
+    private string formIndustryId = "";
+    private string? selectedIndustryCode = null;
+    private string formName = "";
+    private string formCategory = "CONTROLE_VISUEL";
+    private string formRequiredQualification = "AUCUNE";
+    private string? formLegalWarning;
+    private bool formRequireDoubleScan = false; // NOUVEAU: Double bornage NFC
+
+    // Visual form builder
+    private List<FormElement> formElements = new();
+    private List<CategoryOption> availableCategories = new();
+    private List<QualificationOption> availableQualifications = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check for industryId query parameter
+        var uri = new Uri(Navigation.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var industryIdParam = query["industryId"];
+        if (!string.IsNullOrEmpty(industryIdParam) && Guid.TryParse(industryIdParam, out var industryId))
+        {
+            selectedIndustryId = industryId;
+        }
+
+        await LoadSectors();
+        await LoadIndustries();
+        await LoadProtocols();
+    }
+
+    private async Task LoadSectors()
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetFromJsonAsync<List<SectorDto>>("http://localhost:5278/api/sectors?isActive=true");
+            sectors = response?.Where(s => s.Name != "Maintenance industrielle").OrderBy(s => s.DisplayOrder).ToList() ?? new List<SectorDto>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur lors du chargement des secteurs: {ex}");
+        }
+    }
+
+    private async Task LoadIndustries()
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetFromJsonAsync<List<IndustryDto>>("http://localhost:5278/api/industries?isActive=true");
+            industries = response ?? new List<IndustryDto>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur lors du chargement des métiers: {ex}");
+        }
+    }
+
+    private async Task LoadProtocols()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Load ALL protocols (active and inactive) for the selected filters
+            var url = "http://localhost:5278/api/tasktemplates";
+            var queryParams = new List<string>();
+
+            if (selectedSectorId.HasValue)
+            {
+                queryParams.Add($"sectorId={selectedSectorId.Value}");
+            }
+
+            if (selectedIndustryId.HasValue)
+            {
+                queryParams.Add($"industryId={selectedIndustryId.Value}");
+            }
+
+            if (queryParams.Any())
+            {
+                url += "?" + string.Join("&", queryParams);
+            }
+
+            var response = await Http.GetFromJsonAsync<List<ProtocolDto>>(url);
+            allProtocols = response ?? new List<ProtocolDto>();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur lors du chargement: {ex.Message}";
+            Console.WriteLine($"Erreur: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OnSectorFilterChange(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        selectedSectorId = string.IsNullOrEmpty(value) ? null : Guid.Parse(value);
+        selectedIndustryId = null; // Réinitialise le filtre métier
+        await LoadProtocols();
+    }
+
+    private async Task OnIndustryFilterChange(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        selectedIndustryId = string.IsNullOrEmpty(value) ? null : Guid.Parse(value);
+
+        // Auto-sélectionner le secteur parent si une industrie est choisie
+        if (selectedIndustryId.HasValue)
+        {
+            var industry = industries.FirstOrDefault(i => i.Id == selectedIndustryId.Value);
+            if (industry != null && selectedSectorId != industry.SectorId)
+            {
+                selectedSectorId = industry.SectorId;
+            }
+        }
+
+        await LoadProtocols();
+    }
+
+    private async Task InitPredefinedProtocols()
+    {
+        if (!selectedIndustryId.HasValue)
+        {
+            errorMessage = "Veuillez sélectionner un métier d'abord";
+            return;
+        }
+
+        try
+        {
+            isInitializing = true;
+            errorMessage = null;
+
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.PostAsync($"http://localhost:5278/api/tasktemplates/init-predefined/{selectedIndustryId.Value}", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadIndustries(); // Refresh industry counts
+                await LoadProtocols();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de l'initialisation: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+            Console.WriteLine($"Erreur: {ex}");
+        }
+        finally
+        {
+            isInitializing = false;
+        }
+    }
+
+    private async Task InitializePredefinedProtocols()
+    {
+        try
+        {
+            isInitializing = true;
+            errorMessage = null;
+
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.PostAsync("http://localhost:5278/api/tasktemplates/init-all-predefined", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadIndustries();
+                await LoadProtocols();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de l'initialisation: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+            Console.WriteLine($"Erreur: {ex}");
+        }
+        finally
+        {
+            isInitializing = false;
+        }
+    }
+
+    private async Task ToggleProtocol(ProtocolDto protocol)
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.PostAsync($"http://localhost:5278/api/tasktemplates/{protocol.Id}/toggle", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadIndustries(); // Refresh industry counts
+                await LoadProtocols();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+            Console.WriteLine($"Erreur: {ex}");
+        }
+    }
+
+    private void ViewProtocol(ProtocolDto protocol)
+    {
+        viewingProtocol = protocol;
+        showViewModal = true;
+    }
+
+    private void CloseViewModal()
+    {
+        showViewModal = false;
+        viewingProtocol = null;
+    }
+
+    private void OpenCreateModal()
+    {
+        isEditMode = false;
+        editingId = null;
+        ResetForm();
+
+        // Pre-select sector and industry if filtered
+        if (selectedSectorId.HasValue)
+        {
+            formSectorId = selectedSectorId.Value.ToString();
+        }
+
+        if (selectedIndustryId.HasValue)
+        {
+            formIndustryId = selectedIndustryId.Value.ToString();
+
+            // If industry is selected, ensure sector is also set
+            if (string.IsNullOrEmpty(formSectorId))
+            {
+                var industry = industries.FirstOrDefault(i => i.Id == selectedIndustryId.Value);
+                if (industry != null)
+                {
+                    formSectorId = industry.SectorId.ToString();
+                }
+            }
+        }
+
+        showModal = true;
+    }
+
+    private void OpenEditModal(ProtocolDto protocol)
+    {
+        isEditMode = true;
+        editingId = protocol.Id;
+        ResetForm();
+
+        // Populate form with protocol data
+        formName = protocol.Name;
+        formCategory = protocol.Category;
+        formRequiredQualification = protocol.RequiredQualification;
+        formLegalWarning = protocol.LegalWarning;
+        formRequireDoubleScan = protocol.RequireDoubleScan;
+
+        // Set industry and derive sector
+        if (protocol.IndustryId.HasValue)
+        {
+            formIndustryId = protocol.IndustryId.Value.ToString();
+
+            // Find the industry to get its sector
+            var industry = industries.FirstOrDefault(i => i.Id == protocol.IndustryId.Value);
+            if (industry != null)
+            {
+                formSectorId = industry.SectorId.ToString();
+                selectedIndustryCode = industry.Code;
+            }
+        }
+
+        // TODO: Parse protocol.FormTemplate JSON to populate formElements for visual editing
+        // For now, show a message about form template editing
+        modalErrorMessage = "Note: L'édition du contenu du formulaire (questions, tâches, photos) n'est pas encore supportée. Seules les informations générales peuvent être modifiées.";
+
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        modalErrorMessage = null;
+        ResetForm();
+    }
+
+    private void ResetForm()
+    {
+        formSectorId = "";
+        formIndustryId = "";
+        selectedIndustryCode = null;
+        formName = "";
+        formCategory = "CONTROLE_VISUEL";
+        formRequiredQualification = "AUCUNE";
+        formLegalWarning = null;
+        formElements.Clear();
+        availableCategories.Clear();
+        availableQualifications.Clear();
+    }
+
+    private void OnFormSectorChanged()
+    {
+        // Réinitialiser le métier quand le secteur change
+        formIndustryId = "";
+        selectedIndustryCode = null;
+        availableCategories.Clear();
+        availableQualifications.Clear();
+    }
+
+    private List<IndustryDto> GetIndustriesForFormSector()
+    {
+        if (string.IsNullOrEmpty(formSectorId))
+            return new List<IndustryDto>();
+
+        if (!Guid.TryParse(formSectorId, out var sectorGuid))
+            return new List<IndustryDto>();
+
+        return industries.Where(i => i.SectorId == sectorGuid && i.SectorName != "Maintenance industrielle").ToList();
+    }
+
+    private async Task OnIndustryChanged()
+    {
+        if (string.IsNullOrEmpty(formIndustryId))
+        {
+            availableCategories.Clear();
+            availableQualifications.Clear();
+            return;
+        }
+
+        // Find the industry to get its code
+        var industry = industries.FirstOrDefault(i => i.Id.ToString() == formIndustryId);
+        if (industry == null) return;
+
+        selectedIndustryCode = industry.Code;
+
+        // Load metadata for this industry
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetFromJsonAsync<MetadataResponse>($"http://localhost:5278/api/tasktemplates/metadata/{industry.Code}");
+
+            if (response != null)
+            {
+                availableCategories = response.Categories ?? new List<CategoryOption>();
+                availableQualifications = response.Qualifications ?? new List<QualificationOption>();
+
+                // Set defaults
+                if (availableCategories.Count > 0)
+                {
+                    formCategory = availableCategories[0].Code;
+                }
+                if (availableQualifications.Count > 0)
+                {
+                    formRequiredQualification = availableQualifications[0].Code;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur lors du chargement des métadonnées: {ex}");
+        }
+    }
+
+    private void AddElement(string type)
+    {
+        formElements.Add(new FormElement
+        {
+            Type = type,
+            Label = "",
+            Required = type == "task" // Tasks are required by default
+        });
+
+        // Déclencher l'analyse IA quand des éléments sont ajoutés
+        AnalyzeAndSuggestDoubleScan();
+    }
+
+    private void RemoveElement(int index)
+    {
+        if (index >= 0 && index < formElements.Count)
+        {
+            formElements.RemoveAt(index);
+        }
+    }
+
+    // ==========================================================================
+    // ASSISTANT IA : Suggestion automatique du double bornage
+    // ==========================================================================
+    private void AnalyzeAndSuggestDoubleScan()
+    {
+        bool shouldSuggestDoubleScan = false;
+        string reason = "";
+
+        // 1. Analyser le nom du protocole
+        var protocolName = formName.ToLower();
+        string[] criticalKeywords = {
+            "audit", "contrôle", "vérification", "inspection", "sécurité",
+            "qualité", "réglementaire", "pharmacie", "médicament", "stérile",
+            "désinfection", "haccp", "électrique", "gaz", "pression",
+            "risque", "critique", "sensible", "conforme", "certification"
+        };
+
+        if (criticalKeywords.Any(keyword => protocolName.Contains(keyword)))
+        {
+            shouldSuggestDoubleScan = true;
+            reason = "Le nom du protocole contient des termes critiques";
+        }
+
+        // 2. Analyser la catégorie
+        if (formCategory == "INSPECTION" || formCategory == "CONTROLE_REGLEMENTAIRE" || formCategory == "VERIFICATION")
+        {
+            shouldSuggestDoubleScan = true;
+            reason = "Les protocoles d'inspection/contrôle sont souvent critiques";
+        }
+
+        // 3. Analyser la qualification requise
+        string[] criticalQualifications = {
+            "INGENIEUR", "RESP_QHSE", "AUDITEUR_INTERNE", "TECH_QUALITE",
+            "INFIRMIER", "PREV_SECURITE", "TECH_MAINTENANCE"
+        };
+
+        if (criticalQualifications.Contains(formRequiredQualification))
+        {
+            shouldSuggestDoubleScan = true;
+            reason = "Cette qualification est associée à des tâches critiques";
+        }
+
+        // 4. Analyser le contenu des éléments
+        var allElementLabels = string.Join(" ", formElements.Select(e => e.Label.ToLower()));
+        string[] sensitiveTerms = {
+            "conformité", "péremption", "stérilisation", "température", "pression",
+            "sécurité", "alarme", "défaut", "panne", "anomalie", "non conforme"
+        };
+
+        if (sensitiveTerms.Any(term => allElementLabels.Contains(term)))
+        {
+            shouldSuggestDoubleScan = true;
+            reason = "Le contenu du protocole traite d'éléments sensibles";
+        }
+
+        // 5. Suggérer si pas encore activé
+        if (shouldSuggestDoubleScan && !formRequireDoubleScan)
+        {
+            ShowDoubleScanSuggestion(reason);
+        }
+    }
+
+    private bool showDoubleScanSuggestion = false;
+    private string suggestionReason = "";
+
+    private void ShowDoubleScanSuggestion(string reason)
+    {
+        suggestionReason = reason;
+        showDoubleScanSuggestion = true;
+        StateHasChanged();
+    }
+
+    private void AcceptDoubleScanSuggestion()
+    {
+        formRequireDoubleScan = true;
+        showDoubleScanSuggestion = false;
+        StateHasChanged();
+    }
+
+    private void DismissDoubleScanSuggestion()
+    {
+        showDoubleScanSuggestion = false;
+        StateHasChanged();
+    }
+
+    private void MoveElementUp(int index)
+    {
+        if (index > 0)
+        {
+            var temp = formElements[index];
+            formElements[index] = formElements[index - 1];
+            formElements[index - 1] = temp;
+        }
+    }
+
+    private void MoveElementDown(int index)
+    {
+        if (index < formElements.Count - 1)
+        {
+            var temp = formElements[index];
+            formElements[index] = formElements[index + 1];
+            formElements[index + 1] = temp;
+        }
+    }
+
+    private string BuildFormTemplateJson()
+    {
+        var fields = new List<object>();
+
+        foreach (var element in formElements)
+        {
+            if (string.IsNullOrWhiteSpace(element.Label)) continue;
+
+            var fieldName = element.Label
+                .ToLower()
+                .Replace(" ", "_")
+                .Replace("'", "")
+                .Replace("?", "")
+                .Replace("é", "e")
+                .Replace("è", "e")
+                .Replace("à", "a")
+                .Replace("ô", "o")
+                .Replace("ç", "c");
+
+            if (element.Type == "question")
+            {
+                fields.Add(new
+                {
+                    name = fieldName,
+                    type = "text",
+                    label = element.Label,
+                    required = element.Required
+                });
+            }
+            else if (element.Type == "task")
+            {
+                fields.Add(new
+                {
+                    name = fieldName,
+                    type = "checkbox",
+                    label = element.Label,
+                    required = element.Required
+                });
+            }
+            else if (element.Type == "photo")
+            {
+                fields.Add(new
+                {
+                    name = fieldName,
+                    type = "photo",
+                    label = element.Label,
+                    required = element.Required
+                });
+            }
+        }
+
+        return System.Text.Json.JsonSerializer.Serialize(new { fields });
+    }
+
+    private async Task SaveProtocol()
+    {
+        try
+        {
+            isSaving = true;
+            modalErrorMessage = null;
+
+            // Validation
+            if (string.IsNullOrWhiteSpace(formName))
+            {
+                modalErrorMessage = "Le nom du protocole est obligatoire";
+                return;
+            }
+
+            if (string.IsNullOrEmpty(formIndustryId))
+            {
+                modalErrorMessage = "Veuillez sélectionner un métier";
+                return;
+            }
+
+            if (formElements.Count == 0)
+            {
+                modalErrorMessage = "Ajoutez au moins un élément au protocole (question, tâche ou photo)";
+                return;
+            }
+
+            // Check if all elements have labels
+            if (formElements.Any(e => string.IsNullOrWhiteSpace(e.Label)))
+            {
+                modalErrorMessage = "Tous les éléments doivent avoir un texte";
+                return;
+            }
+
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            Guid? industryId = null;
+            if (!string.IsNullOrEmpty(formIndustryId) && Guid.TryParse(formIndustryId, out var parsedId))
+            {
+                industryId = parsedId;
+            }
+
+            // Build JSON from visual form builder
+            var formTemplate = BuildFormTemplateJson();
+
+            var request = new
+            {
+                Name = formName,
+                Category = formCategory,
+                RequiredQualification = formRequiredQualification,
+                LegalWarning = formLegalWarning,
+                FormTemplate = formTemplate,
+                IndustryId = industryId,
+                IsUniversal = false,
+                AlertOnMismatch = true,
+                RequireDoubleScan = formRequireDoubleScan // NOUVEAU: Double bornage NFC
+            };
+
+            HttpResponseMessage response;
+
+            if (isEditMode && editingId.HasValue)
+            {
+                response = await Http.PutAsJsonAsync($"http://localhost:5278/api/tasktemplates/{editingId.Value}", request);
+            }
+            else
+            {
+                response = await Http.PostAsJsonAsync("http://localhost:5278/api/tasktemplates", request);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                CloseModal();
+                await LoadIndustries(); // Refresh industry counts
+                await LoadProtocols();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                modalErrorMessage = $"Erreur: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            modalErrorMessage = $"Erreur: {ex.Message}";
+            Console.WriteLine($"Erreur: {ex}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private string GetCategoryLabel(string category)
+    {
+        return category switch
+        {
+            "CONTROLE_VISUEL" => "Contrôle Visuel",
+            "MAINTENANCE_PREVENTIVE" => "Maintenance Préventive",
+            "MAINTENANCE_CURATIVE" => "Maintenance Curative",
+            "CONTROLE_REGLEMENTAIRE" => "Contrôle Réglementaire",
+            "INSPECTION" => "Inspection",
+            "VERIFICATION" => "Vérification",
+            "NETTOYAGE" => "Nettoyage / Entretien",
+            "LUBRIFICATION" => "Lubrification",
+            "MESURE" => "Mesure / Relevé",
+            _ => category
+        };
+    }
+
+    private string GetQualificationLabel(string qualification)
+    {
+        return qualification switch
+        {
+            "AUCUNE" => "Aucune",
+            "TECHNICIEN" => "Technicien",
+            "ELECTRICIEN" => "Électricien",
+            "MECANICIEN" => "Mécanicien",
+            "FRIGORISTE" => "Frigoriste",
+            "PLOMBIER" => "Plombier",
+            "HABILITATION_ELECTRIQUE" => "Habilitation électrique",
+            "CACES" => "CACES",
+            "INFIRMIER" => "Infirmier",
+            "AIDE_SOIGNANT" => "Aide-soignant",
+            "MEDECIN" => "Médecin",
+            "AGENT_SECURITE" => "Agent de sécurité",
+            "CUISINIER" => "Cuisinier",
+            "INGENIEUR" => "Ingénieur",
+            _ => qualification
+        };
+    }
+
+    private void NavigateToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private void ShowInfoModal()
+    {
+        showInfoModal = true;
+    }
+
+    private void HideInfoModal()
+    {
+        showInfoModal = false;
+    }
+
+    public class ProtocolDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string RequiredQualification { get; set; } = "AUCUNE";
+        public string? LegalWarning { get; set; }
+        public string FormTemplate { get; set; } = string.Empty;
+        public bool IsPredefined { get; set; }
+        public bool IsActive { get; set; }
+        public bool RequireDoubleScan { get; set; } = false;
+        public Guid? IndustryId { get; set; }
+        public string? IndustryName { get; set; }
+        public string? IndustryIcon { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class IndustryDto
+    {
+        public Guid Id { get; set; }
+        public Guid SectorId { get; set; }
+        public string SectorName { get; set; } = string.Empty;
+        public string? SectorIcon { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public string? Icon { get; set; }
+        public int DisplayOrder { get; set; }
+        public int ProtocolsCount { get; set; }
+    }
+
+    public class SectorDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Icon { get; set; }
+        public int DisplayOrder { get; set; }
+        public int IndustriesCount { get; set; }
+    }
+
+    public class InitAllResult
+    {
+        public string Message { get; set; } = string.Empty;
+        public int TotalProtocols { get; set; }
+        public int IndustriesCount { get; set; }
+        public List<string> Industries { get; set; } = new();
+    }
+
+    public class FormElement
+    {
+        public string Type { get; set; } = string.Empty; // "question", "task", "photo"
+        public string Label { get; set; } = string.Empty;
+        public bool Required { get; set; }
+    }
+
+    public class MetadataResponse
+    {
+        public List<CategoryOption> Categories { get; set; } = new();
+        public List<QualificationOption> Qualifications { get; set; } = new();
+    }
+
+    public class CategoryOption
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+    }
+
+    public class QualificationOption
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+    }
+}

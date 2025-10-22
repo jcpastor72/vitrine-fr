@@ -1,0 +1,282 @@
+@page "/"
+@using LaborControl.Web.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<PageTitle>LABOR CONTROL - Fait, scanné, prouvé</PageTitle>
+
+<div class="bg-white">
+    <!-- Navigation -->
+    <nav class="fixed w-full bg-white/95 backdrop-blur-sm shadow-sm z-50">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-xl">LC</span>
+                    </div>
+                    <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+                        LABOR CONTROL
+                    </span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#solution" class="text-gray-600 hover:text-blue-600 transition">Solution</a>
+                    <a href="#fonctionnalites" class="text-gray-600 hover:text-blue-600 transition">Fonctionnalités</a>
+                    <a href="#secteurs" class="text-gray-600 hover:text-blue-600 transition">Secteurs</a>
+                    <a href="#tarifs" class="text-gray-600 hover:text-blue-600 transition">Tarifs</a>
+                    @if (!isAuthenticated)
+                    {
+                        <a href="/register" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-full hover:shadow-lg transition-all duration-300 font-medium">
+                            Inscription →
+                        </a>
+                        <a href="/login" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-full hover:shadow-lg transition-all duration-300 font-medium">
+                            Connexion →
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="text-gray-600">@userEmail</span>
+                        <button @onclick="Logout" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition">Déconnexion</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-6 bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center max-w-4xl mx-auto">
+                <div class="inline-block mb-6 px-4 py-2 bg-blue-100 rounded-full">
+                    <span class="text-blue-600 font-semibold text-sm">🚀 La nouvelle génération de traçabilité</span>
+                </div>
+                <h1 class="text-6xl md:text-7xl font-bold mb-6 leading-tight">
+                    <span class="bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900 bg-clip-text text-transparent">Fait, scanné,</span>
+                    <br />
+                    <span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">prouvé.</span>
+                </h1>
+                <p class="text-xl text-gray-600 mb-10 leading-relaxed max-w-2xl mx-auto">
+                    La seule solution qui rend vos contrôles terrain <strong>incontestables</strong> grâce au scan NFC obligatoire. Finies les tricheries, place à la preuve.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                    <a href="#contact" class="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full font-semibold text-lg hover:shadow-2xl hover:scale-105 transition-all duration-300">
+                        Demander une démo gratuite
+                    </a>
+                    <a href="#solution" class="px-8 py-4 bg-white text-blue-600 border-2 border-blue-200 rounded-full font-semibold text-lg hover:border-blue-600 hover:shadow-lg transition-all duration-300">
+                        Découvrir la solution
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="py-16 bg-gradient-to-r from-blue-600 to-blue-800 text-white">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid md:grid-cols-3 gap-8 text-center">
+                <div>
+                    <div class="text-5xl font-bold mb-2">100%</div>
+                    <div class="text-blue-100">Preuve de présence physique</div>
+                </div>
+                <div>
+                    <div class="text-5xl font-bold mb-2">0€</div>
+                    <div class="text-blue-100">Abonnement jusqu'à 10 points</div>
+                </div>
+                <div>
+                    <div class="text-5xl font-bold mb-2">24/7</div>
+                    <div class="text-blue-100">Mode offline intégral</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section id="solution" class="py-24 px-6 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4 text-gray-900">Le problème que personne ne résout</h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">Dans tous les secteurs, impossible de vérifier objectivement que le travail terrain a été réellement effectué.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-red-50 rounded-2xl p-8 border border-red-100 hover:shadow-xl transition-all duration-300">
+                    <div class="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-6"><span class="text-3xl">❌</span></div>
+                    <h3 class="text-2xl font-bold mb-4 text-gray-900">Aucune preuve physique</h3>
+                    <p class="text-gray-600">Les déclarations sur papier ou applications classiques ne prouvent pas la présence réelle sur site.</p>
+                </div>
+                <div class="bg-orange-50 rounded-2xl p-8 border border-orange-100 hover:shadow-xl transition-all duration-300">
+                    <div class="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center mb-6"><span class="text-3xl">📝</span></div>
+                    <h3 class="text-2xl font-bold mb-4 text-gray-900">Triche par recopie</h3>
+                    <p class="text-gray-600">Les techniciens recopient les mêmes valeurs sans vérifier, créant des données fictives.</p>
+                </div>
+                <div class="bg-purple-50 rounded-2xl p-8 border border-purple-100 hover:shadow-xl transition-all duration-300">
+                    <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mb-6"><span class="text-3xl">⚖️</span></div>
+                    <h3 class="text-2xl font-bold mb-4 text-gray-900">Risques juridiques</h3>
+                    <p class="text-gray-600">En cas de litige, impossible de prouver que les contrôles ont bien été effectués.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="fonctionnalites" class="py-24 px-6 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4 text-gray-900">Fonctionnalités qui changent tout</h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">Une suite complète d'outils pensés pour garantir l'intégrité de vos opérations terrain.</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-12">
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-8 border border-blue-200 hover:shadow-2xl transition-all duration-300">
+                    <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-6"><span class="text-3xl">🤖</span></div>
+                    <h3 class="text-2xl font-bold mb-4 text-gray-900">Détection anti-triche IA</h3>
+                    <p class="text-gray-700 mb-6">L'intelligence artificielle analyse automatiquement chaque saisie pour détecter les comportements suspects.</p>
+                    <ul class="space-y-3">
+                        <li class="flex items-center space-x-2"><span class="text-blue-600">•</span><span class="text-gray-700">Analyse en temps réel</span></li>
+                        <li class="flex items-center space-x-2"><span class="text-blue-600">•</span><span class="text-gray-700">Photos aléatoires + OCR</span></li>
+                        <li class="flex items-center space-x-2"><span class="text-blue-600">•</span><span class="text-gray-700">Alertes superviseur instantanées</span></li>
+                    </ul>
+                </div>
+                <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-8 border border-purple-200 hover:shadow-2xl transition-all duration-300">
+                    <div class="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mb-6"><span class="text-3xl">📱</span></div>
+                    <h3 class="text-2xl font-bold mb-4 text-gray-900">Mode offline intégral</h3>
+                    <p class="text-gray-700 mb-6">Fonctionne 100% sans connexion Internet avec synchronisation automatique au retour du réseau.</p>
+                    <ul class="space-y-3">
+                        <li class="flex items-center space-x-2"><span class="text-purple-600">•</span><span class="text-gray-700">Zéro interruption de service</span></li>
+                        <li class="flex items-center space-x-2"><span class="text-purple-600">•</span><span class="text-gray-700">Données chiffrées localement</span></li>
+                        <li class="flex items-center space-x-2"><span class="text-purple-600">•</span><span class="text-gray-700">Sync automatique en arrière-plan</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Sectors Section -->
+    <section id="secteurs" class="py-24 px-6 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4 text-gray-900">Multi-secteurs, une seule plateforme</h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">De l'EHPAD à l'industrie, LABOR CONTROL s'adapte à tous les métiers.</p>
+            </div>
+            <div class="grid md:grid-cols-4 gap-6">
+                <div class="bg-white rounded-xl p-8 border border-gray-200 hover:shadow-xl hover:border-blue-300 transition-all duration-300"><div class="text-5xl mb-4">🏥</div><h3 class="text-xl font-bold mb-2 text-gray-900">EHPAD & Santé</h3><p class="text-gray-600">Traçabilité visites résidents, protection juridique anti-maltraitance</p></div>
+                <div class="bg-white rounded-xl p-8 border border-gray-200 hover:shadow-xl hover:border-blue-300 transition-all duration-300"><div class="text-5xl mb-4">🏭</div><h3 class="text-xl font-bold mb-2 text-gray-900">Maintenance</h3><p class="text-gray-600">Contrôles préventifs utilités, fin de la recopie, conformité ISO</p></div>
+                <div class="bg-white rounded-xl p-8 border border-gray-200 hover:shadow-xl hover:border-blue-300 transition-all duration-300"><div class="text-5xl mb-4">🔐</div><h3 class="text-xl font-bold mb-2 text-gray-900">Sécurité</h3><p class="text-gray-600">Rondes de gardiennage tracées, preuve de passage aux points</p></div>
+                <div class="bg-white rounded-xl p-8 border border-gray-200 hover:shadow-xl hover:border-blue-300 transition-all duration-300"><div class="text-5xl mb-4">🏪</div><h3 class="text-xl font-bold mb-2 text-gray-900">Retail</h3><p class="text-gray-600">Contrôles hygiène HACCP, chambres froides, conformité alimentaire</p></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="tarifs" class="py-24 px-6 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4 text-gray-900">Tarification simple et transparente</h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">Investissement unique sur le matériel. Application gratuite jusqu'à 10 points.</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                <div class="bg-white rounded-2xl p-10 border-2 border-gray-200 hover:shadow-2xl transition-all duration-300">
+                    <div class="text-sm font-semibold text-gray-600 mb-2">MATÉRIEL</div>
+                    <div class="mb-6"><span class="text-6xl font-bold text-gray-900">80€</span><span class="text-gray-600 text-xl"> HT</span></div>
+                    <div class="text-lg text-gray-600 mb-8">par puce NFC (achat unique)</div>
+                    <ul class="space-y-4">
+                        <li class="flex items-start"><svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="text-gray-700">Puce NFC sécurisée SHA256</span></li>
+                        <li class="flex items-start"><svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="text-gray-700">Installation et activation</span></li>
+                        <li class="flex items-start"><svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="text-gray-700">Support technique inclus</span></li>
+                    </ul>
+                </div>
+                <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-10 text-white relative overflow-hidden hover:shadow-2xl transition-all duration-300">
+                    <div class="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-yellow-400 rounded-full opacity-20"></div>
+                    <div class="relative">
+                        <div class="inline-block bg-yellow-400 text-blue-900 text-xs font-bold px-3 py-1 rounded-full mb-4">GRATUIT</div>
+                        <div class="text-sm font-semibold text-blue-200 mb-2">APPLICATION</div>
+                        <div class="mb-6"><span class="text-6xl font-bold">0€</span><span class="text-blue-200 text-xl"> /mois</span></div>
+                        <div class="text-lg text-blue-100 mb-8">jusqu'à 10 points d'intervention</div>
+                        <ul class="space-y-4">
+                            <li class="flex items-start"><svg class="w-6 h-6 text-yellow-400 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span>Application mobile iOS & Android</span></li>
+                            <li class="flex items-start"><svg class="w-6 h-6 text-yellow-400 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span>Interface web superviseur</span></li>
+                            <li class="flex items-start"><svg class="w-6 h-6 text-yellow-400 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span>Toutes les fonctionnalités</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section id="contact" class="py-24 px-6 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 text-white">
+        <div class="max-w-4xl mx-auto text-center">
+            <h2 class="text-4xl md:text-5xl font-bold mb-6">Prêt à rendre vos contrôles incontestables ?</h2>
+            <p class="text-xl text-blue-100 mb-10">Rejoignez les organisations qui ne veulent plus de compromis sur la traçabilité. Demandez une démonstration personnalisée gratuite.</p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="/register" class="px-10 py-5 bg-white text-blue-600 rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all duration-300">
+                    Demander une démo gratuite →
+                </a>
+                <a href="mailto:contact@labor-control.fr" class="px-10 py-5 bg-blue-800 text-white border-2 border-white rounded-full font-bold text-lg hover:bg-blue-900 transition-all duration-300">
+                    Nous contacter
+                </a>
+            </div>
+            <p class="mt-8 text-blue-200 text-sm">
+                📧 contact@labor-control.fr | 🌐 labor-control.fr
+            </p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-12 px-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <div class="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
+                            <span class="text-white font-bold">LC</span>
+                        </div>
+                        <span class="text-white font-bold">LABOR CONTROL</span>
+                    </div>
+                    <p class="text-sm">La solution de traçabilité terrain incontestable via scan NFC obligatoire.</p>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4">Solution</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#solution" class="hover:text-white transition">Comment ça marche</a></li>
+                        <li><a href="#fonctionnalites" class="hover:text-white transition">Fonctionnalités</a></li>
+                        <li><a href="#secteurs" class="hover:text-white transition">Secteurs</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4">Entreprise</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#tarifs" class="hover:text-white transition">Tarifs</a></li>
+                        <li><a href="/login" class="hover:text-white transition">Connexion</a></li>
+                        <li><a href="#contact" class="hover:text-white transition">Contact</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4">Contact</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li>📧 contact@labor-control.fr</li>
+                        <li>🌐 labor-control.fr</li>
+                        <li>📍 France</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 pt-8 text-center text-sm">
+                <p>&copy; 2025 LABOR CONTROL. Tous droits réservés. | Fait, scanné, prouvé.</p>
+            </div>
+        </div>
+    </footer>
+</div>
+
+@code {
+    private bool isAuthenticated = false;
+    private string userEmail = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        userEmail = await AuthService.GetUserEmailAsync();
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        NavigationManager.NavigateTo("/");
+    }
+}

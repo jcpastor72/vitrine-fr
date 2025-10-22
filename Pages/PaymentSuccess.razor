@@ -1,0 +1,322 @@
+@page "/payment-success"
+@using LaborControl.Web.Services
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+
+<div class="min-h-screen bg-gradient-to-br from-green-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl mx-auto">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden">
+            <!-- Header Success -->
+            <div class="bg-green-600 px-6 py-8">
+                <div class="flex justify-center mb-4">
+                    <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center">
+                        <svg class="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                </div>
+                <h1 class="text-3xl font-bold text-white text-center">
+                    Paiement réussi !
+                </h1>
+                <p class="mt-2 text-center text-green-100">
+                    Votre commande a été confirmée
+                </p>
+            </div>
+
+            @if (isLoading)
+            {
+                <div class="p-6 text-center">
+                    <p class="text-gray-600">Chargement des informations...</p>
+                </div>
+            }
+            else if (order != null)
+            {
+                <!-- Confirmation de commande -->
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Détails de votre commande</h2>
+
+                    <div class="bg-green-50 rounded-lg p-4 mb-4">
+                        <div class="flex items-center mb-3">
+                            <svg class="w-6 h-6 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="text-green-800 font-semibold">Paiement de @string.Format("{0:F2}", order.TotalAmount) € confirmé</span>
+                        </div>
+                        <p class="text-sm text-green-700">
+                            Numéro de commande: <strong>@order.OrderNumber</strong>
+                        </p>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                        <h3 class="font-medium text-gray-900 mb-2">Ce que vous avez commandé</h3>
+                        @if (order.ProductType == "pack_discovery")
+                        {
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-gray-700">Abonnement Labor Control 10 points de contrôle</span>
+                                <span class="text-gray-900 font-semibold">GRATUIT</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-700">Pack 10 puces NFC pour Points de contrôles</span>
+                                <span class="text-gray-900 font-semibold">GRATUIT</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-700">@order.ChipsQuantity puces NFC pour Points de contrôles supplémentaires</span>
+                                <span class="text-gray-900 font-semibold">@string.Format("{0:F2}", order.TotalAmount - 10) € HT</span>
+                            </div>
+                        }
+                        <div class="flex justify-between items-center text-sm text-gray-600 mt-1">
+                            <span>Livraison standard (5-7 jours)</span>
+                            <span class="font-semibold">10,00 €</span>
+                        </div>
+                    </div>
+
+                    <!-- Adresse de livraison -->
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <h3 class="font-medium text-gray-900 mb-2">Livraison à</h3>
+                        @if (!string.IsNullOrEmpty(customerCompanyName))
+                        {
+                            <p class="text-gray-700 font-semibold">@customerCompanyName</p>
+                        }
+                        @if (!string.IsNullOrEmpty(formattedContactName))
+                        {
+                            <p class="text-gray-700">@formattedContactName</p>
+                        }
+                        <p class="text-gray-700 mt-2">@formattedDeliveryAddress</p>
+                        <p class="text-gray-700">@order.DeliveryPostalCode @formattedDeliveryCity</p>
+                        <p class="text-gray-700">@order.DeliveryCountry</p>
+                        @if (!string.IsNullOrEmpty(order.Service))
+                        {
+                            <p class="text-gray-700 mt-2"><strong>Service:</strong> @order.Service</p>
+                        }
+                    </div>
+                </div>
+
+                <!-- Prochaines étapes -->
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Prochaines étapes</h2>
+
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">1</div>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="font-medium text-gray-900">Confirmation par email</h3>
+                                <p class="text-sm text-gray-600">Vous allez recevoir un email de confirmation avec tous les détails de votre commande.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">2</div>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="font-medium text-gray-900">Préparation et expédition</h3>
+                                <p class="text-sm text-gray-600">Vos puces NFC seront expédiées sous 48h. Vous recevrez un numéro de suivi par email.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">3</div>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="font-medium text-gray-900">Activation des puces</h3>
+                                <p class="text-sm text-gray-600">Une fois reçues, connectez-vous à votre espace client pour enregistrer vos puces dans le système.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Boutons d'action -->
+                <div class="p-6 space-y-3">
+                    <button @onclick="GoToDashboard"
+                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        <span>🏠 Accéder à mon espace client</span>
+                    </button>
+
+                    <button @onclick="GoToHome"
+                            class="w-full flex justify-center py-3 px-4 border-2 border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        <span>↩️ Retour à l'accueil</span>
+                    </button>
+                </div>
+
+                <!-- Informations complémentaires -->
+                <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                    <p class="text-sm text-gray-600">
+                        <strong>❓ Besoin d'aide ?</strong> Contactez notre support à support@labor-control.fr
+                    </p>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="p-6">
+                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                        <span class="block sm:inline">@errorMessage</span>
+                    </div>
+                    <button @onclick="GoToDashboard"
+                            class="mt-4 w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+                        <span>Retour à l'espace client</span>
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private OrderDetails? order;
+    private string errorMessage = "";
+    private bool isLoading = true;
+    private string customerCompanyName = "";
+    private string formattedContactName = "";
+    private string formattedDeliveryAddress = "";
+    private string formattedDeliveryCity = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Vérifier si l'utilisateur est connecté
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            // Récupérer order_id depuis l'URL
+            var uri = new Uri(Navigation.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var orderIdString = query["order_id"];
+
+            if (string.IsNullOrEmpty(orderIdString) || !Guid.TryParse(orderIdString, out var orderId))
+            {
+                errorMessage = "Commande introuvable.";
+                isLoading = false;
+                return;
+            }
+
+            // Récupérer le token
+            var token = await AuthService.GetTokenAsync();
+            if (!string.IsNullOrEmpty(token))
+            {
+                Http.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+                // Récupérer les détails de la commande
+                var response = await Http.GetAsync($"api/orders/{orderId}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    order = await response.Content.ReadFromJsonAsync<OrderDetails>();
+
+                    // Récupérer les informations du client pour afficher le nom de société et contact
+                    var customerResponse = await Http.GetAsync("api/customers/current");
+                    if (customerResponse.IsSuccessStatusCode)
+                    {
+                        var customer = await customerResponse.Content.ReadFromJsonAsync<CustomerInfo>();
+                        if (customer != null)
+                        {
+                            customerCompanyName = customer.Name ?? "";
+                            formattedContactName = FormatContactName(customer.ContactName ?? "");
+                        }
+                    }
+
+                    // Formatter l'adresse et la ville
+                    formattedDeliveryAddress = FormatAddress(order.DeliveryAddress ?? "");
+                    formattedDeliveryCity = FormatCity(order.DeliveryCity ?? "");
+
+                    // Nettoyer le localStorage
+                    await LocalStorage.RemoveItemAsync("lastOrderId");
+                }
+                else
+                {
+                    errorMessage = "Impossible de récupérer les informations de la commande.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur lors du chargement : {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private void GoToHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private string FormatContactName(string contactName)
+    {
+        if (string.IsNullOrWhiteSpace(contactName))
+            return "";
+
+        var parts = contactName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return "";
+
+        if (parts.Length == 1)
+            return parts[0].ToUpper();
+
+        var lastName = parts[parts.Length - 1].ToUpper();
+        var firstNames = parts.Take(parts.Length - 1)
+            .Select(name => char.ToUpper(name[0]) + name.Substring(1).ToLower());
+
+        return $"{string.Join(" ", firstNames)} {lastName}";
+    }
+
+    private string FormatAddress(string address)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+            return "";
+
+        var words = address.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(" ", words.Select(word =>
+            char.ToUpper(word[0]) + word.Substring(1).ToLower()
+        ));
+    }
+
+    private string FormatCity(string city)
+    {
+        if (string.IsNullOrWhiteSpace(city))
+            return "";
+
+        return city.ToUpper();
+    }
+
+    private class OrderDetails
+    {
+        public Guid Id { get; set; }
+        public string OrderNumber { get; set; } = "";
+        public decimal TotalAmount { get; set; }
+        public string? ProductType { get; set; }
+        public int ChipsQuantity { get; set; }
+        public string? DeliveryAddress { get; set; }
+        public string? DeliveryCity { get; set; }
+        public string? DeliveryPostalCode { get; set; }
+        public string? DeliveryCountry { get; set; }
+        public string? Service { get; set; }
+    }
+
+    private class CustomerInfo
+    {
+        public Guid Id { get; set; }
+        public string? Name { get; set; }
+        public string? ContactName { get; set; }
+    }
+}

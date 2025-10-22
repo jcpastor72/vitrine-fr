@@ -1,0 +1,371 @@
+@page "/zones/edit/{id:guid}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Modifier la zone - Labor Control</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-3xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <button @onclick="GoBack"
+                    class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-md mb-4">
+                ← Retour
+            </button>
+            <h1 class="text-3xl font-bold text-gray-900">Modifier la zone</h1>
+            <p class="text-gray-600 mt-2">Mettez à jour les informations de la zone</p>
+        </div>
+
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement...</p>
+            </div>
+        }
+        else
+        {
+            <!-- Formulaire -->
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                        <p class="text-red-700">@errorMessage</p>
+                    </div>
+                }
+
+                <form @onsubmit="HandleSubmit">
+                    <!-- Nom de la zone -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Nom de la zone <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text"
+                               @bind="zoneName"
+                               required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ex: Bâtiment A, Étage 2, Salle des machines" />
+                    </div>
+
+                    <!-- Code (optionnel) -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Code (optionnel)
+                        </label>
+                        <input type="text"
+                               @bind="code"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ex: BAT-A, E2, SM" />
+                    </div>
+
+                    <!-- Type (optionnel) -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Type (optionnel)
+                        </label>
+                        <select @bind="zoneType"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">-- Sélectionnez un type --</option>
+                            <option value="BUILDING">Bâtiment</option>
+                            <option value="FLOOR">Étage</option>
+                            <option value="WING">Aile</option>
+                            <option value="AREA">Zone/Secteur</option>
+                            <option value="ROOM">Salle</option>
+                            <option value="CORRIDOR">Couloir</option>
+                            <option value="DEPARTMENT">Département</option>
+                            <option value="OTHER">Autre</option>
+                        </select>
+                    </div>
+
+                    <!-- Zone parente (optionnel) -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Zone parente (optionnel)
+                        </label>
+                        @if (loadingZones)
+                        {
+                            <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                                Chargement des zones...
+                            </div>
+                        }
+                        else
+                        {
+                            <select @bind="parentZoneId"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">-- Aucune (zone racine) --</option>
+                                @foreach (var zone in availableZones.Where(z => z.Id != Id))
+                                {
+                                    <option value="@zone.Id">@GetZoneHierarchyName(zone)</option>
+                                }
+                            </select>
+                        }
+                        <p class="text-xs text-gray-500 mt-1">
+                            💡 Créez une hiérarchie : Bâtiment > Étage > Couloir
+                        </p>
+                    </div>
+
+                    <!-- Description (optionnel) -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Description (optionnel)
+                        </label>
+                        <textarea @bind="description"
+                                  rows="3"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder="Ex: Zone de production principale"></textarea>
+                    </div>
+
+                    <!-- Statut -->
+                    <div class="mb-6">
+                        <label class="flex items-center">
+                            <input type="checkbox"
+                                   @bind="isActive"
+                                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                            <span class="ml-2 text-sm font-semibold text-gray-700">Zone active</span>
+                        </label>
+                    </div>
+
+                    <!-- Boutons -->
+                    <div class="flex gap-4 pt-4">
+                        <button type="submit"
+                                disabled="@isSubmitting"
+                                class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                            @if (isSubmitting)
+                            {
+                                <span>Enregistrement en cours...</span>
+                            }
+                            else
+                            {
+                                <span>✓ Enregistrer les modifications</span>
+                            }
+                        </button>
+                        <button type="button"
+                                @onclick="GoBack"
+                                class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                            Annuler
+                        </button>
+                    </div>
+                </form>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private Guid siteId;
+    private string zoneName = "";
+    private string code = "";
+    private string zoneType = "";
+    private string parentZoneId = "";
+    private string description = "";
+    private bool isActive = true;
+    private bool loading = true;
+    private bool isSubmitting = false;
+    private bool loadingZones = true;
+    private string errorMessage = "";
+    private List<ZoneInfo> availableZones = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadZone();
+    }
+
+    private async Task LoadZone()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/zones/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var zone = await response.Content.ReadFromJsonAsync<ZoneDto>();
+
+                if (zone != null)
+                {
+                    siteId = zone.SiteId;
+                    zoneName = zone.Name;
+                    code = zone.Code ?? "";
+                    zoneType = zone.Type ?? "";
+                    parentZoneId = zone.ParentZoneId?.ToString() ?? "";
+                    description = zone.Description ?? "";
+                    isActive = zone.IsActive;
+
+                    // Charger les zones disponibles pour le parent
+                    await LoadAvailableZones();
+                }
+            }
+            else
+            {
+                errorMessage = $"Erreur {(int)response.StatusCode}: Zone introuvable";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task LoadAvailableZones()
+    {
+        loadingZones = true;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/zones?siteId={siteId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                availableZones = await response.Content.ReadFromJsonAsync<List<ZoneInfo>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Erreur lors du chargement des zones: {ex.Message}");
+        }
+        finally
+        {
+            loadingZones = false;
+        }
+    }
+
+    private string GetZoneHierarchyName(ZoneInfo zone)
+    {
+        var prefix = new string('→', zone.Level);
+        return string.IsNullOrEmpty(prefix) ? zone.Name : $"{prefix} {zone.Name}";
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(zoneName))
+        {
+            errorMessage = "Le nom de la zone est obligatoire";
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            var request = new UpdateZoneRequest
+            {
+                Name = zoneName.Trim(),
+                Code = string.IsNullOrWhiteSpace(code) ? null : code.Trim(),
+                Type = string.IsNullOrWhiteSpace(zoneType) ? null : zoneType,
+                Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                ParentZoneId = string.IsNullOrWhiteSpace(parentZoneId) ? null : Guid.Parse(parentZoneId),
+                IsActive = isActive
+            };
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.PutAsJsonAsync($"api/zones/{Id}", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/zones");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la modification : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private class ZoneDto
+    {
+        public Guid Id { get; set; }
+        public Guid SiteId { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Type { get; set; }
+        public string? Description { get; set; }
+        public Guid? ParentZoneId { get; set; }
+        public int Level { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    private class ZoneInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public int Level { get; set; }
+    }
+
+    private class UpdateZoneRequest
+    {
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Type { get; set; }
+        public string? Description { get; set; }
+        public Guid? ParentZoneId { get; set; }
+        public bool IsActive { get; set; }
+    }
+}

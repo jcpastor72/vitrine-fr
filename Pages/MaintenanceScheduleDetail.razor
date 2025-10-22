@@ -1,0 +1,675 @@
+@page "/maintenance/{id:guid}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Gamme de maintenance - Labor Control</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-7xl mx-auto px-4">
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                <p class="text-red-700">@errorMessage</p>
+            </div>
+        }
+        else if (schedule != null)
+        {
+            <!-- Header -->
+            <div class="mb-6">
+                <button @onclick="GoBack"
+                        class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Retour
+                </button>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h1 class="lc-heading-1">@schedule.Name</h1>
+                        <div class="flex items-center gap-3 mt-2">
+                            <span class="px-3 py-1 @GetMaintenanceTypeColor(schedule.Type) text-sm rounded-full">
+                                @GetMaintenanceTypeLabel(schedule.Type)
+                            </span>
+                            <span class="px-3 py-1 @GetMaintenancePriorityColor(schedule.Priority) text-sm rounded-full">
+                                @GetMaintenancePriorityLabel(schedule.Priority)
+                            </span>
+                            <span class="px-3 py-1 @GetMaintenanceStatusColor(schedule.Status) text-sm rounded-full">
+                                @GetMaintenanceStatusLabel(schedule.Status)
+                            </span>
+                            @if (schedule.IsAiGenerated)
+                            {
+                                <span class="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full">
+                                    🤖 IA Générée
+                                </span>
+                            }
+                        </div>
+                        <p class="lc-text-muted mt-2">Équipement : @schedule.AssetName</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button @onclick="EditSchedule"
+                                class="lc-btn lc-btn-secondary inline-flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Modifier
+                        </button>
+                        <button @onclick="DeleteSchedule"
+                                class="px-4 py-2 bg-red-50 text-red-600 rounded-lg font-medium hover:bg-red-100 transition inline-flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Supprimer
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations générales -->
+            <div class="grid lg:grid-cols-3 gap-6 mb-6">
+                <!-- Informations principales -->
+                <div class="lg:col-span-2">
+                    <div class="lc-card mb-6">
+                        <h2 class="lc-heading-3 mb-4">Informations générales</h2>
+                        @if (!string.IsNullOrEmpty(schedule.Description))
+                        {
+                            <div class="mb-4">
+                                <p class="text-sm lc-text-muted mb-1">Description</p>
+                                <p class="text-gray-900">@schedule.Description</p>
+                            </div>
+                        }
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div>
+                                <p class="text-sm lc-text-muted mb-1">Fréquence</p>
+                                <p class="text-gray-900 font-medium">@GetFrequencyLabel(schedule.Frequency)</p>
+                            </div>
+                            <div>
+                                <p class="text-sm lc-text-muted mb-1">Intervalle</p>
+                                <p class="text-gray-900 font-medium">Toutes les @schedule.Interval @GetFrequencyUnit(schedule.Frequency)</p>
+                            </div>
+                            <div>
+                                <p class="text-sm lc-text-muted mb-1">Durée estimée</p>
+                                <p class="text-gray-900 font-medium">@schedule.EstimatedDurationMinutes minutes (@GetDurationFormatted(schedule.EstimatedDurationMinutes))</p>
+                            </div>
+                            <div>
+                                <p class="text-sm lc-text-muted mb-1">Date de création</p>
+                                <p class="text-gray-900 font-medium">@schedule.CreatedAt.ToString("dd/MM/yyyy HH:mm")</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tâches de maintenance -->
+                    <div class="lc-card">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="lc-heading-3">Tâches de maintenance (@schedule.Tasks.Count)</h2>
+                            <button @onclick="AddTask"
+                                    class="lc-btn lc-btn-primary inline-flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                Ajouter une tâche
+                            </button>
+                        </div>
+
+                        @if (schedule.Tasks.Count == 0)
+                        {
+                            <div class="text-center py-8 bg-gray-50 rounded-lg">
+                                <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v1a2 2 0 002 2h2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v1a2 2 0 01-2 2H9V9z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4" />
+                                    </svg>
+                                </div>
+                                <p class="lc-text-muted">Aucune tâche définie</p>
+                                <p class="text-sm lc-text-muted mt-2">Ajoutez des tâches pour structurer cette maintenance</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="space-y-3">
+                                @foreach (var task in schedule.Tasks.OrderBy(t => t.StepNumber))
+                                {
+                                    <div class="border border-gray-200 rounded-lg p-4">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-3 mb-2">
+                                                    <span class="w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-sm font-bold">
+                                                        @task.StepNumber
+                                                    </span>
+                                                    <h3 class="font-bold text-gray-900">@task.Name</h3>
+                                                    <span class="px-2 py-1 @GetTaskTypeColor(task.TaskType) text-xs rounded">
+                                                        @GetTaskTypeLabel(task.TaskType)
+                                                    </span>
+                                                    @if (task.RequiresPhoto)
+                                                    {
+                                                        <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">📷 Photo</span>
+                                                    }
+                                                    @if (task.RequiresMeasurement)
+                                                    {
+                                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">📏 Mesure</span>
+                                                    }
+                                                </div>
+                                                @if (!string.IsNullOrEmpty(task.Description))
+                                                {
+                                                    <p class="text-sm text-gray-600 mb-2">@task.Description</p>
+                                                }
+                                                @if (task.RequiresMeasurement && (task.MinValue.HasValue || task.MaxValue.HasValue))
+                                                {
+                                                    <p class="text-sm text-gray-500">
+                                                        Valeurs acceptables :
+                                                        @if (task.MinValue.HasValue && task.MaxValue.HasValue)
+                                                        {
+                                                            <span>@task.MinValue - @task.MaxValue @task.Unit</span>
+                                                        }
+                                                        else if (task.MinValue.HasValue)
+                                                        {
+                                                            <span>≥ @task.MinValue @task.Unit</span>
+                                                        }
+                                                        else if (task.MaxValue.HasValue)
+                                                        {
+                                                            <span>≤ @task.MaxValue @task.Unit</span>
+                                                        }
+                                                    </p>
+                                                }
+                                            </div>
+                                            <div class="ml-4 flex gap-2">
+                                                <button @onclick="() => EditTask(task.Id)"
+                                                        class="text-blue-600 hover:text-blue-800">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </button>
+                                                <button @onclick="() => DeleteTask(task.Id)"
+                                                        class="text-red-600 hover:text-red-800">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Panneau latéral -->
+                <div class="lg:col-span-1">
+                    <!-- Statut et planification -->
+                    <div class="lc-card mb-6">
+                        <h3 class="lc-heading-4 mb-4">Planification</h3>
+                        <div class="space-y-4">
+                            @if (schedule.NextMaintenanceDate.HasValue)
+                            {
+                                <div>
+                                    <p class="text-sm lc-text-muted mb-1">Prochaine maintenance</p>
+                                    <p class="font-medium @GetNextMaintenanceDateColor(schedule.NextMaintenanceDate.Value)">
+                                        @schedule.NextMaintenanceDate.Value.ToString("dd/MM/yyyy")
+                                        <span class="text-sm">(@GetDaysUntilMaintenance(schedule.NextMaintenanceDate.Value))</span>
+                                    </p>
+                                </div>
+                            }
+                            @if (schedule.LastMaintenanceDate.HasValue)
+                            {
+                                <div>
+                                    <p class="text-sm lc-text-muted mb-1">Dernière maintenance</p>
+                                    <p class="font-medium text-gray-900">@schedule.LastMaintenanceDate.Value.ToString("dd/MM/yyyy")</p>
+                                </div>
+                            }
+                            @if (schedule.NextMaintenanceDate.HasValue)
+                            {
+                                <button @onclick="ScheduleMaintenance"
+                                        class="w-full lc-btn lc-btn-primary">
+                                    Planifier maintenance
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Informations techniques -->
+                    @if (!string.IsNullOrEmpty(schedule.ManufacturerName) || !string.IsNullOrEmpty(schedule.ManufacturerDocumentation) || !string.IsNullOrEmpty(schedule.SpecialInstructions))
+                    {
+                        <div class="lc-card mb-6">
+                            <h3 class="lc-heading-4 mb-4">Informations techniques</h3>
+                            <div class="space-y-4">
+                                @if (!string.IsNullOrEmpty(schedule.ManufacturerName))
+                                {
+                                    <div>
+                                        <p class="text-sm lc-text-muted mb-1">Fabricant</p>
+                                        <p class="text-gray-900">@schedule.ManufacturerName</p>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(schedule.ManufacturerDocumentation))
+                                {
+                                    <div>
+                                        <p class="text-sm lc-text-muted mb-1">Documentation</p>
+                                        <a href="@schedule.ManufacturerDocumentation" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm break-all">
+                                            Consulter la documentation
+                                        </a>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(schedule.SpecialInstructions))
+                                {
+                                    <div>
+                                        <p class="text-sm lc-text-muted mb-1">Instructions particulières</p>
+                                        <p class="text-gray-900 text-sm">@schedule.SpecialInstructions</p>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Historique des exécutions -->
+                    <div class="lc-card">
+                        <h3 class="lc-heading-4 mb-4">Historique des maintenances</h3>
+                        @if (loadingExecutions)
+                        {
+                            <div class="text-center py-4">
+                                <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                <p class="mt-2 text-sm lc-text-muted">Chargement...</p>
+                            </div>
+                        }
+                        else if (executions.Count == 0)
+                        {
+                            <p class="text-sm lc-text-muted text-center py-4">Aucune maintenance effectuée</p>
+                        }
+                        else
+                        {
+                            <div class="space-y-2">
+                                @foreach (var execution in executions.Take(5))
+                                {
+                                    <div class="border border-gray-200 rounded p-3">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <p class="text-sm font-medium">@execution.StartedAt?.ToString("dd/MM/yyyy")</p>
+                                                <p class="text-xs lc-text-muted">@execution.TechnicianName</p>
+                                            </div>
+                                            <span class="px-2 py-1 @GetExecutionStatusColor(execution.Status) text-xs rounded">
+                                                @GetExecutionStatusLabel(execution.Status)
+                                            </span>
+                                        </div>
+                                    </div>
+                                }
+                                @if (executions.Count > 5)
+                                {
+                                    <button @onclick="ViewAllExecutions" class="w-full text-sm text-blue-600 hover:text-blue-800 py-2">
+                                        Voir toutes les maintenances (@executions.Count)
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private MaintenanceScheduleDetailDto? schedule;
+    private List<MaintenanceExecutionDto> executions = new();
+    private bool loading = true;
+    private bool loadingExecutions = true;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSchedule();
+        await LoadExecutions();
+    }
+
+    private async Task LoadSchedule()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/maintenanceschedules/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                schedule = await response.Content.ReadFromJsonAsync<MaintenanceScheduleDetailDto>();
+            }
+            else
+            {
+                errorMessage = $"Erreur {(int)response.StatusCode}: Gamme de maintenance introuvable";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task LoadExecutions()
+    {
+        loadingExecutions = true;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/maintenanceexecutions/schedule/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                executions = await response.Content.ReadFromJsonAsync<List<MaintenanceExecutionDto>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur lors du chargement des exécutions: {ex.Message}");
+        }
+        finally
+        {
+            loadingExecutions = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private void EditSchedule()
+    {
+        Navigation.NavigateTo($"/maintenance/{Id}/edit");
+    }
+
+    private async Task DeleteSchedule()
+    {
+        if (schedule == null) return;
+
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", $"Êtes-vous sûr de vouloir supprimer la gamme de maintenance '{schedule.Name}' ?\n\nCette action est irréversible et supprimera également toutes les tâches associées.");
+
+        if (confirmed)
+        {
+            try
+            {
+                var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    token = token.Trim('"');
+                }
+
+                Http.DefaultRequestHeaders.Clear();
+                Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+                var response = await Http.DeleteAsync($"api/maintenanceschedules/{Id}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    Navigation.NavigateTo($"/assets/{schedule.AssetId}");
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    errorMessage = $"Erreur lors de la suppression : {errorContent}";
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Erreur : {ex.Message}";
+            }
+        }
+    }
+
+    private void AddTask()
+    {
+        Navigation.NavigateTo($"/maintenance/{Id}/tasks/create");
+    }
+
+    private void EditTask(Guid taskId)
+    {
+        Navigation.NavigateTo($"/maintenance/{Id}/tasks/{taskId}/edit");
+    }
+
+    private async Task DeleteTask(Guid taskId)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", "Êtes-vous sûr de vouloir supprimer cette tâche ?");
+        if (confirmed)
+        {
+            // TODO: Implémenter la suppression de tâche via API
+            await LoadSchedule(); // Recharger après suppression
+        }
+    }
+
+    private void ScheduleMaintenance()
+    {
+        Navigation.NavigateTo($"/maintenance/{Id}/schedule");
+    }
+
+    private void ViewAllExecutions()
+    {
+        Navigation.NavigateTo($"/maintenance/{Id}/executions");
+    }
+
+    // Helper methods pour l'affichage
+    private string GetMaintenanceTypeLabel(string? type) => type switch
+    {
+        "PREVENTIVE" => "Préventive",
+        "CORRECTIVE" => "Corrective",
+        "PREDICTIVE" => "Prédictive",
+        _ => type ?? ""
+    };
+
+    private string GetMaintenanceTypeColor(string? type) => type?.ToUpper() switch
+    {
+        "PREVENTIVE" => "bg-blue-100 text-blue-800",
+        "CORRECTIVE" => "bg-red-100 text-red-800",
+        "PREDICTIVE" => "bg-purple-100 text-purple-800",
+        _ => "bg-gray-100 text-gray-800"
+    };
+
+    private string GetMaintenancePriorityLabel(string? priority) => priority switch
+    {
+        "CRITICAL" => "Critique",
+        "HIGH" => "Haute",
+        "NORMAL" => "Normale",
+        "LOW" => "Basse",
+        _ => priority ?? ""
+    };
+
+    private string GetMaintenancePriorityColor(string? priority) => priority?.ToUpper() switch
+    {
+        "CRITICAL" => "bg-red-100 text-red-800",
+        "HIGH" => "bg-orange-100 text-orange-800",
+        "NORMAL" => "bg-green-100 text-green-800",
+        "LOW" => "bg-gray-100 text-gray-800",
+        _ => "bg-gray-100 text-gray-800"
+    };
+
+    private string GetMaintenanceStatusLabel(string? status) => status switch
+    {
+        "ACTIVE" => "Active",
+        "INACTIVE" => "Inactive",
+        "DRAFT" => "Brouillon",
+        _ => status ?? ""
+    };
+
+    private string GetMaintenanceStatusColor(string? status) => status?.ToUpper() switch
+    {
+        "ACTIVE" => "bg-green-100 text-green-800",
+        "INACTIVE" => "bg-gray-100 text-gray-800",
+        "DRAFT" => "bg-yellow-100 text-yellow-800",
+        _ => "bg-gray-100 text-gray-800"
+    };
+
+    private string GetFrequencyLabel(string? frequency) => frequency switch
+    {
+        "DAILY" => "Quotidienne",
+        "WEEKLY" => "Hebdomadaire",
+        "MONTHLY" => "Mensuelle",
+        "QUARTERLY" => "Trimestrielle",
+        "YEARLY" => "Annuelle",
+        _ => frequency ?? ""
+    };
+
+    private string GetFrequencyUnit(string? frequency) => frequency switch
+    {
+        "DAILY" => "jour(s)",
+        "WEEKLY" => "semaine(s)",
+        "MONTHLY" => "mois",
+        "QUARTERLY" => "trimestre(s)",
+        "YEARLY" => "année(s)",
+        _ => ""
+    };
+
+    private string GetDurationFormatted(int minutes)
+    {
+        if (minutes >= 60)
+        {
+            int hours = minutes / 60;
+            int remainingMinutes = minutes % 60;
+            return remainingMinutes > 0 ? $"{hours}h{remainingMinutes}min" : $"{hours}h";
+        }
+        return $"{minutes}min";
+    }
+
+    private string GetNextMaintenanceDateColor(DateTime nextDate)
+    {
+        var daysUntil = (nextDate - DateTime.Now).TotalDays;
+        if (daysUntil < 0) return "text-red-600";
+        else if (daysUntil <= 7) return "text-orange-600";
+        else if (daysUntil <= 30) return "text-yellow-600";
+        else return "text-green-600";
+    }
+
+    private string GetDaysUntilMaintenance(DateTime nextDate)
+    {
+        var daysUntil = (int)(nextDate - DateTime.Now).TotalDays;
+        if (daysUntil < 0) return $"En retard de {Math.Abs(daysUntil)} jour(s)";
+        else if (daysUntil == 0) return "Aujourd'hui";
+        else if (daysUntil == 1) return "Demain";
+        else return $"Dans {daysUntil} jour(s)";
+    }
+
+    private string GetTaskTypeLabel(string? taskType) => taskType switch
+    {
+        "CHECK" => "Vérification",
+        "REPLACE" => "Remplacement",
+        "CLEAN" => "Nettoyage",
+        "LUBRICATE" => "Lubrification",
+        "MEASURE" => "Mesure",
+        "CALIBRATE" => "Calibrage",
+        _ => taskType ?? ""
+    };
+
+    private string GetTaskTypeColor(string? taskType) => taskType?.ToUpper() switch
+    {
+        "CHECK" => "bg-blue-100 text-blue-800",
+        "REPLACE" => "bg-red-100 text-red-800",
+        "CLEAN" => "bg-green-100 text-green-800",
+        "LUBRICATE" => "bg-yellow-100 text-yellow-800",
+        "MEASURE" => "bg-purple-100 text-purple-800",
+        "CALIBRATE" => "bg-indigo-100 text-indigo-800",
+        _ => "bg-gray-100 text-gray-800"
+    };
+
+    private string GetExecutionStatusLabel(string? status) => status switch
+    {
+        "COMPLETED" => "Terminée",
+        "IN_PROGRESS" => "En cours",
+        "CANCELLED" => "Annulée",
+        _ => status ?? ""
+    };
+
+    private string GetExecutionStatusColor(string? status) => status?.ToUpper() switch
+    {
+        "COMPLETED" => "bg-green-100 text-green-800",
+        "IN_PROGRESS" => "bg-blue-100 text-blue-800",
+        "CANCELLED" => "bg-red-100 text-red-800",
+        _ => "bg-gray-100 text-gray-800"
+    };
+
+    // DTOs
+    private class MaintenanceScheduleDetailDto
+    {
+        public Guid Id { get; set; }
+        public Guid AssetId { get; set; }
+        public string AssetName { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string Type { get; set; } = "";
+        public string Priority { get; set; } = "";
+        public string Frequency { get; set; } = "";
+        public int Interval { get; set; }
+        public int EstimatedDurationMinutes { get; set; }
+        public string Status { get; set; } = "";
+        public DateTime? NextMaintenanceDate { get; set; }
+        public DateTime? LastMaintenanceDate { get; set; }
+        public string? ManufacturerName { get; set; }
+        public string? ManufacturerDocumentation { get; set; }
+        public string? SpecialInstructions { get; set; }
+        public bool IsAiGenerated { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public List<MaintenanceTaskDto> Tasks { get; set; } = new();
+    }
+
+    private class MaintenanceTaskDto
+    {
+        public Guid Id { get; set; }
+        public int StepNumber { get; set; }
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string TaskType { get; set; } = "";
+        public bool RequiresPhoto { get; set; }
+        public bool RequiresMeasurement { get; set; }
+        public decimal? MinValue { get; set; }
+        public decimal? MaxValue { get; set; }
+        public string? Unit { get; set; }
+    }
+
+    private class MaintenanceExecutionDto
+    {
+        public Guid Id { get; set; }
+        public DateTime? StartedAt { get; set; }
+        public string Status { get; set; } = "";
+        public string TechnicianName { get; set; } = "";
+    }
+}

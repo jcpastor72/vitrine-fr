@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <EnableCLINE>false</EnableCLINE>
+    <CLINEEnabled>false</CLINEEnabled>
+    <AutoPublishEnabled>false</AutoPublishEnabled>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <PropertyGroup>
+    <EnableCLINE>false</EnableCLINE>
+    <CLINEEnabled>false</CLINEEnabled>
+    <AutoPublishEnabled>false</AutoPublishEnabled>
+    <AutoPublish>false</AutoPublish>
+    <DisableAutomaticPublish>true</DisableAutomaticPublish>
+    <EnableCLINE>false</EnableCLINE>
+    <CLINEEnabled>false</CLINEEnabled>
+    <AutoDeploymentEnabled>false</AutoDeploymentEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.9" PrivateAssets="all" />
+    <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
+  </ItemGroup>
+
+</Project>
+
+

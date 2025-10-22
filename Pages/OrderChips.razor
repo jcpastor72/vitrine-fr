@@ -1,0 +1,373 @@
+@page "/order-chips"
+@using LaborControl.Web.Services
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl mx-auto">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="bg-indigo-600 px-6 py-8">
+                <h1 class="text-3xl font-bold text-white text-center">
+                    Commandez votre pack découverte
+                </h1>
+                <p class="mt-2 text-center text-indigo-100">
+                    Abonnement Labor Control jusqu'à 10 points de contrôle GRATUIT
+                </p>
+                <p class="mt-1 text-center text-indigo-100">
+                    Pack 10 points de contrôles GRATUIT
+                </p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="m-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-center" role="alert">
+                    <p class="font-semibold">Erreur lors de la création de votre commande</p>
+                    <p class="mt-1">@errorMessage</p>
+                </div>
+            }
+
+            @if (isLoading)
+            {
+                <div class="p-6 text-center">
+                    <p class="text-gray-600">Chargement de vos informations...</p>
+                </div>
+            }
+            else
+            {
+                <!-- Résumé commande -->
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Résumé de votre commande</h2>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-700">Abonnement Labor Control 10 points de contrôle</span>
+                            <span class="text-gray-900 font-semibold">GRATUIT</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-700">Pack 10 puces NFC pour Points de contrôles</span>
+                            <span class="text-gray-900 font-semibold">GRATUIT</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm text-gray-600">
+                            <span>Livraison standard (5-7 jours)</span>
+                            <span class="font-semibold text-gray-900">10,00 €</span>
+                        </div>
+                        <div class="border-t border-gray-300 mt-3 pt-3 flex justify-between items-center">
+                            <span class="text-lg font-bold text-gray-900">Total à payer</span>
+                            <span class="text-2xl font-bold text-indigo-600">10,00 €</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informations de livraison -->
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Informations de livraison</h2>
+
+                    <!-- Destinataire (lecture seule) -->
+                    <div class="bg-blue-50 rounded-lg p-4 mb-4">
+                        <h3 class="font-medium text-gray-900 mb-2">Destinataire</h3>
+                        <p class="text-gray-700 font-semibold">@customerCompanyName</p>
+                        <p class="text-gray-700">@formattedContactName</p>
+                    </div>
+
+                    <!-- Adresse (lecture seule) -->
+                    <div class="bg-blue-50 rounded-lg p-4 mb-4">
+                        <h3 class="font-medium text-gray-900 mb-2">Adresse de livraison</h3>
+                        <p class="text-gray-700">@customerAddress</p>
+                        <p class="text-gray-700">@customerPostalCode @customerCity</p>
+                        <p class="text-gray-700">France</p>
+                    </div>
+
+                    <!-- Formulaire pour Service et Instructions -->
+                    <form @onsubmit="HandleOrder" class="space-y-4">
+                        <div>
+                            <label for="service" class="block text-sm font-medium text-gray-700">Service destinataire *</label>
+                            <input id="service"
+                                   type="text"
+                                   @bind="service"
+                                   required
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                   placeholder="Ex: Direction, Qualité, Production, Accueil...">
+                        </div>
+
+                        <div>
+                            <label for="notes" class="block text-sm font-medium text-gray-700">Instructions de livraison (optionnel)</label>
+                            <textarea id="notes"
+                                      @bind="notes"
+                                      rows="3"
+                                      class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                      placeholder="Digicode, étage, horaires de réception, instructions particulières..."></textarea>
+                        </div>
+
+                        <div class="pt-6 space-y-3">
+                            <!-- Bouton Commander plus tard -->
+                            <button type="button"
+                                    @onclick="CommanderPlusTard"
+                                    class="w-full flex justify-center py-3 px-4 border-2 border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                <span>⏰ Commander plus tard</span>
+                            </button>
+
+                            <!-- Bouton Confirmer ma commande -->
+                            <button type="submit"
+                                    disabled="@isSubmitting"
+                                    class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                @if (isSubmitting)
+                                {
+                                    <span>Confirmation en cours...</span>
+                                }
+                                else
+                                {
+                                    <span>✅ Confirmer ma commande (10,00 €)</span>
+                                }
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Informations complémentaires -->
+                <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                    <p class="text-sm text-gray-600">
+                        <strong>📦 Livraison :</strong> Vos 10 puces NFC seront expédiées sous 48h. Vous recevrez un email de confirmation avec le numéro de suivi.
+                    </p>
+                    <p class="text-sm text-gray-600 mt-2">
+                        <strong>💡 Activation :</strong> Les puces sont prêtes à l'emploi. Connectez-vous à votre interface d'administration pour les enregistrer dans votre système.
+                    </p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string service = "";
+    private string notes = "";
+    private string errorMessage = "";
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    // Informations client pré-remplies
+    private string customerCompanyName = "";
+    private string customerContactName = "";
+    private string formattedContactName = "";
+    private string customerContactEmail = "";
+    private string customerContactPhone = "";
+    private string customerAddress = "";
+    private string customerPostalCode = "";
+    private string customerCity = "";
+    private Guid customerId = Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Vérifier si l'utilisateur est connecté
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            // Récupérer le token pour appeler l'API
+            var token = await AuthService.GetTokenAsync();
+            if (!string.IsNullOrEmpty(token))
+            {
+                Http.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+                // Récupérer les informations du Customer via l'API
+                var response = await Http.GetAsync("api/customers/current");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var customer = await response.Content.ReadFromJsonAsync<CustomerInfo>();
+                    if (customer != null)
+                    {
+                        customerId = customer.Id;
+                        customerCompanyName = customer.Name ?? "";
+                        customerContactName = customer.ContactName ?? "";
+                        customerContactEmail = customer.ContactEmail ?? "";
+                        customerContactPhone = customer.ContactPhone ?? "";
+
+                        // Formatter le nom du contact (Prénom Minuscule avec première majuscule + NOM EN MAJUSCULE)
+                        formattedContactName = FormatContactName(customerContactName);
+
+                        // Parser l'adresse (format: "rue, code postal ville")
+                        var addressParts = customer.Address?.Split(',') ?? Array.Empty<string>();
+                        if (addressParts.Length >= 2)
+                        {
+                            customerAddress = FormatAddress(addressParts[0].Trim());
+                            var cityPostalParts = addressParts[1].Trim().Split(' ', 2);
+                            if (cityPostalParts.Length >= 2)
+                            {
+                                customerPostalCode = cityPostalParts[0];
+                                customerCity = FormatCity(cityPostalParts[1]);
+                            }
+                        }
+                        else
+                        {
+                            customerAddress = FormatAddress(customer.Address ?? "");
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur lors du chargement des informations : {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void CommanderPlusTard()
+    {
+        // Rediriger vers l'espace client (dashboard)
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private string FormatContactName(string contactName)
+    {
+        if (string.IsNullOrWhiteSpace(contactName))
+            return "";
+
+        var parts = contactName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return "";
+
+        // Si un seul mot, on le met en majuscules (considéré comme nom de famille)
+        if (parts.Length == 1)
+            return parts[0].ToUpper();
+
+        // Dernier mot = Nom de famille (tout en majuscules)
+        var lastName = parts[parts.Length - 1].ToUpper();
+
+        // Tous les mots avant le dernier = Prénoms (Première lettre majuscule, reste minuscule)
+        var firstNames = parts.Take(parts.Length - 1)
+            .Select(name => char.ToUpper(name[0]) + name.Substring(1).ToLower());
+
+        return $"{string.Join(" ", firstNames)} {lastName}";
+    }
+
+    private string FormatAddress(string address)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+            return "";
+
+        var words = address.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(" ", words.Select(word =>
+            char.ToUpper(word[0]) + word.Substring(1).ToLower()
+        ));
+    }
+
+    private string FormatCity(string city)
+    {
+        if (string.IsNullOrWhiteSpace(city))
+            return "";
+
+        return city.ToUpper();
+    }
+
+    private async Task HandleOrder()
+    {
+        errorMessage = "";
+        isSubmitting = true;
+
+        try
+        {
+            // Validation
+            if (string.IsNullOrWhiteSpace(service))
+            {
+                errorMessage = "Veuillez indiquer le service destinataire.";
+                isSubmitting = false;
+                return;
+            }
+
+            // Récupérer le token
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                errorMessage = "Session expirée. Veuillez vous reconnecter.";
+                isSubmitting = false;
+                return;
+            }
+
+            // Créer la commande avec frais de livraison
+            var orderRequest = new
+            {
+                ChipsQuantity = 10,
+                DeliveryAddress = customerAddress,
+                DeliveryCity = customerCity,
+                DeliveryPostalCode = customerPostalCode,
+                DeliveryCountry = "France",
+                Service = service,
+                Notes = notes,
+                ShippingCost = 10.00m,
+                TotalAmount = 10.00m
+            };
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.PostAsJsonAsync("api/orders", orderRequest);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var orderResponse = await response.Content.ReadFromJsonAsync<OrderResponse>();
+
+                // Stocker l'ID de commande pour la page de paiement
+                await LocalStorage.SetItemAsync("lastOrderId", orderResponse?.Id.ToString() ?? "");
+
+                // Rediriger vers la page de paiement
+                Navigation.NavigateTo("/payment");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                // Essayer de parser le JSON pour extraire le message proprement
+                try
+                {
+                    var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                    errorMessage = errorResponse?.Message ?? errorContent;
+                }
+                catch
+                {
+                    errorMessage = errorContent;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private class CustomerInfo
+    {
+        public Guid Id { get; set; }
+        public string? Name { get; set; }
+        public string? ContactName { get; set; }
+        public string? ContactEmail { get; set; }
+        public string? ContactPhone { get; set; }
+        public string? Address { get; set; }
+    }
+
+    private class OrderResponse
+    {
+        public Guid Id { get; set; }
+        public string OrderNumber { get; set; } = "";
+        public string Status { get; set; } = "";
+    }
+
+    private class ErrorResponse
+    {
+        public string? Message { get; set; }
+    }
+}

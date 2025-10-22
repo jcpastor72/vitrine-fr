@@ -1,0 +1,380 @@
+@page "/teams/{teamId:guid}/add-member"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Ajouter un membre - Labor Control</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-5xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <button @onclick="GoBack"
+                    class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-md mb-4">
+                ← Retour à l'équipe
+            </button>
+            @if (team != null)
+            {
+                <h1 class="text-3xl font-bold text-gray-900">Ajouter un membre à @team.Name</h1>
+                <p class="text-gray-600 mt-2">Sélectionnez un utilisateur à affecter à cette équipe</p>
+            }
+            else
+            {
+                <h1 class="text-3xl font-bold text-gray-900">Ajouter un membre</h1>
+            }
+        </div>
+
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                <p class="text-red-700">@errorMessage</p>
+            </div>
+        }
+        else
+        {
+            <!-- Barre de recherche et actions -->
+            <div class="bg-white rounded-xl shadow-lg p-4 mb-6">
+                <div class="flex gap-4">
+                    <input type="text"
+                           @bind="searchTerm"
+                           @bind:event="oninput"
+                           @onkeyup="FilterUsers"
+                           placeholder="🔍 Rechercher un utilisateur par nom ou email..."
+                           class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    <button @onclick="CreateNewUser"
+                            class="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition whitespace-nowrap">
+                        + Créer un utilisateur
+                    </button>
+                </div>
+            </div>
+
+            @if (availableUsers.Count == 0)
+            {
+                <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+                    <div class="text-6xl mb-4">👥</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">Aucun utilisateur disponible</h3>
+                    <p class="text-gray-600 mb-6">Tous les utilisateurs sont déjà affectés à cette équipe ou correspondent aux critères de recherche.</p>
+                    <button @onclick="CreateNewUser"
+                            class="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition">
+                        + Créer un nouvel utilisateur
+                    </button>
+                </div>
+            }
+            else if (filteredUsers.Count == 0)
+            {
+                <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+                    <div class="text-4xl mb-4">🔍</div>
+                    <p class="text-lg text-gray-600">Aucun résultat pour cette recherche</p>
+                </div>
+            }
+            else
+            {
+                <!-- Liste des utilisateurs disponibles -->
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach (var user in filteredUsers)
+                    {
+                        var fullName = $"{user.Prenom} {user.Nom}";
+                        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition">
+                            <div class="flex items-center mb-4">
+                                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                                    <span class="text-lg font-bold text-blue-600">@GetInitials(user.Prenom, user.Nom)</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">@fullName</h3>
+                                    <p class="text-sm text-gray-600">@user.Email</p>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <span class="@GetRoleBadgeClass(user.Role)">
+                                    @GetRoleLabel(user.Role)
+                                </span>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(user.JobTitle))
+                            {
+                                <p class="text-sm text-gray-600 mb-4">@user.JobTitle</p>
+                            }
+
+                            <button @onclick="() => AddMember(user.Id, fullName)"
+                                    disabled="@isSubmitting"
+                                    class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                + Ajouter à l'équipe
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<!-- Boîte de dialogue de confirmation personnalisée -->
+@if (showConfirmDialog)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @onclick="CancelConfirm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden" @onclick:stopPropagation="true">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+                <h3 class="text-xl font-bold text-white">Confirmation</h3>
+            </div>
+
+            <!-- Body -->
+            <div class="px-6 py-6">
+                <p class="text-gray-700 text-lg">@confirmMessage</p>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+                <button @onclick="CancelConfirm"
+                        class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                    Annuler
+                </button>
+                <button @onclick="ConfirmAction"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid TeamId { get; set; }
+
+    private TeamDto? team;
+    private List<UserDto> availableUsers = new();
+    private List<UserDto> filteredUsers = new();
+    private string searchTerm = "";
+    private bool loading = true;
+    private bool isSubmitting = false;
+    private string errorMessage = "";
+
+    // Variables pour la boîte de dialogue de confirmation
+    private bool showConfirmDialog = false;
+    private string confirmMessage = "";
+    private Guid pendingUserId;
+    private string pendingUserName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            // Enlever les guillemets si présents (bug localStorage)
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            // Charger les infos de l'équipe
+            var teamResponse = await Http.GetAsync($"api/teams/{TeamId}");
+            if (teamResponse.IsSuccessStatusCode)
+            {
+                team = await teamResponse.Content.ReadFromJsonAsync<TeamDto>();
+            }
+
+            // Charger tous les utilisateurs
+            var usersResponse = await Http.GetAsync("api/users");
+            if (usersResponse.IsSuccessStatusCode)
+            {
+                var allUsers = await usersResponse.Content.ReadFromJsonAsync<List<UserDto>>() ?? new();
+
+                // Filtrer pour ne garder que les utilisateurs non affectés à cette équipe
+                availableUsers = allUsers.Where(u => u.TeamId != TeamId && u.IsActive).ToList();
+                filteredUsers = availableUsers;
+
+                Console.WriteLine($"[DEBUG] {availableUsers.Count} utilisateurs disponibles pour affectation");
+            }
+            else
+            {
+                errorMessage = "Erreur lors du chargement des utilisateurs";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void FilterUsers()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            filteredUsers = availableUsers;
+        }
+        else
+        {
+            filteredUsers = availableUsers.Where(u =>
+                u.Prenom.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                u.Nom.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                u.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private void CreateNewUser()
+    {
+        // Naviguer vers la page de création d'utilisateur depuis l'ajout de membre
+        Navigation.NavigateTo("/personnel/create");
+    }
+
+    private void AddMember(Guid userId, string userName)
+    {
+        // Afficher la boîte de dialogue de confirmation
+        pendingUserId = userId;
+        pendingUserName = userName;
+        confirmMessage = $"Ajouter {userName} à l'équipe {team?.Name} ?";
+        showConfirmDialog = true;
+    }
+
+    private void CancelConfirm()
+    {
+        showConfirmDialog = false;
+        pendingUserId = Guid.Empty;
+        pendingUserName = "";
+        confirmMessage = "";
+    }
+
+    private async Task ConfirmAction()
+    {
+        showConfirmDialog = false;
+        await ProcessAddMember(pendingUserId);
+    }
+
+    private async Task ProcessAddMember(Guid userId)
+    {
+        isSubmitting = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var request = new AssignUserToTeamRequest
+            {
+                TeamId = TeamId,
+                UserId = userId
+            };
+
+            var response = await Http.PostAsJsonAsync("api/teams/assign-user", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Rediriger vers la page de détail de l'équipe
+                Navigation.NavigateTo($"/teams/{TeamId}");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de l'ajout : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private string GetInitials(string prenom, string nom)
+    {
+        var prenomInitial = string.IsNullOrEmpty(prenom) ? "" : prenom.Substring(0, 1).ToUpper();
+        var nomInitial = string.IsNullOrEmpty(nom) ? "" : nom.Substring(0, 1).ToUpper();
+        return prenomInitial + nomInitial;
+    }
+
+    private string GetRoleLabel(string role)
+    {
+        return role switch
+        {
+            "Admin" => "Administrateur",
+            "Manager" => "Manager",
+            "Supervisor" => "Superviseur",
+            "Technician" => "Technicien",
+            _ => role
+        };
+    }
+
+    private string GetRoleBadgeClass(string role)
+    {
+        var baseClass = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+        return role switch
+        {
+            "Admin" => $"{baseClass} bg-red-100 text-red-800",
+            "Manager" => $"{baseClass} bg-purple-100 text-purple-800",
+            "Supervisor" => $"{baseClass} bg-orange-100 text-orange-800",
+            "Technician" => $"{baseClass} bg-blue-100 text-blue-800",
+            _ => $"{baseClass} bg-gray-100 text-gray-800"
+        };
+    }
+
+    private class TeamDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+    }
+
+    private class UserDto
+    {
+        public Guid Id { get; set; }
+        public string Email { get; set; } = "";
+        public string Prenom { get; set; } = "";
+        public string Nom { get; set; } = "";
+        public string Role { get; set; } = "";
+        public string? JobTitle { get; set; }
+        public bool IsActive { get; set; }
+        public Guid? TeamId { get; set; }
+    }
+
+    private class AssignUserToTeamRequest
+    {
+        public Guid TeamId { get; set; }
+        public Guid UserId { get; set; }
+    }
+}

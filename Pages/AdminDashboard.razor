@@ -1,0 +1,344 @@
+@page "/admin"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>Admin Dashboard - LABOR CONTROL</PageTitle>
+
+<div class="min-h-screen bg-gradient-to-br from-gray-900 to-blue-900 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8 text-white">
+            <h1 class="text-4xl font-bold mb-2">
+                👑 Admin Dashboard
+            </h1>
+            <p class="text-gray-300">
+                Gestion des commandes et fulfillment
+            </p>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+                <p class="text-white text-lg mt-4">Chargement...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                @errorMessage
+            </div>
+        }
+        else
+        {
+            <!-- Statistiques -->
+            <div class="grid md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-xl p-6 shadow-lg">
+                    <div class="text-3xl mb-2">📦</div>
+                    <div class="text-3xl font-bold text-gray-900">@orders.Count</div>
+                    <div class="text-sm text-gray-600">Commandes totales</div>
+                </div>
+                <div class="bg-green-50 rounded-xl p-6 shadow-lg">
+                    <div class="text-3xl mb-2">✅</div>
+                    <div class="text-3xl font-bold text-green-900">@orders.Count(o => o.Status == "PAID")</div>
+                    <div class="text-sm text-green-700">Payées</div>
+                </div>
+                <div class="bg-yellow-50 rounded-xl p-6 shadow-lg">
+                    <div class="text-3xl mb-2">⏳</div>
+                    <div class="text-3xl font-bold text-yellow-900">@orders.Count(o => o.Status == "PENDING")</div>
+                    <div class="text-sm text-yellow-700">En attente</div>
+                </div>
+                <div class="bg-blue-50 rounded-xl p-6 shadow-lg">
+                    <div class="text-3xl mb-2">🚚</div>
+                    <div class="text-3xl font-bold text-blue-900">@orders.Count(o => o.Status == "SHIPPED")</div>
+                    <div class="text-sm text-blue-700">Expédiées</div>
+                </div>
+            </div>
+
+            <!-- Liste des commandes -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Toutes les commandes</h2>
+
+                @if (orders.Count == 0)
+                {
+                    <div class="text-center py-12 text-gray-500">
+                        Aucune commande
+                    </div>
+                }
+                else
+                {
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b-2 border-gray-200">
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">N° Commande</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Client</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Montant</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Statut</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Code Packaging</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var order in orders.OrderByDescending(o => o.CreatedAt))
+                                {
+                                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                        <td class="py-4 px-4">
+                                            <span class="font-mono font-semibold text-blue-600">#@order.OrderNumber</span>
+                                        </td>
+                                        <td class="py-4 px-4">
+                                            <div class="font-medium text-gray-900">@order.CustomerName</div>
+                                        </td>
+                                        <td class="py-4 px-4 text-sm text-gray-600">
+                                            @order.CreatedAt.ToString("dd/MM/yyyy HH:mm")
+                                        </td>
+                                        <td class="py-4 px-4">
+                                            <span class="font-bold text-gray-900">@string.Format("{0:F2}", order.TotalAmount) €</span>
+                                        </td>
+                                        <td class="py-4 px-4">
+                                            <span class="@GetStatusBadgeClass(order.Status) px-3 py-1 rounded-full text-xs font-semibold">
+                                                @order.Status
+                                            </span>
+                                        </td>
+                                        <td class="py-4 px-4">
+                                            @if (!string.IsNullOrEmpty(order.PackagingCode))
+                                            {
+                                                <span class="font-mono text-sm bg-green-50 text-green-700 px-2 py-1 rounded">
+                                                    @order.PackagingCode
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-gray-400 text-sm">-</span>
+                                            }
+                                        </td>
+                                        <td class="py-4 px-4">
+                                            <div class="flex gap-2">
+                                                @if (order.Status == "PENDING")
+                                                {
+                                                    <button @onclick="() => MarkAsPaid(order.Id)"
+                                                            class="bg-yellow-600 text-white px-3 py-2 rounded text-sm font-semibold hover:bg-yellow-700 transition">
+                                                        💳 Marquer PAID
+                                                    </button>
+                                                }
+                                                @if (order.Status == "PAID" && string.IsNullOrEmpty(order.PackagingCode))
+                                                {
+                                                    <button @onclick="() => FulfillOrder(order.OrderNumber)"
+                                                            disabled="@processingOrders.Contains(order.OrderNumber)"
+                                                            class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition disabled:bg-gray-400">
+                                                        @if (processingOrders.Contains(order.OrderNumber))
+                                                        {
+                                                            <span>⏳ En cours...</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>🚀 Générer les puces</span>
+                                                        }
+                                                    </button>
+                                                }
+                                                else if (!string.IsNullOrEmpty(order.PackagingCode))
+                                                {
+                                                    <span class="text-green-600 text-sm font-semibold">✓ Traité (@order.ChipsQuantity puces)</span>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Message de succès -->
+        @if (showSuccessMessage)
+        {
+            <div class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg animate-slide-up z-50">
+                ✓ @successMessage
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<OrderInfo> orders = new();
+    private bool isLoading = true;
+    private string errorMessage = "";
+    private HashSet<string> processingOrders = new();
+    private bool showSuccessMessage = false;
+    private string successMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrders();
+    }
+
+    private async Task LoadOrders()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            // Récupérer toutes les commandes (vous devrez créer cet endpoint ou utiliser un existant)
+            var response = await Http.GetAsync("api/orders");
+
+            if (response.IsSuccessStatusCode)
+            {
+                orders = await response.Content.ReadFromJsonAsync<List<OrderInfo>>() ?? new();
+            }
+            else
+            {
+                errorMessage = "Erreur lors du chargement des commandes";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task MarkAsPaid(Guid orderId)
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            // Appel au endpoint POST pour marquer comme PAID
+            var response = await Http.PostAsync($"api/orders/{orderId}/mark-paid", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                successMessage = "✅ Commande marquée comme PAID";
+                showSuccessMessage = true;
+
+                // Recharger les commandes
+                await LoadOrders();
+
+                await Task.Delay(3000);
+                showSuccessMessage = false;
+                StateHasChanged();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la mise à jour du statut: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+    }
+
+    private async Task FulfillOrder(string orderNumber)
+    {
+        processingOrders.Add(orderNumber);
+        StateHasChanged();
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.PostAsync($"api/orders/fulfill/{orderNumber}", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<FulfillmentResult>();
+
+                successMessage = $"✅ Commande {orderNumber} traitée ! Code: {result?.PackagingCode} ({result?.ChipsGenerated} puces)";
+                showSuccessMessage = true;
+
+                // Recharger les commandes
+                await LoadOrders();
+
+                // Masquer le message après 5 secondes
+                await Task.Delay(5000);
+                showSuccessMessage = false;
+                StateHasChanged();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors du traitement de la commande {orderNumber}: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            processingOrders.Remove(orderNumber);
+            StateHasChanged();
+        }
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "PAID" => "bg-green-100 text-green-800",
+        "PENDING" => "bg-yellow-100 text-yellow-800",
+        "SHIPPED" => "bg-blue-100 text-blue-800",
+        "DELIVERED" => "bg-purple-100 text-purple-800",
+        "CANCELLED" => "bg-red-100 text-red-800",
+        _ => "bg-gray-100 text-gray-800"
+    };
+
+    private class OrderInfo
+    {
+        public Guid Id { get; set; }
+        public string OrderNumber { get; set; } = "";
+        public Guid CustomerId { get; set; }
+        public string? CustomerName { get; set; }
+        public int ChipsQuantity { get; set; }
+        public decimal TotalAmount { get; set; }
+        public string Status { get; set; } = "";
+        public string? PackagingCode { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    private class FulfillmentResult
+    {
+        public string Message { get; set; } = "";
+        public string OrderNumber { get; set; } = "";
+        public Guid OrderId { get; set; }
+        public string PackagingCode { get; set; } = "";
+        public int ChipsGenerated { get; set; }
+    }
+}

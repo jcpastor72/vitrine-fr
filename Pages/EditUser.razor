@@ -1,0 +1,341 @@
+@page "/personnel/edit/{id:guid}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Modifier l'utilisateur - Labor Control</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-3xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <button @onclick="GoBack"
+                    class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-md mb-4">
+                ← Retour au profil
+            </button>
+            <h1 class="text-3xl font-bold text-gray-900">Modifier l'utilisateur</h1>
+            <p class="text-gray-600 mt-2">Mettez à jour les informations du compte</p>
+        </div>
+
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement...</p>
+            </div>
+        }
+        else
+        {
+            <!-- Formulaire -->
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                        <p class="text-red-700">@errorMessage</p>
+                    </div>
+                }
+
+                <form @onsubmit="HandleSubmit">
+                    <!-- Informations personnelles -->
+                    <div class="mb-8">
+                        <h2 class="text-xl font-bold text-gray-900 mb-4 pb-2 border-b">Informations personnelles</h2>
+
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <!-- Prénom -->
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Prénom <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text"
+                                       @bind="prenom"
+                                       required
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       placeholder="Ex: Jean" />
+                            </div>
+
+                            <!-- Nom -->
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Nom <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text"
+                                       @bind="nom"
+                                       required
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       placeholder="Ex: Dupont" />
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="mt-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Email <span class="text-red-500">*</span>
+                            </label>
+                            <input type="email"
+                                   @bind="email"
+                                   required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="Ex: jean.dupont@entreprise.fr" />
+                        </div>
+
+                        <!-- Téléphone -->
+                        <div class="mt-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Téléphone (optionnel)
+                            </label>
+                            <input type="tel"
+                                   @bind="phone"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="Ex: 06 12 34 56 78" />
+                        </div>
+                    </div>
+
+                    <!-- Rôle et poste -->
+                    <div class="mb-8">
+                        <h2 class="text-xl font-bold text-gray-900 mb-4 pb-2 border-b">Rôle et poste</h2>
+
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <!-- Rôle -->
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Rôle <span class="text-red-500">*</span>
+                                </label>
+                                <select @bind="role"
+                                        required
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="">-- Sélectionnez un rôle --</option>
+                                    <option value="Admin">Administrateur</option>
+                                    <option value="Manager">Manager</option>
+                                    <option value="Supervisor">Superviseur</option>
+                                    <option value="Technician">Technicien</option>
+                                </select>
+                            </div>
+
+                            <!-- Titre du poste -->
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Titre du poste <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text"
+                                       @bind="jobTitle"
+                                       required
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       placeholder="Ex: Technicien de maintenance" />
+                                <p class="text-xs text-gray-500 mt-1">Fonction ou poste occupé dans l'entreprise</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Boutons -->
+                    <div class="flex gap-4 pt-4">
+                        <button type="submit"
+                                disabled="@isSubmitting"
+                                class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                            @if (isSubmitting)
+                            {
+                                <span>Enregistrement en cours...</span>
+                            }
+                            else
+                            {
+                                <span>✓ Enregistrer les modifications</span>
+                            }
+                        </button>
+                        <button type="button"
+                                @onclick="GoBack"
+                                class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                            Annuler
+                        </button>
+                    </div>
+                </form>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private string prenom = "";
+    private string nom = "";
+    private string email = "";
+    private string phone = "";
+    private string role = "";
+    private string jobTitle = "";
+    private bool loading = true;
+    private bool isSubmitting = false;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUser();
+    }
+
+    private async Task LoadUser()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            // Enlever les guillemets si présents (bug localStorage)
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/users/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var user = await response.Content.ReadFromJsonAsync<UserDto>();
+
+                if (user != null)
+                {
+                    // Pré-remplir les champs du formulaire
+                    prenom = user.Prenom;
+                    nom = user.Nom;
+                    email = user.Email;
+                    phone = user.Phone ?? "";
+                    role = user.Role;
+                    jobTitle = user.JobTitle ?? "";
+                }
+            }
+            else
+            {
+                errorMessage = $"Erreur {(int)response.StatusCode}: Utilisateur introuvable";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private async Task HandleSubmit()
+    {
+        // Validation
+        if (string.IsNullOrWhiteSpace(prenom) || string.IsNullOrWhiteSpace(nom))
+        {
+            errorMessage = "Le prénom et le nom sont obligatoires";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            errorMessage = "L'email est obligatoire";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(role))
+        {
+            errorMessage = "Le rôle est obligatoire";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(jobTitle))
+        {
+            errorMessage = "Le titre du poste est obligatoire";
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            // Enlever les guillemets si présents (bug localStorage)
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            // Préparer la requête avec une classe DTO
+            var request = new UpdateUserRequest
+            {
+                Prenom = prenom.Trim(),
+                Nom = nom.Trim(),
+                Email = email.Trim(),
+                Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
+                Role = role,
+                JobTitle = jobTitle.Trim()
+            };
+
+            // Nettoyer les headers et ajouter l'Authorization
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.PutAsJsonAsync($"api/users/{Id}", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Rediriger vers la page de détail de l'utilisateur
+                Navigation.NavigateTo($"/personnel/{Id}");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la modification : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    // DTO pour charger l'utilisateur
+    private class UserDto
+    {
+        public Guid Id { get; set; }
+        public string Email { get; set; } = "";
+        public string Prenom { get; set; } = "";
+        public string Nom { get; set; } = "";
+        public string? Phone { get; set; }
+        public string Role { get; set; } = "";
+        public string? JobTitle { get; set; }
+    }
+
+    // DTO pour la modification d'utilisateur
+    private class UpdateUserRequest
+    {
+        public string Prenom { get; set; } = "";
+        public string Nom { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string? Phone { get; set; }
+        public string Role { get; set; } = "";
+        public string JobTitle { get; set; } = "Agent de Service";
+    }
+}

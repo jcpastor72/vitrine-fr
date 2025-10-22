@@ -1,0 +1,441 @@
+@page "/sites/create"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Créer un site - Labor Control</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-3xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <button @onclick="GoBack"
+                    class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-md mb-4">
+                ← Retour aux sites
+            </button>
+            <h1 class="text-3xl font-bold text-gray-900">Créer un nouveau site</h1>
+            <p class="text-gray-600 mt-2">Ajoutez un site d'intervention avec ses coordonnées</p>
+        </div>
+
+        <!-- Formulaire -->
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                    <p class="text-red-700">@errorMessage</p>
+                </div>
+            }
+
+            <form @onsubmit="HandleSubmit">
+                <!-- Nom du site -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Nom du site <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text"
+                           @bind="siteName"
+                           required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Ex: Hôpital Central Lyon, Usine Toulouse" />
+                </div>
+
+                <!-- Code -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Code (optionnel)
+                    </label>
+                    <input type="text"
+                           @bind="siteCode"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Ex: HCL-01, USINE-TLS" />
+                    <p class="text-xs text-gray-500 mt-1">Code court pour identifier facilement le site</p>
+                </div>
+
+                <!-- SIRET -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        SIRET de l'établissement (optionnel)
+                    </label>
+                    <input type="text"
+                           value="@siret"
+                           @onchange="OnSiretChange"
+                           @onblur="ValidateSiret"
+                           disabled="@isValidatingSiret"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="14 chiffres (espaces autorisés)"
+                           maxlength="17"
+                           oninput="this.value = this.value.replace(/\D/g, '').substring(0, 14)" />
+                    @if (isValidatingSiret)
+                    {
+                        <p class="mt-1 text-xs text-blue-600">🔍 Vérification du SIRET en cours...</p>
+                    }
+                    else if (siretValidated && !string.IsNullOrEmpty(siret) && siret.Length == 14)
+                    {
+                        <p class="mt-1 text-xs text-green-600">✅ SIRET valide - Informations récupérées</p>
+                    }
+                    else if (!string.IsNullOrEmpty(siret) && siret.Length == 14)
+                    {
+                        <p class="mt-1 text-xs text-gray-500">Appuyez sur Tab pour vérifier</p>
+                    }
+                    <p class="text-xs text-gray-500 mt-1">Si renseigné, les informations seront récupérées automatiquement</p>
+                </div>
+
+                <!-- Adresse -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Adresse
+                    </label>
+                    <input type="text"
+                           @bind="address"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Ex: 12 rue de la République" />
+                </div>
+
+                <!-- Ville et Code postal -->
+                <div class="grid md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Ville
+                        </label>
+                        <input type="text"
+                               @bind="city"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ex: Lyon" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Code postal
+                        </label>
+                        <input type="text"
+                               @bind="postalCode"
+                               maxlength="10"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ex: 69001" />
+                    </div>
+                </div>
+
+                <!-- Contact sur site -->
+                <div class="bg-blue-50 rounded-lg p-6 mb-6">
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">Contact sur site (Manager ou Superviseur)</h3>
+
+                    @if (loadingUsers)
+                    {
+                        <p class="text-sm text-gray-600">Chargement des utilisateurs...</p>
+                    }
+                    else if (availableContacts.Count == 0)
+                    {
+                        <div class="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0">
+                                    <span class="text-2xl">⚠️</span>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <p class="text-sm font-semibold text-orange-800 mb-2">
+                                        Aucun Manager ou Superviseur disponible
+                                    </p>
+                                    <p class="text-sm text-orange-700 mb-3">
+                                        Pour créer un site, vous devez d'abord créer au moins un utilisateur avec le rôle Manager ou Superviseur qui servira de contact pour le site.
+                                    </p>
+                                    <button type="button"
+                                            @onclick="@(() => Navigation.NavigateTo("/personnel"))"
+                                            class="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-all duration-300 shadow-md">
+                                        Créer un utilisateur maintenant →
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-4">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Sélectionner un contact <span class="text-red-500">*</span>
+                            </label>
+                            <select @bind="selectedContactId"
+                                    required
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">-- Choisir un Manager ou Superviseur --</option>
+                                @foreach (var contact in availableContacts)
+                                {
+                                    <option value="@contact.Id">
+                                        @contact.Prenom @contact.Nom (@contact.Role) - @contact.Email @(!string.IsNullOrEmpty(contact.Tel) ? $"- {contact.Tel}" : "")
+                                    </option>
+                                }
+                            </select>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(selectedContactId))
+                        {
+                            var contact = availableContacts.FirstOrDefault(c => c.Id.ToString() == selectedContactId);
+                            if (contact != null)
+                            {
+                                <div class="bg-white p-4 rounded-lg border border-blue-200">
+                                    <p class="text-sm text-gray-700"><strong>Contact sélectionné :</strong></p>
+                                    <p class="text-sm text-gray-600">📧 @contact.Email</p>
+                                    @if (!string.IsNullOrEmpty(contact.Tel))
+                                    {
+                                        <p class="text-sm text-gray-600">📞 @contact.Tel</p>
+                                    }
+                                </div>
+                            }
+                        }
+                    }
+                </div>
+
+                <!-- Boutons -->
+                <div class="flex gap-4 pt-4">
+                    <button type="submit"
+                            disabled="@isSubmitting"
+                            class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                        @if (isSubmitting)
+                        {
+                            <span>Création en cours...</span>
+                        }
+                        else
+                        {
+                            <span>✓ Créer le site</span>
+                        }
+                    </button>
+                    <button type="button"
+                            @onclick="GoBack"
+                            class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string siteName = "";
+    private string siteCode = "";
+    private string siret = "";
+    private string address = "";
+    private string city = "";
+    private string postalCode = "";
+    private string selectedContactId = "";
+    private bool isSubmitting = false;
+    private bool isValidatingSiret = false;
+    private bool siretValidated = false;
+    private bool loadingUsers = false;
+    private string errorMessage = "";
+    private List<UserContact> availableContacts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableContacts();
+    }
+
+    private async Task LoadAvailableContacts()
+    {
+        loadingUsers = true;
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync("api/users");
+            if (response.IsSuccessStatusCode)
+            {
+                var users = await response.Content.ReadFromJsonAsync<List<UserContact>>();
+                if (users != null)
+                {
+                    // Filtrer uniquement les Managers et Superviseurs actifs
+                    availableContacts = users
+                        .Where(u => u.IsActive && (u.Role == "Manager" || u.Role == "Supervisor"))
+                        .OrderBy(u => u.Nom)
+                        .ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur chargement utilisateurs: {ex.Message}");
+        }
+        finally
+        {
+            loadingUsers = false;
+        }
+    }
+
+    private void OnSiretChange(ChangeEventArgs e)
+    {
+        siret = e.Value?.ToString() ?? "";
+        siretValidated = false;
+    }
+
+    private async Task ValidateSiret()
+    {
+        if (string.IsNullOrEmpty(siret) || siret.Length != 14 || !siret.All(char.IsDigit))
+        {
+            return;
+        }
+
+        isValidatingSiret = true;
+        errorMessage = "";
+        siretValidated = false;
+
+        try
+        {
+            var response = await Http.GetAsync($"api/siret/validate/{siret}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<SiretValidationResult>();
+
+                if (result != null && result.IsValid)
+                {
+                    address = result.Address ?? "";
+                    postalCode = result.PostalCode ?? "";
+                    city = result.City ?? "";
+
+                    siretValidated = true;
+                }
+                else
+                {
+                    errorMessage = result?.ErrorMessage ?? "SIRET non trouvé dans la base";
+                }
+            }
+            else
+            {
+                var errorResult = await response.Content.ReadFromJsonAsync<SiretValidationResult>();
+                errorMessage = errorResult?.ErrorMessage ?? "Service de vérification temporairement indisponible";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Vérification automatique impossible. Vous pouvez continuer avec la saisie manuelle.";
+            Console.WriteLine($"Erreur SIRET validation: {ex.Message}");
+        }
+        finally
+        {
+            isValidatingSiret = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private async Task HandleSubmit()
+    {
+        // Validation
+        if (string.IsNullOrWhiteSpace(siteName))
+        {
+            errorMessage = "Le nom du site est obligatoire";
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            // Récupérer les informations du contact sélectionné
+            var selectedContact = availableContacts.FirstOrDefault(c => c.Id.ToString() == selectedContactId);
+            if (selectedContact == null)
+            {
+                errorMessage = "Veuillez sélectionner un contact pour le site";
+                return;
+            }
+
+            var request = new CreateSiteRequest
+            {
+                Name = siteName.Trim(),
+                Code = string.IsNullOrWhiteSpace(siteCode) ? null : siteCode.Trim(),
+                Siret = string.IsNullOrWhiteSpace(siret) ? null : siret.Trim(),
+                Address = string.IsNullOrWhiteSpace(address) ? null : address.Trim(),
+                City = string.IsNullOrWhiteSpace(city) ? null : city.Trim(),
+                PostalCode = string.IsNullOrWhiteSpace(postalCode) ? null : postalCode.Trim(),
+                Country = "France",
+                ContactName = $"{selectedContact.Prenom} {selectedContact.Nom}",
+                ContactPhone = selectedContact.Tel,
+                ContactEmail = selectedContact.Email
+            };
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.PostAsJsonAsync("api/sites", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/sites");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la création : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private class CreateSiteRequest
+    {
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Siret { get; set; }
+        public string? Address { get; set; }
+        public string? City { get; set; }
+        public string? PostalCode { get; set; }
+        public string? Country { get; set; }
+        public string? ContactName { get; set; }
+        public string? ContactPhone { get; set; }
+        public string? ContactEmail { get; set; }
+    }
+
+    private class SiretValidationResult
+    {
+        public bool IsValid { get; set; }
+        public string? CompanyName { get; set; }
+        public string? Address { get; set; }
+        public string? PostalCode { get; set; }
+        public string? City { get; set; }
+        public string? ErrorMessage { get; set; }
+    }
+
+    private class UserContact
+    {
+        public Guid Id { get; set; }
+        public string Nom { get; set; } = "";
+        public string Prenom { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string? Tel { get; set; }
+        public string Role { get; set; } = "";
+        public bool IsActive { get; set; }
+    }
+}

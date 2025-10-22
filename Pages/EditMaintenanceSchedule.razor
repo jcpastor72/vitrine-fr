@@ -1,0 +1,382 @@
+@page "/maintenance/{id:guid}/edit"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Modifier la gamme de maintenance - Labor Control</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-4xl mx-auto px-4">
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement...</p>
+            </div>
+        }
+        else
+        {
+            <!-- Header -->
+            <div class="mb-6">
+                <button @onclick="GoBack"
+                        class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Retour
+                </button>
+                <h1 class="lc-heading-1">Modifier la gamme de maintenance</h1>
+                @if (!string.IsNullOrEmpty(assetName))
+                {
+                    <p class="lc-text-muted mt-2">Pour l'équipement : @assetName</p>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                    <p class="text-red-700">@errorMessage</p>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-lg mb-6">
+                    <p class="text-green-700">@successMessage</p>
+                </div>
+            }
+
+            <!-- Formulaire d'édition -->
+            <div class="lc-card">
+                <h2 class="lc-heading-3 mb-6">Informations générales</h2>
+
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Nom de la gamme <span class="text-red-500">*</span>
+                        </label>
+                        <input @bind="schedule.Name"
+                               type="text"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Ex: Maintenance préventive mensuelle" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Type de maintenance <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="schedule.Type"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="PREVENTIVE">Préventive</option>
+                            <option value="CORRECTIVE">Corrective</option>
+                            <option value="PREDICTIVE">Prédictive</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Priorité <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="schedule.Priority"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="LOW">Basse</option>
+                            <option value="NORMAL">Normale</option>
+                            <option value="HIGH">Haute</option>
+                            <option value="CRITICAL">Critique</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Statut
+                        </label>
+                        <select @bind="schedule.Status"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="DRAFT">Brouillon</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Description
+                    </label>
+                    <textarea @bind="schedule.Description"
+                              rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Description détaillée de la gamme de maintenance..."></textarea>
+                </div>
+
+                <h3 class="lc-heading-4 mb-4">Planification</h3>
+
+                <div class="grid md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Fréquence <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="schedule.Frequency"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="DAILY">Quotidienne</option>
+                            <option value="WEEKLY">Hebdomadaire</option>
+                            <option value="MONTHLY">Mensuelle</option>
+                            <option value="QUARTERLY">Trimestrielle</option>
+                            <option value="YEARLY">Annuelle</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Intervalle <span class="text-red-500">*</span>
+                        </label>
+                        <input @bind="schedule.Interval"
+                               type="number"
+                               min="1"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Ex: 2 (toutes les 2 semaines)" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Durée estimée (minutes) <span class="text-red-500">*</span>
+                        </label>
+                        <input @bind="schedule.EstimatedDurationMinutes"
+                               type="number"
+                               min="1"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Ex: 120" />
+                    </div>
+                </div>
+
+
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Instructions particulières
+                    </label>
+                    <textarea @bind="schedule.SpecialInstructions"
+                              rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Instructions spécifiques pour cette maintenance..."></textarea>
+                </div>
+
+
+                <!-- Actions -->
+                <div class="flex justify-end gap-3 pt-6 border-t border-gray-200">
+                    <button @onclick="GoBack"
+                            type="button"
+                            class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                        Annuler
+                    </button>
+                    <button @onclick="SaveSchedule"
+                            type="submit"
+                            disabled="@isSubmitting"
+                            class="lc-btn lc-btn-primary inline-flex items-center">
+                        @if (isSubmitting)
+                        {
+                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            <span>Modification...</span>
+                        }
+                        else
+                        {
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Enregistrer les modifications</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private UpdateMaintenanceScheduleRequest schedule = new();
+    private bool loading = true;
+    private bool isSubmitting = false;
+    private string errorMessage = "";
+    private string successMessage = "";
+    private string assetName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSchedule();
+    }
+
+    private async Task LoadSchedule()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/maintenanceschedules/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var existingSchedule = await response.Content.ReadFromJsonAsync<MaintenanceScheduleDetailDto>();
+                if (existingSchedule != null)
+                {
+                    // Mapper vers le modèle d'édition
+                    schedule.Name = existingSchedule.Name;
+                    schedule.Description = existingSchedule.Description;
+                    schedule.Type = existingSchedule.Type;
+                    schedule.Priority = existingSchedule.Priority;
+                    schedule.Frequency = existingSchedule.Frequency;
+                    schedule.Interval = existingSchedule.Interval;
+                    schedule.EstimatedDurationMinutes = existingSchedule.EstimatedDurationMinutes;
+                    schedule.Status = existingSchedule.Status;
+                    schedule.SpecialInstructions = existingSchedule.SpecialInstructions;
+
+                    assetName = existingSchedule.AssetName;
+                }
+            }
+            else
+            {
+                errorMessage = $"Erreur {(int)response.StatusCode}: Gamme de maintenance introuvable";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SaveSchedule()
+    {
+        if (!ValidateForm())
+            return;
+
+        isSubmitting = true;
+        errorMessage = "";
+        successMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.PutAsJsonAsync($"api/maintenanceschedules/{Id}", schedule);
+
+            if (response.IsSuccessStatusCode)
+            {
+                successMessage = "Gamme de maintenance modifiée avec succès !";
+
+                // Rediriger vers la page de détail après 2 secondes
+                await Task.Delay(2000);
+                Navigation.NavigateTo($"/maintenance/{Id}");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la modification : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private bool ValidateForm()
+    {
+        errorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(schedule.Name))
+        {
+            errorMessage = "Le nom de la gamme est obligatoire.";
+            return false;
+        }
+
+        if (schedule.Interval <= 0)
+        {
+            errorMessage = "L'intervalle doit être supérieur à 0.";
+            return false;
+        }
+
+        if (schedule.EstimatedDurationMinutes <= 0)
+        {
+            errorMessage = "La durée estimée doit être supérieure à 0.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private class UpdateMaintenanceScheduleRequest
+    {
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string Type { get; set; } = "PREVENTIVE";
+        public string Priority { get; set; } = "NORMAL";
+        public string Frequency { get; set; } = "MONTHLY";
+        public int Interval { get; set; } = 1;
+        public int EstimatedDurationMinutes { get; set; } = 60;
+        public string Status { get; set; } = "DRAFT";
+        public string? SpecialInstructions { get; set; }
+    }
+
+    private class MaintenanceScheduleDetailDto
+    {
+        public Guid Id { get; set; }
+        public Guid AssetId { get; set; }
+        public string AssetName { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string Type { get; set; } = "";
+        public string Priority { get; set; } = "";
+        public string Frequency { get; set; } = "";
+        public int Interval { get; set; }
+        public int EstimatedDurationMinutes { get; set; }
+        public string Status { get; set; } = "";
+        public string? SpecialInstructions { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+}

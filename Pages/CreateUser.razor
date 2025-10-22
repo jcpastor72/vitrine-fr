@@ -1,0 +1,764 @@
+@page "/personnel/create"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Ajouter un utilisateur - Labor Control</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-3xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <button @onclick="GoBack"
+                    class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-md mb-4">
+                ← Retour à la gestion du personnel
+            </button>
+            <h1 class="text-3xl font-bold text-gray-900">Ajouter un utilisateur</h1>
+            <p class="text-gray-600 mt-2">Créez un nouveau compte pour votre organisation</p>
+        </div>
+
+        <!-- Formulaire -->
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                    <p class="text-red-700">@errorMessage</p>
+                </div>
+            }
+
+            <form @onsubmit="HandleSubmit">
+                <!-- Informations personnelles -->
+                <div class="mb-8">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 pb-2 border-b">Informations personnelles</h2>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <!-- Prénom -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Prénom <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text"
+                                   @bind="prenom"
+                                   required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="Ex: Jean" />
+                        </div>
+
+                        <!-- Nom -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Nom <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text"
+                                   @bind="nom"
+                                   required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="Ex: Dupont" />
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 mt-6">
+                        <!-- Pseudo (Username) -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Pseudo (identifiant de connexion) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text"
+                                   @bind="username"
+                                   required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="Ex: jdupont" />
+                            <p class="text-xs text-gray-500 mt-1">Utilisé pour se connecter à l'application</p>
+                        </div>
+
+                        <!-- Téléphone -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Téléphone (optionnel)
+                            </label>
+                            <input type="tel"
+                                   @bind="phone"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="Ex: 06 12 34 56 78" />
+                        </div>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="mt-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Email (optionnel)
+                        </label>
+                        <input type="email"
+                               @bind="email"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ex: jean.dupont@entreprise.fr" />
+                        <p class="text-xs text-gray-500 mt-1">
+                            💡 L'email est utilisé uniquement pour la récupération de mot de passe.
+                            Si non renseigné, l'utilisateur devra contacter son supérieur en cas d'oubli.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Rôle et poste -->
+                <div class="mb-8">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 pb-2 border-b">Rôle et poste</h2>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <!-- Rôle -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Rôle <span class="text-red-500">*</span>
+                            </label>
+                            <select @bind="role"
+                                    required
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">-- Sélectionnez un rôle --</option>
+                                <option value="Admin">Administrateur</option>
+                                <option value="Manager">Manager</option>
+                                <option value="Supervisor">Superviseur</option>
+                                <option value="Technician">Technicien</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Détermine les permissions de l'utilisateur</p>
+                        </div>
+
+                        <!-- Secteur d'activité -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Secteur d'activité <span class="text-red-500">*</span>
+                            </label>
+                            @if (loadingSectors)
+                            {
+                                <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                                    Chargement des secteurs...
+                                </div>
+                            }
+                            else
+                            {
+                                <select value="@selectedSectorId"
+                                        @onchange="OnSectorChange"
+                                        required
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="">-- Sélectionnez un secteur --</option>
+                                    @foreach (var sector in availableSectors)
+                                    {
+                                        <option value="@sector.Id">@sector.Icon @sector.Name</option>
+                                    }
+                                </select>
+                            }
+                            <p class="text-xs text-gray-500 mt-1">Domaine d'activité principal de l'utilisateur</p>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 mt-6">
+                        <!-- Métier -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Métier <span class="text-red-500">*</span>
+                            </label>
+                            @if (loadingIndustries)
+                            {
+                                <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                                    Chargement des métiers...
+                                </div>
+                            }
+                            else if (filteredIndustries.Count == 0)
+                            {
+                                <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                                    Sélectionnez d'abord un secteur
+                                </div>
+                            }
+                            else
+                            {
+                                <select @bind="selectedIndustryId"
+                                        required
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="">-- Sélectionnez un métier --</option>
+                                    @foreach (var industry in filteredIndustries)
+                                    {
+                                        <option value="@industry.Id">@industry.Icon @industry.Name</option>
+                                    }
+                                </select>
+                            }
+                            <p class="text-xs text-gray-500 mt-1">Métier/fonction spécifique dans le secteur</p>
+                        </div>
+
+                        <!-- Site de rattachement -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Site de rattachement
+                            </label>
+                            @if (loadingSites)
+                            {
+                                <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                                    Chargement des sites...
+                                </div>
+                            }
+                            else
+                            {
+                                <select @bind="selectedSiteId"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="">-- Aucun --</option>
+                                    @foreach (var site in availableSites)
+                                    {
+                                        <option value="@site.Id">@site.Name @(!string.IsNullOrEmpty(site.Code) ? $"({site.Code})" : "")</option>
+                                    }
+                                </select>
+                            }
+                            <p class="text-xs text-gray-500 mt-1">
+                                💡 Site principal où cet utilisateur travaille (information organisationnelle)
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Qualifications -->
+                    <div class="mt-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Qualifications (optionnel)
+                        </label>
+                        <div class="border rounded-lg p-4 max-h-80 overflow-y-auto bg-gray-50">
+                            @if (loadingQualifications)
+                            {
+                                <p class="text-gray-500">Chargement des qualifications...</p>
+                            }
+                            else if (string.IsNullOrEmpty(selectedSectorId))
+                            {
+                                <p class="text-gray-500">💡 Sélectionnez un secteur pour voir les qualifications disponibles</p>
+                            }
+                            else if (availableQualifications.Count == 0)
+                            {
+                                <p class="text-gray-500">Aucune qualification disponible pour ce secteur</p>
+                            }
+                            else
+                            {
+                                @foreach (var qual in availableQualifications)
+                                {
+                                    <div class="mb-4 pb-4 border-b last:border-b-0 bg-white p-3 rounded-lg">
+                                        <div class="flex items-center">
+                                            <input type="checkbox"
+                                                   id="qual_@qual.Id"
+                                                   checked="@selectedQualifications.ContainsKey(qual.Id)"
+                                                   @onchange="(e) => ToggleQualification(qual.Id, e.Value)"
+                                                   class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500" />
+                                            <label for="qual_@qual.Id" class="ml-3 font-semibold text-gray-900 cursor-pointer">
+                                                @qual.Name
+                                                @if (!string.IsNullOrEmpty(qual.Code))
+                                                {
+                                                    <span class="text-gray-500 font-normal">(@qual.Code)</span>
+                                                }
+                                            </label>
+                                        </div>
+
+                                        @if (selectedQualifications.ContainsKey(qual.Id))
+                                        {
+                                            <div class="mt-3 ml-8">
+                                                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                                                    Date d'obtention <span class="text-red-500">*</span>
+                                                </label>
+                                                <input type="date"
+                                                       value="@selectedQualifications[qual.Id].ToString("yyyy-MM-dd")"
+                                                       @onchange="(e) => UpdateQualificationDate(qual.Id, e.Value)"
+                                                       required
+                                                       max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                                                       class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+
+                                                @if (qual.RequiresRenewal && qual.ValidityPeriodMonths.HasValue)
+                                                {
+                                                    var obtainedDate = selectedQualifications[qual.Id];
+                                                    if (obtainedDate != DateTime.MinValue)
+                                                    {
+                                                        var expiryDate = obtainedDate.AddMonths(qual.ValidityPeriodMonths.Value);
+                                                        var isExpired = expiryDate < DateTime.Today;
+                                                        var expiresSoon = !isExpired && expiryDate < DateTime.Today.AddMonths(3);
+
+                                                        <p class="text-sm mt-2 font-semibold @(isExpired ? "text-red-600" : expiresSoon ? "text-orange-600" : "text-green-600")">
+                                                            @if (isExpired)
+                                                            {
+                                                                <span>❌ Expirée le @expiryDate.ToString("dd/MM/yyyy")</span>
+                                                            }
+                                                            else if (expiresSoon)
+                                                            {
+                                                                <span>⚠️ Expire le @expiryDate.ToString("dd/MM/yyyy")</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span>✅ Valide jusqu'au @expiryDate.ToString("dd/MM/yyyy")</span>
+                                                            }
+                                                        </p>
+                                                    }
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">
+                            💡 Sélectionnez les qualifications détenues par l'utilisateur et indiquez la date d'obtention
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Mot de passe temporaire -->
+                <div class="mb-8">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 pb-2 border-b">Mot de passe temporaire</h2>
+
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0 text-4xl">🔑</div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900 mb-2">Mot de passe généré automatiquement</h3>
+                                <div class="bg-white border-2 border-blue-300 rounded-lg p-4 mb-3">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <code class="text-2xl font-mono font-bold text-blue-600">@tempPassword</code>
+                                        <button type="button"
+                                                @onclick="GenerateNewPassword"
+                                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold">
+                                            🔄 Générer un nouveau
+                                        </button>
+                                    </div>
+                                </div>
+                                <p class="text-sm text-gray-700">
+                                    ⚠️ <strong>Important:</strong> Notez ce mot de passe et communiquez-le à l'utilisateur.
+                                    Il devra le changer lors de sa première connexion.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Boutons -->
+                <div class="flex gap-4 pt-4">
+                    <button type="submit"
+                            disabled="@isSubmitting"
+                            class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                        @if (isSubmitting)
+                        {
+                            <span>Création en cours...</span>
+                        }
+                        else
+                        {
+                            <span>✓ Créer l'utilisateur</span>
+                        }
+                    </button>
+                    <button type="button"
+                            @onclick="GoBack"
+                            class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string prenom = "";
+    private string nom = "";
+    private string email = "";
+    private string username = "";
+    private string phone = "";
+    private string role = "";
+    private string selectedSectorId = "";
+    private string selectedIndustryId = "";
+    private string selectedSiteId = "";
+    private string tempPassword = "";
+    private bool isSubmitting = false;
+    private bool loadingSites = true;
+    private bool loadingSectors = true;
+    private bool loadingIndustries = true;
+    private bool loadingQualifications = false;
+    private string errorMessage = "";
+    private List<SiteInfo> availableSites = new();
+    private List<SectorDto> availableSectors = new();
+    private List<IndustryDto> allIndustries = new();
+    private List<IndustryDto> filteredIndustries = new();
+    private List<QualificationDto> availableQualifications = new();
+    private Dictionary<Guid, DateTime> selectedQualifications = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Générer un mot de passe temporaire au chargement de la page
+        GenerateNewPassword();
+
+        // Charger les données en parallèle
+        await Task.WhenAll(
+            LoadSites(),
+            LoadSectors(),
+            LoadIndustries()
+        );
+    }
+
+    private async Task LoadSites()
+    {
+        loadingSites = true;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync("api/sites");
+
+            if (response.IsSuccessStatusCode)
+            {
+                availableSites = await response.Content.ReadFromJsonAsync<List<SiteInfo>>() ?? new();
+                // Filtrer uniquement les sites actifs
+                availableSites = availableSites.Where(s => s.IsActive).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Erreur lors du chargement des sites: {ex.Message}");
+        }
+        finally
+        {
+            loadingSites = false;
+        }
+    }
+
+    private async Task LoadSectors()
+    {
+        loadingSectors = true;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            availableSectors = await Http.GetFromJsonAsync<List<SectorDto>>("api/sectors?isActive=true") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Erreur lors du chargement des secteurs: {ex.Message}");
+            errorMessage = $"Erreur chargement secteurs: {ex.Message}";
+        }
+        finally
+        {
+            loadingSectors = false;
+        }
+    }
+
+    private async Task LoadIndustries()
+    {
+        loadingIndustries = true;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            allIndustries = await Http.GetFromJsonAsync<List<IndustryDto>>("api/industries") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Erreur lors du chargement des métiers: {ex.Message}");
+            errorMessage = $"Erreur chargement métiers: {ex.Message}";
+        }
+        finally
+        {
+            loadingIndustries = false;
+        }
+    }
+
+    private async Task OnSectorChange(ChangeEventArgs e)
+    {
+        selectedSectorId = e.Value?.ToString() ?? "";
+        selectedIndustryId = "";
+        selectedQualifications.Clear();
+        availableQualifications.Clear();
+
+        if (Guid.TryParse(selectedSectorId, out var sectorId))
+        {
+            // Filtrer les métiers par secteur
+            filteredIndustries = allIndustries
+                .Where(i => i.SectorId == sectorId && i.IsActive)
+                .ToList();
+
+            // Charger les qualifications du secteur
+            await LoadQualifications(sectorId);
+        }
+        else
+        {
+            filteredIndustries.Clear();
+        }
+    }
+
+    private async Task LoadQualifications(Guid sectorId)
+    {
+        loadingQualifications = true;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            availableQualifications = await Http.GetFromJsonAsync<List<QualificationDto>>(
+                $"api/qualifications?sectorId={sectorId}&isActive=true"
+            ) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Erreur lors du chargement des qualifications: {ex.Message}");
+            errorMessage = $"Erreur chargement qualifications: {ex.Message}";
+        }
+        finally
+        {
+            loadingQualifications = false;
+        }
+    }
+
+    private void ToggleQualification(Guid qualId, object? checkedValue)
+    {
+        bool isChecked = checkedValue is bool b && b;
+
+        if (isChecked)
+        {
+            if (!selectedQualifications.ContainsKey(qualId))
+            {
+                selectedQualifications[qualId] = DateTime.Today;
+            }
+        }
+        else
+        {
+            selectedQualifications.Remove(qualId);
+        }
+    }
+
+    private void UpdateQualificationDate(Guid qualId, object? value)
+    {
+        if (value is string dateStr && DateTime.TryParse(dateStr, out var date))
+        {
+            selectedQualifications[qualId] = date;
+        }
+    }
+
+    private void GenerateNewPassword()
+    {
+        // Générer un mot de passe aléatoire de 8 caractères
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var random = new Random();
+        tempPassword = new string(Enumerable.Repeat(chars, 8)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private async Task HandleSubmit()
+    {
+        // Reset error state
+        errorMessage = "";
+
+        // Validation
+        if (string.IsNullOrWhiteSpace(prenom) || string.IsNullOrWhiteSpace(nom))
+        {
+            errorMessage = "Le prénom et le nom sont obligatoires";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            errorMessage = "Le pseudo est obligatoire";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(role))
+        {
+            errorMessage = "Le rôle est obligatoire";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(selectedSectorId))
+        {
+            errorMessage = "Le secteur d'activité est obligatoire";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(selectedIndustryId))
+        {
+            errorMessage = "Le métier est obligatoire";
+            return;
+        }
+
+        isSubmitting = true;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            // Enlever les guillemets si présents (bug localStorage)
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            // Récupérer le CustomerId depuis le localStorage
+            var customerIdStr = await JS.InvokeAsync<string>("localStorage.getItem", "customerId");
+            if (string.IsNullOrEmpty(customerIdStr))
+            {
+                errorMessage = "Erreur: CustomerId manquant. Veuillez vous reconnecter.";
+                return;
+            }
+
+            // Préparer la requête avec une classe DTO
+            var request = new CreateUserRequest
+            {
+                Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim(),
+                Username = username.Trim(),
+                Password = tempPassword,
+                Prenom = prenom.Trim(),
+                Nom = nom.Trim(),
+                Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
+                Role = role,
+                SectorId = Guid.Parse(selectedSectorId),
+                IndustryId = Guid.Parse(selectedIndustryId),
+                CustomerId = Guid.Parse(customerIdStr.Trim('"')),
+                SiteId = string.IsNullOrWhiteSpace(selectedSiteId) ? null : Guid.Parse(selectedSiteId),
+                Qualifications = selectedQualifications.Select(kv => new UserQualificationRequest
+                {
+                    QualificationId = kv.Key,
+                    ObtainedDate = kv.Value
+                }).ToList()
+            };
+
+            // Nettoyer les headers et ajouter l'Authorization
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.PostAsJsonAsync("api/users", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Rediriger vers la liste des utilisateurs
+                Navigation.NavigateTo("/personnel");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la création : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    // DTO pour la création d'utilisateur
+    private class CreateUserRequest
+    {
+        public string? Email { get; set; }
+        public string? Username { get; set; }
+        public string Password { get; set; } = "";
+        public string Prenom { get; set; } = "";
+        public string Nom { get; set; } = "";
+        public string? Phone { get; set; }
+        public string Role { get; set; } = "";
+        public Guid SectorId { get; set; }
+        public Guid IndustryId { get; set; }
+        public Guid CustomerId { get; set; }
+        public Guid? SiteId { get; set; }
+        public List<UserQualificationRequest> Qualifications { get; set; } = new();
+    }
+
+    private class UserQualificationRequest
+    {
+        public Guid QualificationId { get; set; }
+        public DateTime ObtainedDate { get; set; }
+    }
+
+    // DTO pour la liste des sites
+    private class SiteInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    // DTO pour les secteurs
+    private class SectorDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Icon { get; set; }
+        public string? Color { get; set; }
+    }
+
+    // DTO pour les métiers
+    private class IndustryDto
+    {
+        public Guid Id { get; set; }
+        public Guid SectorId { get; set; }
+        public string Name { get; set; } = "";
+        public string? Icon { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    // DTO pour les qualifications
+    private class QualificationDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public bool RequiresRenewal { get; set; }
+        public int? ValidityPeriodMonths { get; set; }
+    }
+}

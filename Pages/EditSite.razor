@@ -1,0 +1,362 @@
+@page "/sites/edit/{id:guid}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Modifier le site - Labor Control</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-3xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <button @onclick="GoBack"
+                    class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-md mb-4">
+                ← Retour
+            </button>
+            <h1 class="text-3xl font-bold text-gray-900">Modifier le site</h1>
+            <p class="text-gray-600 mt-2">Mettez à jour les informations du site</p>
+        </div>
+
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement...</p>
+            </div>
+        }
+        else
+        {
+            <!-- Formulaire -->
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                        <p class="text-red-700">@errorMessage</p>
+                    </div>
+                }
+
+                <form @onsubmit="HandleSubmit">
+                    <!-- Nom du site -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Nom du site <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text"
+                               @bind="siteName"
+                               required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ex: Hôpital Central Lyon, Usine Toulouse" />
+                    </div>
+
+                    <!-- Code -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Code (optionnel)
+                        </label>
+                        <input type="text"
+                               @bind="siteCode"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ex: HCL-01, USINE-TLS" />
+                    </div>
+
+                    <!-- Adresse -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Adresse
+                        </label>
+                        <input type="text"
+                               @bind="address"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ex: 12 rue de la République" />
+                    </div>
+
+                    <!-- Ville et Code postal -->
+                    <div class="grid md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Ville
+                            </label>
+                            <input type="text"
+                                   @bind="city"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="Ex: Lyon" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Code postal
+                            </label>
+                            <input type="text"
+                                   @bind="postalCode"
+                                   maxlength="10"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="Ex: 69001" />
+                        </div>
+                    </div>
+
+                    <!-- SIRET -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            SIRET (optionnel)
+                        </label>
+                        <input type="text"
+                               @bind="siret"
+                               maxlength="14"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ex: 12345678901234" />
+                        <p class="text-xs text-gray-500 mt-1">14 chiffres sans espaces</p>
+                    </div>
+
+                    <!-- Contact sur site -->
+                    <div class="bg-blue-50 rounded-lg p-6 mb-6">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">Contact sur site</h3>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Nom du contact
+                            </label>
+                            <input type="text"
+                                   @bind="contactName"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="Ex: Jean Dupont" />
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Téléphone
+                                </label>
+                                <input type="tel"
+                                       @bind="contactPhone"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       placeholder="Ex: 06 12 34 56 78" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Email
+                                </label>
+                                <input type="email"
+                                       @bind="contactEmail"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       placeholder="Ex: contact@site.fr" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Statut -->
+                    <div class="mb-6">
+                        <label class="flex items-center">
+                            <input type="checkbox"
+                                   @bind="isActive"
+                                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                            <span class="ml-2 text-sm font-semibold text-gray-700">Site actif</span>
+                        </label>
+                    </div>
+
+                    <!-- Boutons -->
+                    <div class="flex gap-4 pt-4">
+                        <button type="submit"
+                                disabled="@isSubmitting"
+                                class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                            @if (isSubmitting)
+                            {
+                                <span>Enregistrement en cours...</span>
+                            }
+                            else
+                            {
+                                <span>✓ Enregistrer les modifications</span>
+                            }
+                        </button>
+                        <button type="button"
+                                @onclick="GoBack"
+                                class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                            Annuler
+                        </button>
+                    </div>
+                </form>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private string siteName = "";
+    private string siteCode = "";
+    private string address = "";
+    private string city = "";
+    private string postalCode = "";
+    private string siret = "";
+    private string contactName = "";
+    private string contactPhone = "";
+    private string contactEmail = "";
+    private bool isActive = true;
+    private bool loading = true;
+    private bool isSubmitting = false;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSite();
+    }
+
+    private async Task LoadSite()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.GetAsync($"api/sites/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var site = await response.Content.ReadFromJsonAsync<SiteDto>();
+
+                if (site != null)
+                {
+                    siteName = site.Name;
+                    siteCode = site.Code ?? "";
+                    address = site.Address ?? "";
+                    city = site.City ?? "";
+                    postalCode = site.PostalCode ?? "";
+                    siret = site.Siret ?? "";
+                    contactName = site.ContactName ?? "";
+                    contactPhone = site.ContactPhone ?? "";
+                    contactEmail = site.ContactEmail ?? "";
+                    isActive = site.IsActive;
+                }
+            }
+            else
+            {
+                errorMessage = $"Erreur {(int)response.StatusCode}: Site introuvable";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(siteName))
+        {
+            errorMessage = "Le nom du site est obligatoire";
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            var request = new UpdateSiteRequest
+            {
+                Name = siteName.Trim(),
+                Code = string.IsNullOrWhiteSpace(siteCode) ? null : siteCode.Trim(),
+                Address = string.IsNullOrWhiteSpace(address) ? null : address.Trim(),
+                City = string.IsNullOrWhiteSpace(city) ? null : city.Trim(),
+                PostalCode = string.IsNullOrWhiteSpace(postalCode) ? null : postalCode.Trim(),
+                Siret = string.IsNullOrWhiteSpace(siret) ? null : siret.Trim(),
+                Country = "France",
+                ContactName = string.IsNullOrWhiteSpace(contactName) ? null : contactName.Trim(),
+                ContactPhone = string.IsNullOrWhiteSpace(contactPhone) ? null : contactPhone.Trim(),
+                ContactEmail = string.IsNullOrWhiteSpace(contactEmail) ? null : contactEmail.Trim(),
+                IsActive = isActive
+            };
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = await Http.PutAsJsonAsync($"api/sites/{Id}", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo($"/sites/{Id}");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la modification : {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private class SiteDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Address { get; set; }
+        public string? City { get; set; }
+        public string? PostalCode { get; set; }
+        public string? Siret { get; set; }
+        public string? ContactName { get; set; }
+        public string? ContactPhone { get; set; }
+        public string? ContactEmail { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    private class UpdateSiteRequest
+    {
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string? Address { get; set; }
+        public string? City { get; set; }
+        public string? PostalCode { get; set; }
+        public string? Siret { get; set; }
+        public string? Country { get; set; }
+        public string? ContactName { get; set; }
+        public string? ContactPhone { get; set; }
+        public string? ContactEmail { get; set; }
+        public bool IsActive { get; set; }
+    }
+}

@@ -1,0 +1,715 @@
+@page "/equipment"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Équipements - Labor Control</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-7xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="GoToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="lc-heading-2">Gestion des équipements</h1>
+                    <p class="lc-text-muted mt-1">Vue d'ensemble de tous vos équipements par site</p>
+                </div>
+                @if (sites.Any())
+                {
+                    <button @onclick="CreateEquipment"
+                            class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Ajouter un équipement
+                    </button>
+                }
+            </div>
+        </div>
+
+        @if (loading)
+        {
+            <div class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p class="mt-4 text-gray-600">Chargement des équipements...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                <p class="text-red-700">@errorMessage</p>
+            </div>
+        }
+        else if (!sites.Any())
+        {
+            <div class="lc-card text-center">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Aucun site créé</h3>
+                <p class="lc-text-muted mb-6">Créez d'abord un site pour pouvoir ajouter des équipements</p>
+                <button @onclick="GoToSites"
+                        class="lc-btn lc-btn-primary">
+                    Gérer mes sites
+                </button>
+            </div>
+        }
+        else if (!equipments.Any())
+        {
+            <div class="lc-card text-center">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Aucun équipement créé</h3>
+                <p class="lc-text-muted mb-6">Ajoutez des équipements depuis la page de détail d'un site</p>
+                <button @onclick="GoToSites"
+                        class="lc-btn lc-btn-primary">
+                    Gérer mes sites
+                </button>
+            </div>
+        }
+        else
+        {
+            <!-- Filtres Site et Zone -->
+            <div class="lc-card mb-6">
+                <div class="grid md:grid-cols-2 gap-4">
+                    <!-- Filtre par site -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Filtre par site</label>
+                        <select @bind="selectedSiteId" @bind:after="OnFilterChanged"
+                                class="lc-input w-full">
+                            <option value="">Tous les sites</option>
+                            @foreach (var site in sites)
+                            {
+                                <option value="@site.Id">@site.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Filtre par zone -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Filtre par zone</label>
+                        <select @bind="selectedZoneId" @bind:after="OnFilterChanged"
+                                class="lc-input w-full"
+                                disabled="@string.IsNullOrEmpty(selectedSiteId)">
+                            <option value="">Toutes les zones</option>
+                            @foreach (var zone in GetHierarchicalZones())
+                            {
+                                <option value="@zone.Id">@zone.DisplayName</option>
+                            }
+                        </select>
+                        @if (string.IsNullOrEmpty(selectedSiteId))
+                        {
+                            <p class="text-xs lc-text-muted mt-1">Sélectionnez d'abord un site</p>
+                        }
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(selectedSiteId) || !string.IsNullOrEmpty(selectedZoneId))
+                {
+                    <div class="mt-4">
+                        <button @onclick="ClearFilters"
+                                class="lc-btn lc-btn-secondary text-sm">
+                            Effacer les filtres
+                        </button>
+                    </div>
+                }
+            </div>
+
+            <!-- Statistiques globales -->
+            <div class="grid md:grid-cols-4 gap-4 mb-6">
+                <div class="lc-card">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-900">@filteredEquipments.Count</div>
+                    <div class="lc-text-muted text-sm mt-1">Équipement@(filteredEquipments.Count > 1 ? "s" : "") total@(filteredEquipments.Count > 1 ? "aux" : "")</div>
+                </div>
+
+                <div class="lc-card">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-900">@filteredEquipments.Count(e => e.Status == "OPERATIONAL")</div>
+                    <div class="lc-text-muted text-sm mt-1">Opérationnel@(filteredEquipments.Count(e => e.Status == "OPERATIONAL") > 1 ? "s" : "")</div>
+                </div>
+
+                <div class="lc-card">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-900">@overdueMaintenanceCount</div>
+                    <div class="lc-text-muted text-sm mt-1">Opération(s) de maintenance en retard</div>
+                </div>
+
+                <div class="lc-card">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-900">@filteredEquipments.Count(e => e.Status == "OUT_OF_SERVICE")</div>
+                    <div class="lc-text-muted text-sm mt-1">Hors service</div>
+                </div>
+            </div>
+
+            <!-- Filtres par type d'équipement -->
+            <div class="lc-card mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="lc-heading-3">Équipements (@filteredEquipments.Count)</h2>
+                    @if (sites.Any())
+                    {
+                        <button @onclick="CreateEquipment"
+                                class="lc-btn lc-btn-primary inline-flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Ajouter un équipement
+                        </button>
+                    }
+                </div>
+
+                <!-- Filtre par type d'équipement -->
+                @if (filteredEquipments.Any())
+                {
+                    <div class="mb-4">
+                        <label class="text-sm font-medium text-gray-700 mb-2 block">Type d'équipement</label>
+                        <select @bind="equipmentTypeFilter"
+                                @bind:after="OnEquipmentTypeFilterChanged"
+                                class="lc-input max-w-xs">
+                            <option value="">Tous (@filteredEquipments.Count)</option>
+                            @foreach (var type in GetEquipmentTypes())
+                            {
+                                var count = filteredEquipments.Count(e => e.Type == type);
+                                <option value="@type">@GetTypeLabel(type) (@count)</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                @if (!filteredEquipments.Any())
+                {
+                    <div class="text-center py-8 bg-gray-50 rounded-lg">
+                        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                        <p class="lc-text-muted">Aucun équipement</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
+                        @foreach (var equipment in filteredEquipmentsFiltered.OrderBy(e => e.SiteName).ThenBy(e => e.ZoneName).ThenBy(e => e.ParentAssetId).ThenBy(e => e.Name))
+                        {
+                            <div class="@(equipment.ParentAssetId.HasValue ? "pl-8 bg-gray-50" : "") p-4 hover:bg-blue-50 cursor-pointer transition"
+                                 @onclick="() => ViewEquipment(equipment.Id)">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2">
+                                            @if (equipment.ParentAssetId.HasValue)
+                                            {
+                                                <span class="text-gray-400 font-bold">–</span>
+                                            }
+                                            <h3 class="font-semibold text-gray-900">@equipment.Name</h3>
+                                        </div>
+                                        <div class="flex items-center gap-4 mt-1 text-sm lc-text-muted flex-wrap">
+                                            @if (!string.IsNullOrEmpty(equipment.Code))
+                                            {
+                                                <span>Code: <span class="font-mono font-medium">@equipment.Code</span></span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(equipment.Type))
+                                            {
+                                                <span>Type: <span class="font-medium">@GetTypeLabel(equipment.Type)</span></span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(equipment.Status))
+                                            {
+                                                <span>Statut: <span class="font-medium">@GetStatusLabel(equipment.Status)</span></span>
+                                            }
+                                            @if (!equipment.ParentAssetId.HasValue)
+                                            {
+                                                <span class="text-gray-400">@equipment.SiteName › @equipment.ZoneName</span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<EquipmentInfo> equipments = new();
+    private List<SiteInfo> sites = new();
+    private List<ZoneInfo> allZones = new();
+    private List<OverdueTaskInfo> overdueTasks = new();
+    private int overdueMaintenanceCount = 0;
+    private bool loading = true;
+    private string errorMessage = "";
+
+    // Filtres
+    private string selectedSiteId = "";
+    private string selectedZoneId = "";
+    private string? equipmentTypeFilter = null;
+
+    // Propriétés calculées
+    private List<ZoneInfo> availableZones =>
+        string.IsNullOrEmpty(selectedSiteId)
+            ? new List<ZoneInfo>()
+            : allZones.Where(z => z.SiteId.ToString() == selectedSiteId).ToList();
+
+    private List<EquipmentInfo> filteredEquipments
+    {
+        get
+        {
+            var filtered = equipments.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(selectedSiteId))
+            {
+                filtered = filtered.Where(e => e.SiteId.ToString() == selectedSiteId);
+            }
+
+            if (!string.IsNullOrEmpty(selectedZoneId))
+            {
+                // Obtenir la zone sélectionnée + toutes ses sous-zones
+                var selectedZoneGuid = Guid.Parse(selectedZoneId);
+                var zoneIds = new List<Guid> { selectedZoneGuid };
+                zoneIds.AddRange(GetAllSubZoneIds(selectedZoneGuid));
+
+                filtered = filtered.Where(e => zoneIds.Contains(e.ZoneId));
+            }
+
+            return filtered.ToList();
+        }
+    }
+
+    private List<EquipmentInfo> filteredEquipmentsFiltered
+    {
+        get
+        {
+            var filtered = filteredEquipments.AsEnumerable();
+
+            if (equipmentTypeFilter != null)
+            {
+                filtered = filtered.Where(e => e.Type == equipmentTypeFilter);
+            }
+
+            return filtered.ToList();
+        }
+    }
+
+    // Fonction récursive pour obtenir tous les IDs de sous-zones
+    private List<Guid> GetAllSubZoneIds(Guid parentId)
+    {
+        var subZones = allZones.Where(z => z.ParentZoneId == parentId).ToList();
+        var ids = subZones.Select(z => z.Id).ToList();
+
+        foreach (var subZone in subZones)
+        {
+            ids.AddRange(GetAllSubZoneIds(subZone.Id));
+        }
+
+        return ids;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                token = token.Trim('"');
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            // Charger les sites
+            var sitesResponse = await Http.GetAsync("api/sites");
+            if (sitesResponse.IsSuccessStatusCode)
+            {
+                sites = await sitesResponse.Content.ReadFromJsonAsync<List<SiteInfo>>() ?? new();
+            }
+
+            // Charger les maintenances en retard
+            var overdueMainResponse = await Http.GetAsync("api/maintenanceschedules/overdue/count");
+            if (overdueMainResponse.IsSuccessStatusCode)
+            {
+                overdueMaintenanceCount = await overdueMainResponse.Content.ReadFromJsonAsync<int>();
+                Console.WriteLine($"[LOAD] Opérations de maintenance en retard: {overdueMaintenanceCount}");
+            }
+            else
+            {
+                Console.WriteLine($"[LOAD ERROR] Erreur chargement maintenance: {overdueMainResponse.StatusCode}");
+            }
+
+            // Charger les zones de tous les sites
+            foreach (var site in sites)
+            {
+                // Récupérer les zones du site
+                var zonesResponse = await Http.GetAsync($"api/sites/{site.Id}/zones");
+                if (zonesResponse.IsSuccessStatusCode)
+                {
+                    var zones = await zonesResponse.Content.ReadFromJsonAsync<List<ZoneInfo>>() ?? new();
+
+                    // Sauvegarder les zones avec leur SiteId et construire la hiérarchie
+                    foreach (var zone in zones)
+                    {
+                        zone.SiteId = site.Id;
+                        allZones.Add(zone);
+                    }
+                }
+            }
+
+            // Charger TOUS les équipements UNE SEULE FOIS (en dehors de la boucle des sites)
+            var assetsResponse = await Http.GetAsync($"api/assets");
+            if (assetsResponse.IsSuccessStatusCode)
+            {
+                var assets = await assetsResponse.Content.ReadFromJsonAsync<List<EquipmentInfo>>() ?? new();
+                Console.WriteLine($"[EQUIPMENT] Nombre d'équipements chargés: {assets.Count}");
+
+                var parentCount = assets.Count(a => a.ParentAssetId.HasValue);
+                Console.WriteLine($"[EQUIPMENT] Équipements avec ParentAssetId: {parentCount}");
+
+                if (parentCount > 0)
+                {
+                    Console.WriteLine("[EQUIPMENT] Exemple d'équipements avec parent:");
+                    foreach (var eq in assets.Where(a => a.ParentAssetId.HasValue).Take(3))
+                    {
+                        Console.WriteLine($"  - {eq.Name} (Parent: {eq.ParentAssetId})");
+                    }
+                }
+
+                // Enrichir chaque équipement avec les infos de site et zone
+                foreach (var asset in assets)
+                {
+                    var zone = allZones.FirstOrDefault(z => z.Id == asset.ZoneId);
+                    if (zone != null)
+                    {
+                        var site = sites.FirstOrDefault(s => s.Id == zone.SiteId);
+                        if (site != null)
+                        {
+                            asset.SiteId = site.Id;
+                            asset.SiteName = site.Name;
+                            asset.ZoneName = zone.Name;
+                            equipments.Add(asset);
+                        }
+                    }
+                }
+                Console.WriteLine($"[EQUIPMENT] Total équipements ajoutés: {equipments.Count}");
+            }
+            else
+            {
+                Console.WriteLine($"[EQUIPMENT ERROR] Erreur chargement équipements: {assetsResponse.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private void GoToSites()
+    {
+        Navigation.NavigateTo("/sites");
+    }
+
+    private void ViewSite(Guid siteId)
+    {
+        Navigation.NavigateTo($"/sites/{siteId}");
+    }
+
+    private void ViewEquipment(Guid equipmentId)
+    {
+        Navigation.NavigateTo($"/assets/{equipmentId}");
+    }
+
+    private void EditEquipment(Guid equipmentId)
+    {
+        Navigation.NavigateTo($"/assets/edit/{equipmentId}");
+    }
+
+    private void CreateEquipment()
+    {
+        // Rediriger vers la page de création d'équipement
+        Navigation.NavigateTo("/assets/create");
+    }
+
+    private void OnFilterChanged()
+    {
+        // Cette méthode est appelée automatiquement après le changement des filtres
+        // grâce à @bind:after
+        if (!string.IsNullOrEmpty(selectedSiteId))
+        {
+            // Si on change de site, réinitialiser la zone
+            var zoneBelongsToSite = availableZones.Any(z => z.Id.ToString() == selectedZoneId);
+            if (!zoneBelongsToSite)
+            {
+                selectedZoneId = "";
+            }
+        }
+    }
+
+    private void ClearFilters()
+    {
+        selectedSiteId = "";
+        selectedZoneId = "";
+        equipmentTypeFilter = null;
+    }
+
+    private void OnEquipmentTypeFilterChanged()
+    {
+        // Convert empty string to null for filtering
+        if (string.IsNullOrEmpty(equipmentTypeFilter))
+        {
+            equipmentTypeFilter = null;
+        }
+        StateHasChanged();
+    }
+
+    private List<string> GetEquipmentTypes()
+    {
+        return filteredEquipments
+            .Select(e => e.Type)
+            .Distinct()
+            .OrderBy(t => t)
+            .ToList();
+    }
+
+    private List<ZoneHierarchyInfo> GetHierarchicalZones()
+    {
+        var result = new List<ZoneHierarchyInfo>();
+        var availableZonesList = availableZones.OrderBy(z => z.Name).ToList();
+
+        // Ajouter les zones racines (sans parent) et leurs enfants
+        var rootZones = availableZonesList.Where(z => !z.ParentZoneId.HasValue).ToList();
+
+        foreach (var rootZone in rootZones)
+        {
+            result.Add(new ZoneHierarchyInfo
+            {
+                Id = rootZone.Id,
+                DisplayName = rootZone.Name
+            });
+
+            // Ajouter les sous-zones avec indentation
+            AddSubZonesToHierarchy(result, rootZone.Id, availableZonesList, "└─ ");
+        }
+
+        return result;
+    }
+
+    private void AddSubZonesToHierarchy(List<ZoneHierarchyInfo> result, Guid parentId, List<ZoneInfo> allZones, string prefix)
+    {
+        var subZones = allZones.Where(z => z.ParentZoneId == parentId).OrderBy(z => z.Name).ToList();
+
+        foreach (var subZone in subZones)
+        {
+            result.Add(new ZoneHierarchyInfo
+            {
+                Id = subZone.Id,
+                DisplayName = prefix + subZone.Name
+            });
+
+            // Récursivement ajouter les sous-zones imbriquées
+            AddSubZonesToHierarchy(result, subZone.Id, allZones, prefix + "  ");
+        }
+    }
+
+    private class ZoneHierarchyInfo
+    {
+        public Guid Id { get; set; }
+        public string DisplayName { get; set; } = "";
+    }
+
+    private string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            "OPERATIONAL" => "border-l-4 border-green-500",
+            "MAINTENANCE" => "border-l-4 border-orange-500",
+            "OUT_OF_SERVICE" => "border-l-4 border-red-500",
+            _ => ""
+        };
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "OPERATIONAL" => "bg-green-100 text-green-700",
+            "MAINTENANCE" => "bg-orange-100 text-orange-700",
+            "OUT_OF_SERVICE" => "bg-red-100 text-red-700",
+            _ => "bg-gray-100 text-gray-700"
+        };
+    }
+
+    private string GetStatusLabel(string status)
+    {
+        return status switch
+        {
+            "OPERATIONAL" => "Opérationnel",
+            "MAINTENANCE" => "Maintenance",
+            "OUT_OF_SERVICE" => "Hors service",
+            _ => status
+        };
+    }
+
+    private string GetTypeLabel(string? type)
+    {
+        return type switch
+        {
+            "EXCHANGER" => "Échangeur",
+            "PUMP" => "Pompe",
+            "COMPRESSOR" => "Compresseur",
+            "VALVE" => "Vanne",
+            "MOTOR" => "Moteur",
+            "TANK" => "Réservoir",
+            "FILTER" => "Filtre",
+            "SENSOR" => "Capteur",
+            "OTHER" => "Autre",
+            _ => type ?? ""
+        };
+    }
+
+    private string GetCategoryLabel(string? category)
+    {
+        return category switch
+        {
+            "CRITICAL" => "Critique",
+            "STANDARD" => "Standard",
+            "SAFETY" => "Sécurité",
+            _ => category ?? ""
+        };
+    }
+
+    private int GetOverdueMaintenanceCount()
+    {
+        // Obtenir les IDs des équipements filtrés
+        var filteredEquipmentIds = filteredEquipments.Select(e => e.Id).ToHashSet();
+
+        // Compter les tâches en retard pour les équipements filtrés
+        // (Toutes les tâches sont rattachées à des points de contrôle eux-mêmes rattachés à des équipements)
+        var count = overdueTasks.Count(t =>
+            t.ControlPoint != null &&
+            t.ControlPoint.AssetId.HasValue &&
+            filteredEquipmentIds.Contains(t.ControlPoint.AssetId.Value));
+
+        return count;
+    }
+
+    private class EquipmentInfo
+    {
+        public Guid Id { get; set; }
+        public Guid ZoneId { get; set; }
+        public string ZoneName { get; set; } = "";
+        public Guid SiteId { get; set; }
+        public string SiteName { get; set; } = "";
+        public Guid? ParentAssetId { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+        public string Type { get; set; } = "";
+        public string? Category { get; set; }
+        public string Status { get; set; } = "";
+        public string? Manufacturer { get; set; }
+        public string? Model { get; set; }
+        public string? SerialNumber { get; set; }
+        public int SubAssetsCount { get; set; }
+        public int ControlPointsCount { get; set; }
+    }
+
+    private class SiteInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+    }
+
+    private class ZoneInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public Guid SiteId { get; set; }
+        public Guid? ParentZoneId { get; set; }
+    }
+
+    private class OverdueTaskInfo
+    {
+        public Guid Id { get; set; }
+        public string Title { get; set; } = "";
+        public DateTime ScheduledDate { get; set; }
+        public string Status { get; set; } = "";
+        public ControlPointInfo? ControlPoint { get; set; }
+    }
+
+    private class ControlPointInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public Guid? AssetId { get; set; }
+        public Guid? ZoneId { get; set; }
+    }
+}

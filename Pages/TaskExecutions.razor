@@ -1,0 +1,481 @@
+@page "/task-executions"
+@using LaborControl.Web.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Historique des interventions - LABOR CONTROL</PageTitle>
+
+<link href="css/professional.css" rel="stylesheet" />
+
+<div class="min-h-screen bg-gray-50 py-8 px-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="NavigateToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h1 class="lc-heading-1">Historique des interventions</h1>
+                    <p class="lc-text-muted mt-1">Consultez l'historique complet de toutes les interventions réalisées</p>
+                </div>
+                <div class="flex gap-3 flex-wrap">
+                    <button @onclick="RefreshData" class="lc-btn lc-btn-secondary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Actualiser
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="flex justify-center items-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        }
+        else
+        {
+            <!-- Statistiques -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="text-sm text-gray-600 mb-1">Total interventions</div>
+                    <div class="text-3xl font-bold text-gray-900">@executions.Count</div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="text-sm text-gray-600 mb-1">Aujourd'hui</div>
+                    <div class="text-3xl font-bold text-green-600">@GetTodayCount()</div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="text-sm text-gray-600 mb-1">Cette semaine</div>
+                    <div class="text-3xl font-bold text-blue-600">@GetWeekCount()</div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="text-sm text-gray-600 mb-1">Ce mois</div>
+                    <div class="text-3xl font-bold text-purple-600">@GetMonthCount()</div>
+                </div>
+            </div>
+
+            <!-- Filtres -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <!-- Filtre période -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Période</label>
+                        <select @bind="selectedPeriod" @bind:after="ApplyFilters" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                            <option value="today">Aujourd'hui</option>
+                            <option value="week">Cette semaine</option>
+                            <option value="month">Ce mois</option>
+                            <option value="all">Tout</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtre utilisateur -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Technicien</label>
+                        <select @bind="selectedUserId" @bind:after="ApplyFilters" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                            <option value="">Tous</option>
+                            @foreach (var user in users)
+                            {
+                                <option value="@user.Id">@(user.Nom + " " + user.Prenom)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Recherche -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
+                        <input type="text" @bind="searchText" @bind:after="ApplyFilters"
+                               placeholder="Chercher par point de contrôle..."
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des interventions -->
+            @if (filteredExecutions.Count == 0)
+            {
+                <div class="bg-white rounded-xl shadow-sm p-12 text-center">
+                    <div class="text-gray-400 text-5xl mb-4">📋</div>
+                    <p class="text-gray-600">Aucune intervention trouvée</p>
+                </div>
+            }
+            else
+            {
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Date & Heure
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Point de contrôle
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Technicien
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Type
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Données
+                                </th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach (var execution in filteredExecutions)
+                            {
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            @execution.ScannedAt.ToLocalTime().ToString("dd/MM/yyyy")
+                                        </div>
+                                        <div class="text-sm text-gray-500">
+                                            @execution.ScannedAt.ToLocalTime().ToString("HH:mm:ss")
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            @execution.ControlPointName
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm text-gray-900">
+                                            @execution.UserName
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @if (execution.Type == "SCHEDULED")
+                                        {
+                                            <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">
+                                                Planifiée
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-800 rounded-full">
+                                                Libre
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-xs text-gray-500">
+                                            @if (HasPhotos(execution.FormDataJson))
+                                            {
+                                                <span class="text-green-600 font-medium">📷 Photos</span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(execution.FormDataJson) && execution.FormDataJson != "{}")
+                                            {
+                                                <span class="text-blue-600 font-medium">📝 Formulaire</span>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button @onclick="() => ViewDetails(execution)"
+                                                class="text-blue-600 hover:text-blue-900">
+                                            Voir détails
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<!-- Modal détails -->
+@if (showDetailsModal && selectedExecution != null)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @onclick="CloseDetailsModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" @onclick:stopPropagation>
+            <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                <h3 class="text-2xl font-bold text-gray-900">
+                    Détails de l'intervention
+                </h3>
+                <button @onclick="CloseDetailsModal" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+            </div>
+
+            <div class="p-6 space-y-6">
+                <!-- Informations générales -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-sm font-medium text-gray-600">Point de contrôle</label>
+                        <div class="text-lg font-semibold text-gray-900">@selectedExecution.ControlPointName</div>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-600">Technicien</label>
+                        <div class="text-lg font-semibold text-gray-900">@selectedExecution.UserName</div>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-600">Date du scan</label>
+                        <div class="text-gray-900">@selectedExecution.ScannedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</div>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-600">Date de soumission</label>
+                        <div class="text-gray-900">
+                            @if (selectedExecution.SubmittedAt.HasValue)
+                            {
+                                @selectedExecution.SubmittedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")
+                            }
+                            else
+                            {
+                                <span class="text-gray-400">Non soumis</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Données du formulaire -->
+                <div>
+                    <label class="text-sm font-medium text-gray-600 mb-2 block">Données du formulaire</label>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        @if (!string.IsNullOrEmpty(selectedExecution.FormDataJson) && selectedExecution.FormDataJson != "{}")
+                        {
+                            <pre class="text-sm overflow-x-auto">@selectedExecution.FormDataJson</pre>
+                        }
+                        else
+                        {
+                            <p class="text-gray-500 text-sm">Aucune donnée</p>
+                        }
+                    </div>
+                </div>
+
+                <!-- Photos -->
+                @if (HasPhotos(selectedExecution.FormDataJson))
+                {
+                    <div>
+                        <label class="text-sm font-medium text-gray-600 mb-2 block">Photos</label>
+                        <div class="grid grid-cols-2 gap-4">
+                            @foreach (var photo in GetPhotos(selectedExecution.FormDataJson))
+                            {
+                                <div class="border rounded-lg overflow-hidden">
+                                    <img src="data:image/jpeg;base64,@photo" alt="Photo" class="w-full h-48 object-cover" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="border-t px-6 py-4 flex justify-end">
+                <button @onclick="CloseDetailsModal" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool showDetailsModal = false;
+
+    private List<TaskExecutionDto> executions = new();
+    private List<TaskExecutionDto> filteredExecutions = new();
+    private List<UserDto> users = new();
+
+    private TaskExecutionDto? selectedExecution = null;
+
+    private string selectedPeriod = "all";
+    private string selectedUserId = "";
+    private string searchText = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token)) return;
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            // Charger les utilisateurs
+            var usersResponse = await Http.GetAsync("api/users");
+            if (usersResponse.IsSuccessStatusCode)
+            {
+                users = await usersResponse.Content.ReadFromJsonAsync<List<UserDto>>() ?? new();
+            }
+
+            // Charger toutes les exécutions (il faudrait un endpoint dédié côté backend)
+            // Pour l'instant, on charge les exécutions de tous les utilisateurs
+            executions = new List<TaskExecutionDto>();
+
+            foreach (var user in users)
+            {
+                var response = await Http.GetAsync($"api/taskexecutions/{user.Id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    var userExecutions = await response.Content.ReadFromJsonAsync<List<TaskExecutionDto>>() ?? new();
+                    foreach (var exec in userExecutions)
+                    {
+                        exec.UserName = $"{user.Prenom} {user.Nom}";
+                    }
+                    executions.AddRange(userExecutions);
+                }
+            }
+
+            executions = executions.OrderByDescending(e => e.ScannedAt).ToList();
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadData();
+    }
+
+    private void ApplyFilters()
+    {
+        filteredExecutions = executions;
+
+        // Filtre par période
+        if (selectedPeriod == "today")
+        {
+            var today = DateTime.Today;
+            filteredExecutions = filteredExecutions.Where(e => e.ScannedAt.Date == today).ToList();
+        }
+        else if (selectedPeriod == "week")
+        {
+            var weekAgo = DateTime.Now.AddDays(-7);
+            filteredExecutions = filteredExecutions.Where(e => e.ScannedAt >= weekAgo).ToList();
+        }
+        else if (selectedPeriod == "month")
+        {
+            var monthAgo = DateTime.Now.AddMonths(-1);
+            filteredExecutions = filteredExecutions.Where(e => e.ScannedAt >= monthAgo).ToList();
+        }
+
+        // Filtre par utilisateur
+        if (!string.IsNullOrEmpty(selectedUserId))
+        {
+            filteredExecutions = filteredExecutions.Where(e => e.UserId.ToString() == selectedUserId).ToList();
+        }
+
+        // Recherche textuelle
+        if (!string.IsNullOrEmpty(searchText))
+        {
+            filteredExecutions = filteredExecutions.Where(e =>
+                e.ControlPointName.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                e.UserName.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+    }
+
+    private int GetTodayCount()
+    {
+        var today = DateTime.Today;
+        return executions.Count(e => e.ScannedAt.Date == today);
+    }
+
+    private int GetWeekCount()
+    {
+        var weekAgo = DateTime.Now.AddDays(-7);
+        return executions.Count(e => e.ScannedAt >= weekAgo);
+    }
+
+    private int GetMonthCount()
+    {
+        var monthAgo = DateTime.Now.AddMonths(-1);
+        return executions.Count(e => e.ScannedAt >= monthAgo);
+    }
+
+    private void ViewDetails(TaskExecutionDto execution)
+    {
+        selectedExecution = execution;
+        showDetailsModal = true;
+    }
+
+    private void CloseDetailsModal()
+    {
+        showDetailsModal = false;
+        selectedExecution = null;
+    }
+
+    private bool HasPhotos(string formDataJson)
+    {
+        if (string.IsNullOrEmpty(formDataJson) || formDataJson == "{}") return false;
+        return formDataJson.Contains("\"photos\"");
+    }
+
+    private List<string> GetPhotos(string formDataJson)
+    {
+        try
+        {
+            var formData = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(formDataJson);
+            if (formData != null && formData.ContainsKey("photos"))
+            {
+                var photosElement = (System.Text.Json.JsonElement)formData["photos"];
+                return photosElement.EnumerateArray().Select(p => p.GetString() ?? "").Where(p => !string.IsNullOrEmpty(p)).ToList();
+            }
+        }
+        catch
+        {
+            // Ignore JSON parsing errors
+        }
+        return new List<string>();
+    }
+
+    // DTOs
+    private class TaskExecutionDto
+    {
+        public Guid Id { get; set; }
+        public Guid UserId { get; set; }
+        public string UserName { get; set; } = "";
+        public DateTime ScannedAt { get; set; }
+        public DateTime? SubmittedAt { get; set; }
+        public string ControlPointName { get; set; } = "";
+        public string Type { get; set; } = "SCHEDULED";
+        public string FormDataJson { get; set; } = "{}";
+    }
+
+    private void NavigateToDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private class UserDto
+    {
+        public Guid Id { get; set; }
+        public string Nom { get; set; } = "";
+        public string Prenom { get; set; } = "";
+        public string Email { get; set; } = "";
+    }
+}

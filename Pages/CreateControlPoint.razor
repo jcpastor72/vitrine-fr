@@ -1,0 +1,440 @@
+@page "/controlpoints/create"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>Nouveau Point de Contrôle - LABOR CONTROL</PageTitle>
+
+<div class="min-h-screen bg-gradient-to-br from-gray-900 to-blue-900 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8 text-white">
+            <button @onclick="GoBack" class="text-gray-300 hover:text-white mb-4 flex items-center gap-2">
+                ← Retour
+            </button>
+            <h1 class="text-4xl font-bold mb-2">
+                ➕ Nouveau Point de Contrôle
+            </h1>
+            <p class="text-gray-300">
+                Créez un point de contrôle pour votre zone ou équipement
+            </p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+                    ⚠️ @errorMessage
+                </div>
+            }
+
+            <form @onsubmit="HandleSubmit">
+                <!-- Code -->
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        Code du point de contrôle *
+                    </label>
+                    <input type="text"
+                           @bind="code"
+                           required
+                           placeholder="Ex: PC-001"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    <p class="text-sm text-gray-500 mt-1">Code unique pour identifier le point de contrôle</p>
+                </div>
+
+                <!-- Nom -->
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        Nom *
+                    </label>
+                    <input type="text"
+                           @bind="name"
+                           required
+                           placeholder="Ex: Température couloir A"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                </div>
+
+                <!-- Type de mesure -->
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        Type de mesure *
+                    </label>
+                    <select @bind="measurementType"
+                            required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">-- Sélectionnez un type --</option>
+                        <option value="temperature">Température</option>
+                        <option value="humidity">Humidité</option>
+                        <option value="pressure">Pression</option>
+                        <option value="visual">Contrôle visuel</option>
+                        <option value="security">Sécurité</option>
+                        <option value="maintenance">Maintenance</option>
+                        <option value="cleaning">Nettoyage</option>
+                        <option value="other">Autre</option>
+                    </select>
+                </div>
+
+                <!-- Sélection du site -->
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        Site *
+                    </label>
+                    <select value="@selectedSiteId"
+                            @onchange="OnSiteChanged"
+                            required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">-- Sélectionnez un site --</option>
+                        @foreach (var site in sites)
+                        {
+                            <option value="@site.Id">@site.Name</option>
+                        }
+                    </select>
+                    @if (sitesLoading)
+                    {
+                        <p class="text-sm text-gray-500 mt-1">Chargement des sites...</p>
+                    }
+                    else if (sites.Count == 0)
+                    {
+                        <p class="text-sm text-orange-600 mt-1">Aucun site disponible. Créez d'abord un site.</p>
+                    }
+                </div>
+
+                <!-- Rattachement (Zone ou Asset) -->
+                @if (!string.IsNullOrEmpty(selectedSiteId))
+                {
+                    <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+                    <p class="text-sm font-semibold text-blue-900 mb-3">
+                        📍 Rattachement (choisissez au moins un élément)
+                    </p>
+
+                    <!-- Choix Zone ou Asset -->
+                    <div class="mb-4">
+                        <label class="flex items-center gap-2 mb-2">
+                            <input type="radio"
+                                   name="attachmentType"
+                                   value="zone"
+                                   checked="@(attachmentType == "zone")"
+                                   @onchange="@(() => { attachmentType = "zone"; })"
+                                   class="w-4 h-4" />
+                            <span class="text-gray-700 font-medium">Rattacher à une Zone</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="radio"
+                                   name="attachmentType"
+                                   value="asset"
+                                   checked="@(attachmentType == "asset")"
+                                   @onchange="@(() => { attachmentType = "asset"; })"
+                                   class="w-4 h-4" />
+                            <span class="text-gray-700 font-medium">Rattacher à un Équipement</span>
+                        </label>
+                    </div>
+
+                    @if (attachmentType == "zone")
+                    {
+                        <div class="mb-4">
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                Zone *
+                            </label>
+                            <select @bind="selectedZoneId"
+                                    required
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">-- Sélectionnez une zone --</option>
+                                @foreach (var zone in zones)
+                                {
+                                    <option value="@zone.Id">@zone.Name</option>
+                                }
+                            </select>
+                            @if (zonesLoading)
+                            {
+                                <p class="text-sm text-gray-500 mt-1">Chargement des zones...</p>
+                            }
+                            else if (zones.Count == 0)
+                            {
+                                <p class="text-sm text-orange-600 mt-1">Aucune zone disponible. Créez d'abord un site et une zone.</p>
+                            }
+                        </div>
+                    }
+
+                    @if (attachmentType == "asset")
+                    {
+                        <div class="mb-4">
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                Équipement *
+                            </label>
+                            <select @bind="selectedAssetId"
+                                    required
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">-- Sélectionnez un équipement --</option>
+                                @foreach (var asset in assets)
+                                {
+                                    <option value="@asset.Id">@asset.Name</option>
+                                }
+                            </select>
+                            @if (assetsLoading)
+                            {
+                                <p class="text-sm text-gray-500 mt-1">Chargement des équipements...</p>
+                            }
+                            else if (assets.Count == 0)
+                            {
+                                <div class="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                                    <p class="text-sm text-orange-600 mb-2">Aucun équipement disponible.</p>
+                                    <a href="/create-asset" class="inline-flex items-center gap-2 text-sm bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-semibold transition">
+                                        ➕ Créer un équipement
+                                    </a>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                }
+
+                <!-- Description -->
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        Description
+                    </label>
+                    <textarea @bind="description"
+                              rows="3"
+                              placeholder="Description du point de contrôle..."
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                </div>
+
+                <!-- Localisation -->
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        Localisation précise
+                    </label>
+                    <input type="text"
+                           @bind="locationDescription"
+                           placeholder="Ex: Mur nord, à 1,5m du sol"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    <p class="text-sm text-gray-500 mt-1">Indiquez où se trouve exactement le point de contrôle</p>
+                </div>
+
+                <!-- Boutons -->
+                <div class="flex gap-4">
+                    <button type="submit"
+                            disabled="@isSaving"
+                            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition disabled:bg-gray-300 disabled:cursor-not-allowed">
+                        @if (isSaving)
+                        {
+                            <span>Enregistrement...</span>
+                        }
+                        else
+                        {
+                            <span>✅ Créer le point de contrôle</span>
+                        }
+                    </button>
+                    <button type="button"
+                            @onclick="GoBack"
+                            class="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string code = "";
+    private string name = "";
+    private string description = "";
+    private string locationDescription = "";
+    private string measurementType = "";
+    private string attachmentType = "zone";
+    private string selectedSiteId = "";
+    private string selectedZoneId = "";
+    private string selectedAssetId = "";
+
+    private List<SiteItem> sites = new();
+    private List<ZoneItem> zones = new();
+    private List<AssetItem> assets = new();
+    private bool sitesLoading = true;
+    private bool zonesLoading = false;
+    private bool assetsLoading = false;
+    private bool isSaving = false;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSites();
+    }
+
+    private async Task LoadSites()
+    {
+        try
+        {
+            sitesLoading = true;
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            token = token.Trim('"');
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            sites = await Http.GetFromJsonAsync<List<SiteItem>>("api/sites") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur chargement sites: {ex.Message}");
+        }
+        finally
+        {
+            sitesLoading = false;
+        }
+    }
+
+    private async Task OnSiteChanged(ChangeEventArgs e)
+    {
+        selectedSiteId = e.Value?.ToString() ?? "";
+        selectedZoneId = "";
+        selectedAssetId = "";
+        zones.Clear();
+        assets.Clear();
+
+        if (!string.IsNullOrEmpty(selectedSiteId))
+        {
+            await LoadZones();
+            await LoadAssets();
+        }
+    }
+
+    private async Task LoadZones()
+    {
+        try
+        {
+            zonesLoading = true;
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token)) return;
+
+            token = token.Trim('"');
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            zones = await Http.GetFromJsonAsync<List<ZoneItem>>($"api/sites/{selectedSiteId}/zones") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur chargement zones: {ex.Message}");
+        }
+        finally
+        {
+            zonesLoading = false;
+        }
+    }
+
+    private async Task LoadAssets()
+    {
+        try
+        {
+            assetsLoading = true;
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token)) return;
+
+            token = token.Trim('"');
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            // Charger tous les assets du site (toutes zones confondues)
+            var allZones = zones;
+            var allAssets = new List<AssetItem>();
+
+            foreach (var zone in allZones)
+            {
+                var zoneAssets = await Http.GetFromJsonAsync<List<AssetItem>>($"api/zones/{zone.Id}/assets") ?? new();
+                allAssets.AddRange(zoneAssets);
+            }
+
+            assets = allAssets;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur chargement assets: {ex.Message}");
+        }
+        finally
+        {
+            assetsLoading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = "";
+
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            token = token.Trim('"');
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var request = new
+            {
+                Code = code,
+                Name = name,
+                Description = description,
+                LocationDescription = locationDescription,
+                MeasurementType = measurementType,
+                ZoneId = attachmentType == "zone" && !string.IsNullOrEmpty(selectedZoneId) ? Guid.Parse(selectedZoneId) : (Guid?)null,
+                AssetId = attachmentType == "asset" && !string.IsNullOrEmpty(selectedAssetId) ? Guid.Parse(selectedAssetId) : (Guid?)null
+            };
+
+            var response = await Http.PostAsJsonAsync("api/controlpoints", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/controlpoints");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Erreur lors de la création: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private class SiteItem
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+    }
+
+    private class ZoneItem
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string SiteName { get; set; } = "";
+    }
+
+    private class AssetItem
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string ZoneName { get; set; } = "";
+    }
+}
