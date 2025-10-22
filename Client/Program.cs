@@ -9,9 +9,11 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // Configure HttpClient avec l'URL de l'API
-// En local, utilise l'API Azure directement
-// À modifier pour revenir au localhost:5278 si vous lancez le backend en local
-var apiBaseUrl = "https://laborcontrol-api.azurewebsites.net/";
+// En développement local : localhost:5278 (backend local)
+// En production : https://laborcontrol-api.azurewebsites.net
+var apiBaseUrl = builder.HostEnvironment.IsDevelopment()
+    ? "http://localhost:5278/"
+    : "https://laborcontrol-api.azurewebsites.net/";
 
 builder.Services.AddScoped(sp => new HttpClient
 {
