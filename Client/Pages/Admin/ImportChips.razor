@@ -81,7 +81,7 @@
 
             <!-- Bouton import -->
             <div class="mt-6 flex gap-3">
-                <button @onclick="ImportChips"
+                <button @onclick="PerformImport"
                     disabled="@(isImporting || previewUids.Count == 0 || string.IsNullOrEmpty(selectedOrderId))"
                     class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
                     @if (isImporting)
@@ -219,7 +219,7 @@
         }
     }
 
-    private async Task ImportChips()
+    private async Task PerformImport()
     {
         try
         {
