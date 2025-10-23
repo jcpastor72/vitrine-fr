@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LaborControl.Web")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+da2a2d27efce2f622d4d267001f3b5f9a7c4accc")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8ad60a07f8fac57d3b16506db01d5d7e5b849ed1")]
 [assembly: System.Reflection.AssemblyProductAttribute("LaborControl.Web")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LaborControl.Web")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

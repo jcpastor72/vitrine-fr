@@ -1,0 +1,305 @@
+@page "/admin/import-chips"
+@using LaborControl.Web.Services
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject IJSRuntime JS
+
+<div class="min-h-screen bg-gray-50 py-8 px-4">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="NavigateToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+
+            <div>
+                <h1 class="lc-heading-1">Import de Puces RFID</h1>
+                <p class="lc-text-muted mt-1">Importez des puces depuis un fichier Excel</p>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold text-blue-900 mb-3">📋 Instructions</h2>
+            <ul class="text-blue-800 space-y-2">
+                <li>✅ Préparez un fichier Excel avec une colonne "UID" contenant les identifiants des puces</li>
+                <li>✅ Chaque UID doit être unique et au format hexadécimal (ex: 04A1B2C3D4E5F6)</li>
+                <li>✅ Sélectionnez la commande fournisseur associée</li>
+                <li>✅ Cliquez sur "Importer" pour traiter le fichier</li>
+            </ul>
+        </div>
+
+        <!-- Formulaire d'import -->
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Sélection commande -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Commande Fournisseur</label>
+                    <select @bind="selectedOrderId"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Sélectionner une commande --</option>
+                        @foreach (var order in orders)
+                        {
+                            <option value="@order.Id">@order.OrderNumber - @order.TotalAmount€</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Upload fichier -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fichier Excel</label>
+                    <input type="file" accept=".xlsx,.xls,.csv"
+                           @onchange="HandleFileSelected"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           disabled="@isImporting" />
+                </div>
+            </div>
+
+            <!-- Aperçu UIDs -->
+            @if (previewUids.Count > 0)
+            {
+                <div class="mt-6">
+                    <h3 class="text-sm font-medium text-gray-700 mb-3">Aperçu des UIDs à importer</h3>
+                    <div class="bg-gray-50 rounded-lg p-4 max-h-48 overflow-y-auto">
+                        <div class="space-y-1">
+                            @foreach (var uid in previewUids.Take(10))
+                            {
+                                <div class="text-sm font-mono text-gray-600">@uid</div>
+                            }
+                            @if (previewUids.Count > 10)
+                            {
+                                <div class="text-sm text-gray-500 italic">... et @(previewUids.Count - 10) autres</div>
+                            }
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">Total: @previewUids.Count UIDs</p>
+                </div>
+            }
+
+            <!-- Bouton import -->
+            <div class="mt-6 flex gap-3">
+                <button @onclick="ImportChips"
+                        disabled="@(isImporting || previewUids.Count == 0 || string.IsNullOrEmpty(selectedOrderId))"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    @if (isImporting)
+                    {
+                        <span>⏳ Import en cours...</span>
+                    }
+                    else
+                    {
+                        <span>📤 Importer @previewUids.Count UIDs</span>
+                    }
+                </button>
+                <button @onclick="ClearPreview"
+                        disabled="@isImporting"
+                        class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                    Effacer
+                </button>
+            </div>
+        </div>
+
+        <!-- Résultats -->
+        @if (importResult != null)
+        {
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">📊 Résultats de l'import</h2>
+
+                <div class="grid md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-green-600">@importResult.SuccessCount</div>
+                        <div class="text-sm text-green-700">Puces importées</div>
+                    </div>
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-yellow-600">@importResult.DuplicateCount</div>
+                        <div class="text-sm text-yellow-700">Doublons détectés</div>
+                    </div>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-red-600">@importResult.ErrorCount</div>
+                        <div class="text-sm text-red-700">Erreurs</div>
+                    </div>
+                </div>
+
+                @if (importResult.Errors.Count > 0)
+                {
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                        <h3 class="font-semibold text-red-900 mb-2">⚠️ Erreurs détectées</h3>
+                        <ul class="text-sm text-red-800 space-y-1">
+                            @foreach (var error in importResult.Errors.Take(10))
+                            {
+                                <li>• @error</li>
+                            }
+                            @if (importResult.Errors.Count > 10)
+                            {
+                                <li class="italic">... et @(importResult.Errors.Count - 10) autres</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                <button @onclick="ResetForm"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    Nouvel import
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<string> previewUids = new();
+    private string selectedOrderId = "";
+    private bool isImporting = false;
+    private ImportChipsResponse? importResult = null;
+    private List<OrderDto> orders = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrders();
+    }
+
+    private async Task LoadOrders()
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync("api/orders?status=PENDING");
+            if (response.IsSuccessStatusCode)
+            {
+                orders = await response.Content.ReadFromJsonAsync<List<OrderDto>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            previewUids.Clear();
+            var file = e.File;
+
+            if (file.ContentType != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" &&
+                file.ContentType != "application/vnd.ms-excel" &&
+                file.ContentType != "text/csv")
+            {
+                await JS.InvokeVoidAsync("alert", "Format non supporté. Utilisez Excel ou CSV.");
+                return;
+            }
+
+            using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var bytes = ms.ToArray();
+
+            // Parsing simple CSV (pour Excel, utiliser EPPlus côté backend)
+            var text = System.Text.Encoding.UTF8.GetString(bytes);
+            var lines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+
+            foreach (var line in lines.Skip(1)) // Skip header
+            {
+                var uid = line.Trim();
+                if (!string.IsNullOrEmpty(uid) && uid.Length >= 14)
+                {
+                    previewUids.Add(uid);
+                }
+            }
+
+            await JS.InvokeVoidAsync("showNotification", $"✅ {previewUids.Count} UIDs détectés");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur lecture fichier: {ex.Message}");
+        }
+    }
+
+    private async Task ImportChips()
+    {
+        try
+        {
+            if (previewUids.Count == 0 || string.IsNullOrEmpty(selectedOrderId))
+            {
+                await JS.InvokeVoidAsync("alert", "Sélectionnez un fichier et une commande");
+                return;
+            }
+
+            isImporting = true;
+
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var request = new ImportChipsRequest
+            {
+                OrderId = Guid.Parse(selectedOrderId),
+                Uids = previewUids
+            };
+
+            var response = await Http.PostAsJsonAsync("api/rfidchips/import-excel", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                importResult = await response.Content.ReadFromJsonAsync<ImportChipsResponse>();
+                await JS.InvokeVoidAsync("showNotification", $"✅ Import terminé: {importResult?.SuccessCount} puces importées");
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Erreur lors de l'import");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+
+    private void ClearPreview()
+    {
+        previewUids.Clear();
+    }
+
+    private void ResetForm()
+    {
+        previewUids.Clear();
+        selectedOrderId = "";
+        importResult = null;
+    }
+
+    private void NavigateToDashboard()
+    {
+        // Navigation via JS
+    }
+
+    public class ImportChipsRequest
+    {
+        public Guid OrderId { get; set; }
+        public List<string> Uids { get; set; } = new();
+    }
+
+    public class ImportChipsResponse
+    {
+        public int SuccessCount { get; set; }
+        public int DuplicateCount { get; set; }
+        public int ErrorCount { get; set; }
+        public List<string> Errors { get; set; } = new();
+    }
+
+    public class OrderDto
+    {
+        public Guid Id { get; set; }
+        public string OrderNumber { get; set; } = "";
+        public decimal TotalAmount { get; set; }
+    }
+}

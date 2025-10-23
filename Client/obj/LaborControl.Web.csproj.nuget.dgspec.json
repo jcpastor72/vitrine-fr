@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Dev\\lc\\vitrine-fr\\client\\LaborControl.Web.csproj": {}
+    "C:\\dev\\lc\\vitrine-fr\\client\\LaborControl.Web.csproj": {}
   },
   "projects": {
-    "C:\\Dev\\lc\\vitrine-fr\\client\\LaborControl.Web.csproj": {
+    "C:\\dev\\lc\\vitrine-fr\\client\\LaborControl.Web.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Dev\\lc\\vitrine-fr\\client\\LaborControl.Web.csproj",
+        "projectUniqueName": "C:\\dev\\lc\\vitrine-fr\\client\\LaborControl.Web.csproj",
         "projectName": "LaborControl.Web",
-        "projectPath": "C:\\Dev\\lc\\vitrine-fr\\client\\LaborControl.Web.csproj",
+        "projectPath": "C:\\dev\\lc\\vitrine-fr\\client\\LaborControl.Web.csproj",
         "packagesPath": "C:\\Users\\jcpas\\.nuget\\packages\\",
-        "outputPath": "C:\\Dev\\lc\\vitrine-fr\\client\\obj\\",
+        "outputPath": "C:\\dev\\lc\\vitrine-fr\\client\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

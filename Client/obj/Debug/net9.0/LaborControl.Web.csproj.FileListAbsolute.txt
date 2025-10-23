@@ -1293,8 +1293,6 @@ C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\WindowsBase.ahs9
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\mscorlib.k5iaovx9v7.wasm
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\netstandard.6sr1qvn64m.wasm
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\System.Private.CoreLib.tn7ijpxcub.wasm
-C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\LaborControl.Web.5kxexkuq9u.wasm
-C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\LaborControl.Web.4lw4vimv70.pdb
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\blazor.boot.json
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\blazor.webassembly.js.gz
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\Blazored.LocalStorage.12n6dz54qr.wasm.gz
@@ -1498,8 +1496,6 @@ C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\dotnet.runtime.j
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\icudt_CJK.tjcz0u77k5.dat.gz
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\icudt_EFIGS.tptq2av103.dat.gz
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\icudt_no_CJK.lfu7j35m59.dat.gz
-C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\LaborControl.Web.5kxexkuq9u.wasm.gz
-C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\LaborControl.Web.4lw4vimv70.pdb.gz
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\blazor.boot.json.gz
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\publish\web.config
 C:\Dev\lc\vitrine-fr\client\bin\Debug\net9.0\publish\LaborControl.Web.staticwebassets.endpoints.json
@@ -1969,7 +1965,6 @@ C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\736j9i8xw5-4d85u1mtcx.gz
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\pq15lbqetx-rlsjyqjivg.gz
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\sku93h7d5z-iag0ou56lh.gz
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\jv4u38svzs-6sx6pifph3.gz
-C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\2i5zi2aoxf-u0q6csiec4.gz
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\3x5sj561jj-md9yvkcqlf.gz
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\0q7m2msm70-12n6dz54qr.gz
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\eoge9jw6e8-z6jo10m0rd.gz
@@ -2172,9 +2167,6 @@ C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\ja7ij10jex-ft1frse3cx.gz
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\we9dd72anp-tjcz0u77k5.gz
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\uphlfx4426-tptq2av103.gz
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\4q02c5gnxt-lfu7j35m59.gz
-C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\rkojbdr4t1-5kxexkuq9u.gz
-C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\2fsig5u800-4lw4vimv70.gz
-C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\xamttiabex-od2wocwqxj.gz
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\staticwebassets.build.json
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\staticwebassets.build.json.cache
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\staticwebassets.development.json
@@ -2184,3 +2176,11 @@ C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\LaborControl.Web.dll
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\refint\LaborControl.Web.dll
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\LaborControl.Web.pdb
 C:\Dev\lc\vitrine-fr\client\obj\Debug\net9.0\ref\LaborControl.Web.dll
+C:\dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\LaborControl.Web.oyikod0k0h.wasm
+C:\dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\LaborControl.Web.cg87k7y87e.pdb
+C:\dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\LaborControl.Web.oyikod0k0h.wasm.gz
+C:\dev\lc\vitrine-fr\client\bin\Debug\net9.0\wwwroot\_framework\LaborControl.Web.cg87k7y87e.pdb.gz
+C:\dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\2i5zi2aoxf-zgb1t8m03s.gz
+C:\dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\rkojbdr4t1-oyikod0k0h.gz
+C:\dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\2fsig5u800-cg87k7y87e.gz
+C:\dev\lc\vitrine-fr\client\obj\Debug\net9.0\compressed\xamttiabex-shth6obots.gz
