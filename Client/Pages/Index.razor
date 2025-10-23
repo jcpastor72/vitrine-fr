@@ -271,7 +271,7 @@
     protected override async Task OnInitializedAsync()
     {
         isAuthenticated = await AuthService.IsAuthenticatedAsync();
-        userEmail = await AuthService.GetUserEmailAsync();
+        userEmail = await AuthService.GetUserEmailAsync() ?? "";
     }
 
     private async Task Logout()

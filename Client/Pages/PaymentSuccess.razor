@@ -229,8 +229,11 @@
                     }
 
                     // Formatter l'adresse et la ville
-                    formattedDeliveryAddress = FormatAddress(order.DeliveryAddress ?? "");
-                    formattedDeliveryCity = FormatCity(order.DeliveryCity ?? "");
+                    if (order != null)
+                    {
+                        formattedDeliveryAddress = FormatAddress(order.DeliveryAddress ?? "");
+                        formattedDeliveryCity = FormatCity(order.DeliveryCity ?? "");
+                    }
 
                     // Nettoyer le localStorage
                     await LocalStorage.RemoveItemAsync("lastOrderId");
