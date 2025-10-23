@@ -1798,31 +1798,24 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\jcpas\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "C:\\Users\\jcpas\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Dev\\lc\\vitrine-fr\\client\\LaborControl.Web.csproj",
-      "projectName": "LaborControl.Web",
-      "projectPath": "C:\\Dev\\lc\\vitrine-fr\\client\\LaborControl.Web.csproj",
+      "projectUniqueName": "C:\\dev\\lc\\vitrine-fr\\Client\\VitrineFr.csproj",
+      "projectName": "VitrineFr",
+      "projectPath": "C:\\dev\\lc\\vitrine-fr\\Client\\VitrineFr.csproj",
       "packagesPath": "C:\\Users\\jcpas\\.nuget\\packages\\",
-      "outputPath": "C:\\Dev\\lc\\vitrine-fr\\client\\obj\\",
+      "outputPath": "C:\\dev\\lc\\vitrine-fr\\Client\\obj\\",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\jcpas\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        "C:\\Users\\jcpas\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
       ],
       "sources": {
-        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "C:\\Program Files\\dotnet\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },

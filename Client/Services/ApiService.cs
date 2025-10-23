@@ -1,8 +1,8 @@
-using LaborControl.Web.Models;
+using VitrineFr.Models;
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
 
-namespace LaborControl.Web.Services;
+namespace VitrineFr.Services;
 
 public class ApiService
 {

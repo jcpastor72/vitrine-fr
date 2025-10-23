@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "4nRttIEV4oY=",
+  "dgSpecHash": "fVeHwiAuqVo=",
   "success": true,
-  "projectFilePath": "C:\\dev\\lc\\vitrine-fr\\client\\LaborControl.Web.csproj",
+  "projectFilePath": "C:\\dev\\lc\\vitrine-fr\\Client\\VitrineFr.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\jcpas\\.nuget\\packages\\blazored.localstorage\\4.5.0\\blazored.localstorage.4.5.0.nupkg.sha512",
     "C:\\Users\\jcpas\\.nuget\\packages\\microsoft.aspnetcore.authorization\\9.0.9\\microsoft.aspnetcore.authorization.9.0.9.nupkg.sha512",

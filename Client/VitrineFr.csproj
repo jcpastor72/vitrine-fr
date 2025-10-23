@@ -7,6 +7,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>VitrineFr</RootNamespace>
+    <AssemblyName>VitrineFr</AssemblyName>
   </PropertyGroup>
   <PropertyGroup>
     <EnableCLINE>false</EnableCLINE>
@@ -26,5 +28,3 @@
   </ItemGroup>
 
 </Project>
-
-

@@ -1,8 +1,8 @@
-using LaborControl.Web.Models;
+using VitrineFr.Models;
 using System.Net.Http.Json;
 using Blazored.LocalStorage;
 
-namespace LaborControl.Web.Services;
+namespace VitrineFr.Services;
 
 public class AuthService
 {

@@ -1,7 +1,7 @@
 {
-  "mainAssemblyName": "LaborControl.Web",
+  "mainAssemblyName": "VitrineFr",
   "resources": {
-    "hash": "sha256-aPRjT6B1Qxup/MWkMSmC1QQXLZri73KBrYEoPIWxc9k=",
+    "hash": "sha256-3Zj4vzRmOExjUvbqU0J6NDY+Ve8pi0cjn7SOq/9CnP0=",
     "fingerprinting": {
       "Blazored.LocalStorage.12n6dz54qr.wasm": "Blazored.LocalStorage.wasm",
       "Microsoft.AspNetCore.Authorization.z6jo10m0rd.wasm": "Microsoft.AspNetCore.Authorization.wasm",
@@ -202,8 +202,8 @@
       "icudt_CJK.tjcz0u77k5.dat": "icudt_CJK.dat",
       "icudt_EFIGS.tptq2av103.dat": "icudt_EFIGS.dat",
       "icudt_no_CJK.lfu7j35m59.dat": "icudt_no_CJK.dat",
-      "LaborControl.Web.oyikod0k0h.wasm": "LaborControl.Web.wasm",
-      "LaborControl.Web.cg87k7y87e.pdb": "LaborControl.Web.pdb"
+      "VitrineFr.mx9ekbhq33.wasm": "VitrineFr.wasm",
+      "VitrineFr.r7dvnpivqr.pdb": "VitrineFr.pdb"
     },
     "jsModuleNative": {
       "dotnet.native.l4ptthxatg.js": "sha256-ddUN4+taa/Qv7Mr8mLpunJO+0Xw3ViOqBvedhe57/hA="
@@ -414,10 +414,10 @@
       "WindowsBase.ahs9krftg4.wasm": "sha256-bgi2FHdT0ABsUP1yKQQ2AP8qfo1V/bS/4cJFE4OUHX8=",
       "mscorlib.k5iaovx9v7.wasm": "sha256-mEFLDERlY1HMNQHzh68xOPawXvI48O1fHW9PbfXugb4=",
       "netstandard.6sr1qvn64m.wasm": "sha256-Gpf+qEqCYaCB6zqI5sNPIurnfpwRtfcWksgf3CW6mHE=",
-      "LaborControl.Web.oyikod0k0h.wasm": "sha256-AAkxSy9pCCoNYZyjTKQhH96FAOkpjsBvk12myH1vjOU="
+      "VitrineFr.mx9ekbhq33.wasm": "sha256-NqYuRZbjTM/0/yP9i9JGbT67Vn8+XWkrPBaSrN2HFu4="
     },
     "pdb": {
-      "LaborControl.Web.cg87k7y87e.pdb": "sha256-jFbxvttQmDJd4r+tZQXkNQAW3c6mrXSSa9RdTBXw0qE="
+      "VitrineFr.r7dvnpivqr.pdb": "sha256-p69slcOr9hpl9tZR8q8RaD1kLOoEIr08DcB6io3+r0I="
     }
   },
   "cacheBootResources": true,

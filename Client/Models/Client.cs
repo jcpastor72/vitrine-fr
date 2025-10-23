@@ -1,4 +1,4 @@
-namespace LaborControl.Web.Models;
+namespace VitrineFr.Models;
 
 public class Client
 {
