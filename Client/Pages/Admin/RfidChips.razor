@@ -339,19 +339,35 @@
 
     private string GetStatusBadgeClass(string status) => status switch
     {
+        "IN_TRANSIT_SUPPLIER" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-50 text-orange-800 border border-orange-200",
+        "IN_WORKSHOP" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-50 text-amber-800 border border-amber-200",
         "IN_STOCK" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-50 text-yellow-800 border border-yellow-200",
-        "IN_TRANSIT" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-800 border border-blue-200",
+        "IN_DELIVERY" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-800 border border-blue-200",
+        "DELIVERED_PENDING" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-50 text-purple-800 border border-purple-200",
+        "DELIVERED" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-50 text-indigo-800 border border-indigo-200",
+        "ASSIGNED" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-cyan-50 text-cyan-800 border border-cyan-200",
         "ACTIVE" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-800 border border-green-200",
         "INACTIVE" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-50 text-gray-800 border border-gray-200",
+        "SAV_RETURN" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-50 text-red-800 border border-red-200",
+        "SAV_REPAIR" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-900 border border-red-300",
+        "SAV_REPLACEMENT" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-50 text-pink-800 border border-pink-200",
         _ => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-50 text-gray-800 border border-gray-200"
     };
 
     private string GetStatusLabel(string status) => status switch
     {
+        "IN_TRANSIT_SUPPLIER" => "📮 En transit (fournisseur)",
+        "IN_WORKSHOP" => "🔧 En atelier",
         "IN_STOCK" => "📦 En stock",
-        "IN_TRANSIT" => "🚚 En transit",
-        "ACTIVE" => "✅ Actif",
-        "INACTIVE" => "❌ Inactif",
+        "IN_DELIVERY" => "🚚 En livraison",
+        "DELIVERED_PENDING" => "📬 Livrée (en attente)",
+        "DELIVERED" => "✅ Réceptionnée",
+        "ASSIGNED" => "📍 Affectée",
+        "ACTIVE" => "🟢 Active",
+        "INACTIVE" => "⚫ Inactive",
+        "SAV_RETURN" => "🔄 Retour SAV",
+        "SAV_REPAIR" => "🔨 En réparation",
+        "SAV_REPLACEMENT" => "🆕 Remplacée",
         _ => status
     };
 
