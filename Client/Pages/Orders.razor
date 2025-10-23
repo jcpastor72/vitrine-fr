@@ -496,6 +496,21 @@
             Http.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
+            // Vérifier l'abonnement avant de valider la réception
+            var subscriptionResponse = await Http.GetAsync("api/subscriptions/status");
+            if (!subscriptionResponse.IsSuccessStatusCode)
+            {
+                receiveErrorMessage = "Erreur lors de la vérification de votre abonnement. Veuillez réessayer.";
+                return;
+            }
+
+            var subscriptionData = await subscriptionResponse.Content.ReadFromJsonAsync<SubscriptionStatus>();
+            if (subscriptionData == null || !subscriptionData.IsActive)
+            {
+                receiveErrorMessage = "⚠️ Votre abonnement n'est pas actif. Veuillez activer votre abonnement avant de réceptionner des puces.";
+                return;
+            }
+
             var request = new { PackagingCode = packagingCode.Trim().ToUpper() };
             var response = await Http.PostAsJsonAsync($"api/orders/{selectedOrderId}/receive", request);
 
@@ -663,5 +678,12 @@
     private class ErrorResponse
     {
         public string Message { get; set; } = "";
+    }
+
+    private class SubscriptionStatus
+    {
+        public bool IsActive { get; set; }
+        public string? Plan { get; set; }
+        public DateTime? ExpiresAt { get; set; }
     }
 }
