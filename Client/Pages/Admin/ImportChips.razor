@@ -9,8 +9,7 @@
     <div class="max-w-4xl mx-auto">
         <!-- Header -->
         <div class="mb-8">
-            <button @onclick="NavigateToDashboard"
-                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+            <button @onclick="NavigateToDashboard" class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                 </svg>
@@ -41,7 +40,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Commande Fournisseur</label>
                     <select @bind="selectedOrderId"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">-- Sélectionner une commande --</option>
                         @foreach (var order in orders)
                         {
@@ -53,10 +52,9 @@
                 <!-- Upload fichier -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Fichier Excel</label>
-                    <input type="file" accept=".xlsx,.xls,.csv"
-                           @onchange="HandleFileSelected"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                           disabled="@isImporting" />
+                    <input type="file" accept=".xlsx,.xls,.csv" @onchange="HandleFileSelected"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        disabled="@isImporting" />
                 </div>
             </div>
 
@@ -84,8 +82,8 @@
             <!-- Bouton import -->
             <div class="mt-6 flex gap-3">
                 <button @onclick="ImportChips"
-                        disabled="@(isImporting || previewUids.Count == 0 || string.IsNullOrEmpty(selectedOrderId))"
-                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    disabled="@(isImporting || previewUids.Count == 0 || string.IsNullOrEmpty(selectedOrderId))"
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
                     @if (isImporting)
                     {
                         <span>⏳ Import en cours...</span>
@@ -95,9 +93,8 @@
                         <span>📤 Importer @previewUids.Count UIDs</span>
                     }
                 </button>
-                <button @onclick="ClearPreview"
-                        disabled="@isImporting"
-                        class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                <button @onclick="ClearPreview" disabled="@isImporting"
+                    class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
                     Effacer
                 </button>
             </div>
@@ -142,7 +139,7 @@
                 }
 
                 <button @onclick="ResetForm"
-                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                     Nouvel import
                 </button>
             </div>
@@ -154,7 +151,7 @@
     private List<string> previewUids = new();
     private string selectedOrderId = "";
     private bool isImporting = false;
-    private ImportChipsResponse? importResult = null;
+    private ImportChipsResult? importResult = null;
     private List<OrderDto> orders = new();
 
     protected override async Task OnInitializedAsync()
@@ -189,8 +186,8 @@
             var file = e.File;
 
             if (file.ContentType != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" &&
-                file.ContentType != "application/vnd.ms-excel" &&
-                file.ContentType != "text/csv")
+            file.ContentType != "application/vnd.ms-excel" &&
+            file.ContentType != "text/csv")
             {
                 await JS.InvokeVoidAsync("alert", "Format non supporté. Utilisez Excel ou CSV.");
                 return;
@@ -247,7 +244,7 @@
 
             if (response.IsSuccessStatusCode)
             {
-                importResult = await response.Content.ReadFromJsonAsync<ImportChipsResponse>();
+                importResult = await response.Content.ReadFromJsonAsync<ImportChipsResult>();
                 await JS.InvokeVoidAsync("showNotification", $"✅ Import terminé: {importResult?.SuccessCount} puces importées");
             }
             else
@@ -288,7 +285,7 @@
         public List<string> Uids { get; set; } = new();
     }
 
-    public class ImportChipsResponse
+    public class ImportChipsResult
     {
         public int SuccessCount { get; set; }
         public int DuplicateCount { get; set; }
