@@ -284,6 +284,7 @@
     {
         public Guid OrderId { get; set; }
         public List<string> Uids { get; set; } = new();
+        public string InitialStatus { get; set; } = "IN_TRANSIT_SUPPLIER";
     }
 
     public class ImportChipsResult
