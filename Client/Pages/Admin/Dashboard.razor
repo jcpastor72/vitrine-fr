@@ -340,7 +340,7 @@
         };
     }
 
-    private List<dynamic>? recentOrders;
+    private List<OrderInfo>? recentOrders;
 
     private async Task LoadRecentOrders()
     {
@@ -350,13 +350,13 @@
             var response = await httpClient.GetAsync("api/orders/recent?limit=10");
             if (response.IsSuccessStatusCode)
             {
-                recentOrders = await response.Content.ReadFromJsonAsync<List<dynamic>>();
+                recentOrders = await response.Content.ReadFromJsonAsync<List<OrderInfo>>();
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Erreur de chargement des commandes récentes : {ex.Message}");
-            recentOrders = new List<dynamic>();
+            recentOrders = new List<OrderInfo>();
         }
     }
 
@@ -372,7 +372,7 @@
         };
     }
 
-    private List<dynamic>? recentSubscriptions;
+    private List<SubscriptionInfo>? recentSubscriptions;
 
     private async Task LoadRecentSubscriptions()
     {
@@ -382,13 +382,13 @@
             var response = await httpClient.GetAsync("api/customers/recent-subscriptions?limit=10");
             if (response.IsSuccessStatusCode)
             {
-                recentSubscriptions = await response.Content.ReadFromJsonAsync<List<dynamic>>();
+                recentSubscriptions = await response.Content.ReadFromJsonAsync<List<SubscriptionInfo>>();
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Erreur de chargement des abonnements récents : {ex.Message}");
-            recentSubscriptions = new List<dynamic>();
+            recentSubscriptions = new List<SubscriptionInfo>();
         }
     }
 
@@ -402,6 +402,23 @@
             "free" => "Plan Gratuit",
             _ => plan
         };
+    }
+
+    private class OrderInfo
+    {
+        public string OrderNumber { get; set; } = "";
+        public string CustomerName { get; set; } = "";
+        public int ChipsQuantity { get; set; }
+        public string Status { get; set; } = "";
+        public DateTime CreatedAt { get; set; }
+    }
+
+    private class SubscriptionInfo
+    {
+        public string CustomerName { get; set; } = "";
+        public string SubscriptionPlan { get; set; } = "";
+        public string Status { get; set; } = "";
+        public DateTime? ActivatedAt { get; set; }
     }
 
 }
