@@ -1,0 +1,29 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+[Pp]ublish/
+*.dll
+*.pdb
+
+# Temporary files
+*.temp
+*.tmp
+*.driveupload
+*.temp.driveupload
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.user
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Blazor
+wwwroot/_framework/
