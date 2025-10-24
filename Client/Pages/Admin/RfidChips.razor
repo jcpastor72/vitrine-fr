@@ -321,11 +321,11 @@
         addManualError = "";
     }
 
-    private void HandleManualUidKeyUp(KeyboardEventArgs e)
+    private async Task HandleManualUidKeyUp(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
         {
-            AddManualChip();
+            await AddManualChip();
         }
     }
 
@@ -386,9 +386,9 @@
         selectedChip = null;
     }
 
-    private void RefreshData()
+    private async Task RefreshData()
     {
-        LoadData();
+        await LoadData();
     }
 
     private string GetStatusBadgeClass(string status)
