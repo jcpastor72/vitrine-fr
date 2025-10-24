@@ -298,6 +298,7 @@
             if (response.IsSuccessStatusCode)
             {
                 orders = await response.Content.ReadFromJsonAsync<List<OrderInfo>>() ?? new();
+                ApplyFilters();
             }
             else
             {
