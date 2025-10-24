@@ -347,7 +347,7 @@
                 new AuthenticationHeaderValue("Bearer", token);
 
             var request = new { uid = manualUid };
-            var response = await Http.PostAsJsonAsync("/api/rfidchips/register-single", request);
+            var response = await Http.PostAsJsonAsync("api/rfidchips/register-single", request);
 
             if (response.IsSuccessStatusCode)
             {
