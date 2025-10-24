@@ -12,5 +12,15 @@ namespace VitrineFr.Models
         public bool IsKeyProgrammed { get; set; }
         public string? PackagingCode { get; set; }
         public Guid? ControlPointId { get; set; }
+        public List<StatusChangeDto> StatusHistory { get; set; } = new();
+        public string? CustomerName { get; set; }
+        public string? SiteName { get; set; }
+    }
+
+    public class StatusChangeDto
+    {
+        public string Status { get; set; } = "";
+        public DateTime ChangedAt { get; set; }
+        public string? Reason { get; set; }
     }
 }

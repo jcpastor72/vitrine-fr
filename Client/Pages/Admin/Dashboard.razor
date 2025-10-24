@@ -25,23 +25,23 @@
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-start">
                 <div>
-                    <p class="text-sm text-gray-600 font-semibold">Puces RFID</p>
-                    <p class="text-4xl font-bold text-gray-900 mt-2">@rfidChipsCount</p>
+                    <p class="text-sm text-gray-600 font-semibold">Puces RFID actives</p>
+                    <p class="text-4xl font-bold text-gray-900 mt-2">@rfidChipsActiveCount</p>
                 </div>
                 <span class="text-3xl">📡</span>
             </div>
-            <p class="text-xs text-blue-600 mt-4">Actives</p>
+            <p class="text-xs text-blue-600 mt-4">En service</p>
         </div>
 
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-start">
                 <div>
-                    <p class="text-sm text-gray-600 font-semibold">Tâches prévues</p>
+                    <p class="text-sm text-gray-600 font-semibold">Tâches planifiées</p>
                     <p class="text-4xl font-bold text-gray-900 mt-2">@tasksCount</p>
                 </div>
                 <span class="text-3xl">📋</span>
             </div>
-            <p class="text-xs text-yellow-600 mt-4">À traiter</p>
+            <p class="text-xs text-yellow-600 mt-4">Tous clients, toutes périodes</p>
         </div>
 
         <div class="bg-white rounded-lg shadow p-6">
@@ -223,7 +223,7 @@
 
 @code {
     private int? clientsCount;
-    private int? rfidChipsCount;
+    private int? rfidChipsActiveCount;
     private int? tasksCount;
     private int? sitesCount;
 
@@ -241,7 +241,7 @@
             }
 
             var rfidChips = await ApiService.GetRfidChipsAsync();
-            rfidChipsCount = rfidChips?.Count ?? 0;
+            rfidChipsActiveCount = rfidChips?.Count(c => c.Status == "ACTIVE") ?? 0;
 
             // Récupérer le nombre total de tâches planifiées (tous les clients)
             var tasksResponse = await httpClient.GetAsync("api/scheduledtasks/count/all");
