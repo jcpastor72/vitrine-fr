@@ -56,8 +56,16 @@
                     <select @bind="selectedStatus" @bind:after="FilterData"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Tous</option>
-                        <option value="IN_STOCK">📦 En stock</option>
+                        <option value="EN_TRANSIT">🚚 En transit</option>
+                        <option value="EN_ATELIER">🔧 En atelier</option>
+                        <option value="EN_STOCK">📦 En stock</option>
+                        <option value="EN_LIVRAISON">🚛 En livraison</option>
+                        <option value="LIVREE">✅ Livrée</option>
                         <option value="ACTIVE">🟢 Active</option>
+                        <option value="RETOUR_SAV">🔄 Retour SAV</option>
+                        <option value="RECEPTION_SAV">📥 Réception SAV</option>
+                        <option value="REMPLACEE">🔁 Remplacée</option>
+                        <option value="ARCHIVEE">📁 Archivée</option>
                         <option value="INACTIVE">⚫ Inactive</option>
                     </select>
                 </div>
@@ -181,7 +189,7 @@
     </div>
 }
 
-<!-- Modal Détail -->
+<!-- Modal Détail avec Actions -->
 @if (showDetailModal && selectedChip != null)
 {
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseDetailModal">
@@ -200,7 +208,7 @@
                 </div>
             </div>
             <div class="p-6">
-                <div class="grid md:grid-cols-2 gap-6">
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">ChipId</label>
                         <p class="text-lg font-mono text-gray-900">@selectedChip.ChipId</p>
@@ -220,6 +228,70 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Créée le</label>
                         <p class="text-lg text-gray-900">@selectedChip.CreatedAt.ToString("dd/MM/yyyy HH:mm:ss")</p>
+                    </div>
+                </div>
+
+                <!-- Boutons d'action selon l'état -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Actions disponibles</h4>
+                    <div class="flex flex-wrap gap-2">
+                        @if (selectedChip.Status == "EN_TRANSIT")
+                        {
+                            <button @onclick="() => ExecuteAction('receive-from-supplier')" class="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
+                                ✅ Recevoir du fournisseur
+                            </button>
+                        }
+                        @if (selectedChip.Status == "EN_ATELIER")
+                        {
+                            <button @onclick="() => ExecuteAction('encode')" class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+                                🔧 Encoder la puce
+                            </button>
+                        }
+                        @if (selectedChip.Status == "EN_STOCK")
+                        {
+                            <button @onclick="() => ExecuteAction('ship-to-client')" class="px-3 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition">
+                                🚛 Expédier au client
+                            </button>
+                        }
+                        @if (selectedChip.Status == "EN_LIVRAISON")
+                        {
+                            <button @onclick="() => ExecuteAction('confirm-delivery')" class="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
+                                ✅ Confirmer livraison
+                            </button>
+                        }
+                        @if (selectedChip.Status == "LIVREE")
+                        {
+                            <button @onclick="() => ExecuteAction('assign-to-controlpoint')" class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+                                📍 Assigner à point de contrôle
+                            </button>
+                        }
+                        @if (selectedChip.Status == "ACTIVE")
+                        {
+                            <button @onclick="() => ExecuteAction('request-sav')" class="px-3 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition">
+                                🔄 Demander SAV
+                            </button>
+                            <button @onclick="() => ExecuteAction('deactivate')" class="px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition">
+                                ⚫ Désactiver
+                            </button>
+                        }
+                        @if (selectedChip.Status == "RETOUR_SAV")
+                        {
+                            <button @onclick="() => ExecuteAction('receive-sav')" class="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
+                                📥 Confirmer réception SAV
+                            </button>
+                        }
+                        @if (selectedChip.Status == "RECEPTION_SAV")
+                        {
+                            <button @onclick="() => ExecuteAction('replace')" class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+                                🔁 Remplacer par nouvelle puce
+                            </button>
+                        }
+                        @if (selectedChip.Status != "ARCHIVEE")
+                        {
+                            <button @onclick="() => ExecuteAction('delete')" class="px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition">
+                                🗑️ Supprimer
+                            </button>
+                        }
                     </div>
                 </div>
             </div>
@@ -386,6 +458,79 @@
         selectedChip = null;
     }
 
+    private async Task ExecuteAction(string action)
+    {
+        if (selectedChip == null) return;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            HttpResponseMessage response = null;
+
+            switch (action)
+            {
+                case "receive-from-supplier":
+                    response = await Http.PutAsJsonAsync($"api/rfidchips/{selectedChip.Id}/receive-from-supplier", new { supplierOrderId = "AUTO" });
+                    break;
+                case "encode":
+                    response = await Http.PutAsync($"api/rfidchips/{selectedChip.Id}/encode", null);
+                    break;
+                case "ship-to-client":
+                    response = await Http.PutAsJsonAsync($"api/rfidchips/{selectedChip.Id}/ship-to-client", new { clientOrderId = "AUTO" });
+                    break;
+                case "confirm-delivery":
+                    response = await Http.PutAsJsonAsync($"api/rfidchips/{selectedChip.Id}/confirm-delivery", new { packagingCode = selectedChip.PackagingCode ?? "" });
+                    break;
+                case "assign-to-controlpoint":
+                    var cpId = await JS.InvokeAsync<string>("prompt", "ID du point de contrôle:");
+                    if (!string.IsNullOrEmpty(cpId) && Guid.TryParse(cpId, out var cpGuid))
+                    {
+                        response = await Http.PutAsJsonAsync($"api/rfidchips/{selectedChip.Id}/assign-to-controlpoint", new { controlPointId = cpGuid });
+                    }
+                    break;
+                case "request-sav":
+                    var reason = await JS.InvokeAsync<string>("prompt", "Raison du SAV:");
+                    if (!string.IsNullOrEmpty(reason))
+                    {
+                        response = await Http.PostAsJsonAsync($"api/rfidchips/{selectedChip.Id}/request-sav", new { reason });
+                    }
+                    break;
+                case "receive-sav":
+                    response = await Http.PutAsync($"api/rfidchips/{selectedChip.Id}/receive-sav", null);
+                    break;
+                case "replace":
+                    var newChipId = await JS.InvokeAsync<string>("prompt", "ID de la nouvelle puce:");
+                    if (!string.IsNullOrEmpty(newChipId) && Guid.TryParse(newChipId, out var newGuid))
+                    {
+                        response = await Http.PutAsJsonAsync($"api/rfidchips/{selectedChip.Id}/replace", new { replacementChipId = newGuid });
+                    }
+                    break;
+                case "deactivate":
+                case "delete":
+                    response = await Http.DeleteAsync($"api/rfidchips/{selectedChip.Id}");
+                    break;
+            }
+
+            if (response != null && response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Action exécutée avec succès");
+                CloseDetailModal();
+                await LoadData();
+            }
+            else if (response != null)
+            {
+                await JS.InvokeVoidAsync("alert", $"Erreur: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+
     private async Task RefreshData()
     {
         await LoadData();
@@ -395,8 +540,16 @@
     {
         return status switch
         {
-            "IN_STOCK" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-800 border border-blue-200",
+            "EN_TRANSIT" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-50 text-yellow-800 border border-yellow-200",
+            "EN_ATELIER" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-50 text-orange-800 border border-orange-200",
+            "EN_STOCK" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-800 border border-blue-200",
+            "EN_LIVRAISON" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-50 text-purple-800 border border-purple-200",
+            "LIVREE" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-cyan-50 text-cyan-800 border border-cyan-200",
             "ACTIVE" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-800 border border-green-200",
+            "RETOUR_SAV" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-50 text-red-800 border border-red-200",
+            "RECEPTION_SAV" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-50 text-pink-800 border border-pink-200",
+            "REMPLACEE" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-50 text-indigo-800 border border-indigo-200",
+            "ARCHIVEE" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-slate-50 text-slate-800 border border-slate-200",
             "INACTIVE" => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-50 text-gray-800 border border-gray-200",
             _ => "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-50 text-gray-800 border border-gray-200"
         };
@@ -406,8 +559,16 @@
     {
         return status switch
         {
-            "IN_STOCK" => "📦 En stock",
+            "EN_TRANSIT" => "🚚 En transit",
+            "EN_ATELIER" => "🔧 En atelier",
+            "EN_STOCK" => "📦 En stock",
+            "EN_LIVRAISON" => "🚛 En livraison",
+            "LIVREE" => "✅ Livrée",
             "ACTIVE" => "🟢 Active",
+            "RETOUR_SAV" => "🔄 Retour SAV",
+            "RECEPTION_SAV" => "📥 Réception SAV",
+            "REMPLACEE" => "🔁 Remplacée",
+            "ARCHIVEE" => "📁 Archivée",
             "INACTIVE" => "⚫ Inactive",
             _ => status
         };
