@@ -521,12 +521,16 @@
             var token = await AuthService.GetTokenAsync();
             Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            var response = await Http.GetAsync("api/rfidchips");
+            var response = await Http.GetAsync("/api/rfidchips");
             if (response.IsSuccessStatusCode)
             {
                 allChips = await response.Content.ReadFromJsonAsync<List<RfidChipResponse>>() ?? new();
                 FilterData();
                 UpdateWorkshopChips();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", $"Erreur API: {response.StatusCode}");
             }
         }
         catch (Exception ex)
@@ -569,7 +573,7 @@
             Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var request = new { status = "IN_WORKSHOP" };
-            var response = await Http.PutAsJsonAsync($"api/rfidchips/{chipId}/status", request);
+            var response = await Http.PutAsJsonAsync($"/api/rfidchips/{chipId}/status", request);
 
             if (response.IsSuccessStatusCode)
             {
@@ -647,7 +651,7 @@
             Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var request = new { uid = manualUid };
-            var response = await Http.PostAsJsonAsync("api/rfidchips/manual", request);
+            var response = await Http.PostAsJsonAsync("/api/rfidchips/manual", request);
 
             if (response.IsSuccessStatusCode)
             {
@@ -742,7 +746,7 @@
                 keyHash = ComputeSHA256(generatedEncryptionKey)
             };
 
-            var response = await Http.PostAsJsonAsync($"api/rfidchips/{selectedChipForKey.Id}/key", request);
+            var response = await Http.PostAsJsonAsync($"/api/rfidchips/{selectedChipForKey.Id}/key", request);
 
             if (response.IsSuccessStatusCode)
             {
@@ -784,7 +788,7 @@
             var token = await AuthService.GetTokenAsync();
             Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            var response = await Http.DeleteAsync($"api/rfidchips/{chipId}");
+            var response = await Http.DeleteAsync($"/api/rfidchips/{chipId}");
             if (response.IsSuccessStatusCode)
             {
                 await JS.InvokeVoidAsync("showNotification", "✅ Puce désactivée");
