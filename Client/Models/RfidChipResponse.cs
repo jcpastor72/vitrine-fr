@@ -33,4 +33,11 @@ public class RfidChipResponse
     public string? SavReason { get; set; }
     public DateTime? SavReturnDate { get; set; }
     public Guid? ReplacementChipId { get; set; }
+
+    // Champs de sécurité cryptographique
+    public string? EncryptionKey { get; set; }        // Clef 32 bytes (64 char hex)
+    public string? KeyHash { get; set; }              // SHA256 de la clef
+    public DateTime? KeyCreatedAt { get; set; }       // Date création clef
+    public Guid? KeyCreatedBy { get; set; }           // Utilisateur créateur
+    public bool IsKeyProgrammed { get; set; }         // Validation programmation
 }

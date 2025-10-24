@@ -2,8 +2,11 @@
 @using VitrineFr.Services
 @using VitrineFr.Models
 @using System.Net.Http.Headers
+@using System.Security.Cryptography
+@using System.Text
 @inject HttpClient Http
 @inject AuthService AuthService
+@inject NavigationManager Navigation
 @inject IJSRuntime JS
 
 <div class="min-h-screen bg-gray-50 py-8 px-4">
@@ -20,10 +23,15 @@
 
             <div class="flex justify-between items-center flex-wrap gap-4">
                 <div>
-                    <h1 class="lc-heading-1">Gestion des Puces RFID</h1>
-                    <p class="lc-text-muted mt-1">Gérez vos puces NTAG 213</p>
+                    <h1 class="lc-heading-1">Gestion RFID</h1>
                 </div>
                 <div class="flex gap-3 flex-wrap">
+                    <button @onclick="OpenAddManualModal" class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Ajouter puce manuellement
+                    </button>
                     <a href="/admin-lc/import-chips" class="lc-btn lc-btn-primary inline-flex items-center">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -40,6 +48,42 @@
             </div>
         </div>
 
+        <!-- Section Puces en atelier -->
+        @if (!isLoading && workshopChips.Count > 0)
+        {
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border-l-4 border-amber-500">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-900">
+                        🔧 Puces en atelier
+                        <span class="ml-2 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800">
+                            @workshopChips.Count
+                        </span>
+                    </h2>
+                </div>
+
+                <div class="space-y-3">
+                    @foreach (var chip in workshopChips)
+                    {
+                        <div class="flex items-center justify-between p-4 bg-amber-50 rounded-lg border border-amber-200">
+                            <div class="flex-1">
+                                <div class="font-mono text-sm font-semibold text-gray-900">@chip.Uid</div>
+                                <div class="text-xs text-gray-600 mt-1">
+                                    Ajoutée le @chip.CreatedAt.ToString("dd/MM/yyyy HH:mm")
+                                </div>
+                            </div>
+                            <button @onclick="() => OpenCreateKeyModal(chip.Id)"
+                                    class="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium inline-flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                                🔐 Créer la clef
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
         <!-- Filtres -->
         <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
             <div class="grid md:grid-cols-4 gap-4">
@@ -48,10 +92,18 @@
                     <select @bind="selectedStatus" @bind:after="FilterData"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Tous</option>
-                        <option value="IN_STOCK">En stock</option>
-                        <option value="IN_TRANSIT">En transit</option>
-                        <option value="ACTIVE">Actif</option>
-                        <option value="INACTIVE">Inactif</option>
+                        <option value="IN_TRANSIT_SUPPLIER">📮 En transit (fournisseur)</option>
+                        <option value="IN_WORKSHOP">🔧 En atelier</option>
+                        <option value="IN_STOCK">📦 En stock</option>
+                        <option value="IN_DELIVERY">🚚 En livraison</option>
+                        <option value="DELIVERED_PENDING">📬 Livrée (en attente)</option>
+                        <option value="DELIVERED">✅ Réceptionnée</option>
+                        <option value="ASSIGNED">📍 Affectée</option>
+                        <option value="ACTIVE">🟢 Active</option>
+                        <option value="INACTIVE">⚫ Inactive</option>
+                        <option value="SAV_RETURN">🔄 Retour SAV</option>
+                        <option value="SAV_REPAIR">🔨 En réparation</option>
+                        <option value="SAV_REPLACEMENT">🆕 Remplacée</option>
                     </select>
                 </div>
 
@@ -98,21 +150,12 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    ChipId
-                                </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    UID
-                                </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Statut
-                                </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Créée le
-                                </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
-                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ChipId</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clef</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Créée le</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -129,6 +172,26 @@
                                         <span class="@GetStatusBadgeClass(chip.Status)">
                                             @GetStatusLabel(chip.Status)
                                         </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @if (chip.IsKeyProgrammed)
+                                        {
+                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-800 border border-green-200">
+                                                ✅ Programmée
+                                            </span>
+                                        }
+                                        else if (!string.IsNullOrEmpty(chip.EncryptionKey))
+                                        {
+                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-50 text-yellow-800 border border-yellow-200">
+                                                ⏳ En attente
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-50 text-gray-800 border border-gray-200">
+                                                ❌ Aucune
+                                            </span>
+                                        }
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <span class="text-sm text-gray-600">@chip.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
@@ -149,31 +212,161 @@
     </div>
 </div>
 
+<!-- Modal Ajout manuel -->
+@if (showAddManualModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseAddManualModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full" @onclick:stopPropagation>
+            <div class="bg-blue-50 border-b border-blue-200 p-6">
+                <h3 class="text-2xl font-bold text-gray-900">Ajouter une puce manuellement</h3>
+            </div>
+            <div class="p-6">
+                @if (!string.IsNullOrEmpty(addManualError))
+                {
+                    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                        @addManualError
+                    </div>
+                }
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">UID de la puce (depuis NFCTools)</label>
+                    <input type="text" @bind="manualUid" placeholder="Ex: 04:AB:CD:12:34:56:78"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                           @onkeyup="HandleManualUidKeyUp" />
+                    <p class="text-xs text-gray-500 mt-1">Format: 14 ou 20 caractères hexadécimaux (7 ou 10 bytes)</p>
+                </div>
+            </div>
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-between">
+                <button @onclick="CloseAddManualModal" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                    Annuler
+                </button>
+                <button @onclick="AddManualChip" disabled="@isAddingManual" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
+                    @if (isAddingManual) { <span>Ajout en cours...</span> } else { <span>Ajouter</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal Créer la clef -->
+@if (showCreateKeyModal && selectedChipForKey != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseCreateKeyModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" @onclick:stopPropagation>
+            <div class="bg-blue-50 border-b border-blue-200 p-6">
+                <h3 class="text-2xl font-bold text-gray-900">🔐 Création de la clef de codage</h3>
+                <p class="text-sm text-gray-600 mt-1">Étape @keyCreationStep/3</p>
+            </div>
+            <div class="p-6">
+                @if (keyCreationStep == 1)
+                {
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">UID de la puce</label>
+                            <div class="p-3 bg-gray-50 rounded-lg font-mono text-sm text-gray-900">@selectedChipForKey.Uid</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ChipId généré</label>
+                            <div class="p-3 bg-gray-50 rounded-lg font-mono text-sm text-gray-900">@generatedChipId</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Clef de codage (32 bytes)</label>
+                            <div class="p-3 bg-gray-50 rounded-lg font-mono text-xs text-gray-900 break-all">@generatedEncryptionKey</div>
+                            <button @onclick="CopyToClipboard" class="mt-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm">
+                                📋 Copier la clef
+                            </button>
+                        </div>
+                    </div>
+                }
+                else if (keyCreationStep == 2)
+                {
+                    <div class="space-y-4">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h4 class="font-bold text-blue-900 mb-3">📖 Instructions de programmation NFC</h4>
+                            <ol class="space-y-2 text-sm text-blue-900">
+                                <li><strong>1.</strong> Ouvrir NFCTools Pro sur votre téléphone</li>
+                                <li><strong>2.</strong> Approcher la puce NFC du téléphone</li>
+                                <li><strong>3.</strong> Sélectionner "Write" → "Hex"</li>
+                                <li><strong>4.</strong> Écrire la clef dans la page 44 (adresse 0xB0)</li>
+                                <li><strong>5.</strong> Activer le mot de passe PWD (page 43)</li>
+                                <li><strong>6.</strong> Verrouiller les pages 4-39 (PACK)</li>
+                                <li><strong>7.</strong> Sauvegarder et fermer</li>
+                            </ol>
+                        </div>
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                            <p class="text-sm text-amber-900">
+                                ⚠️ <strong>Important :</strong> Une fois programmée, la puce ne pourra pas être dupliquée. Assurez-vous que la programmation est correcte avant de valider.
+                            </p>
+                        </div>
+                    </div>
+                }
+                else if (keyCreationStep == 3)
+                {
+                    <div class="space-y-4">
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <h4 class="font-bold text-green-900 mb-3">✅ Validation de la programmation</h4>
+                            <p class="text-sm text-green-900 mb-4">La puce a-t-elle été programmée avec succès ?</p>
+                            <label class="flex items-center p-3 border-2 border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition">
+                                <input type="checkbox" @bind="isProgrammationConfirmed" class="w-5 h-5 text-green-600" />
+                                <span class="ml-3 text-sm font-medium text-green-900">
+                                    Oui, la clef a été écrite avec succès sur la puce
+                                </span>
+                            </label>
+                        </div>
+                        @if (isProgrammationConfirmed)
+                        {
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p class="text-sm text-blue-900">
+                                    ✨ La puce sera automatiquement mise en stock après validation.
+                                </p>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-between">
+                <button @onclick="PreviousKeyStep" disabled="@(keyCreationStep == 1)" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition disabled:opacity-50">
+                    ← Précédent
+                </button>
+                <div class="flex gap-3">
+                    <button @onclick="CloseCreateKeyModal" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                        Annuler
+                    </button>
+                    @if (keyCreationStep < 3)
+                    {
+                        <button @onclick="NextKeyStep" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            Suivant →
+                        </button>
+                    }
+                    else
+                    {
+                        <button @onclick="ValidateKeyCreation" disabled="@(!isProgrammationConfirmed || isValidatingKey)" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50">
+                            @if (isValidatingKey) { <span>Validation en cours...</span> } else { <span>✅ Valider et mettre en stock</span> }
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Modal Détail -->
 @if (showDetailModal && selectedChip != null)
 {
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
-         @onclick="CloseDetailModal">
-        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-             @onclick:stopPropagation>
-
-            <!-- Header -->
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseDetailModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" @onclick:stopPropagation>
             <div class="bg-blue-50 border-b border-blue-200 p-6">
                 <div class="flex items-start justify-between">
                     <div>
                         <h3 class="text-2xl font-bold text-gray-900">Détail Puce</h3>
                         <p class="text-sm text-gray-600 mt-1">@selectedChip.ChipId</p>
                     </div>
-                    <button @onclick="CloseDetailModal"
-                            class="text-gray-400 hover:text-gray-600 transition">
+                    <button @onclick="CloseDetailModal" class="text-gray-400 hover:text-gray-600 transition">
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
             </div>
-
-            <!-- Body -->
             <div class="p-6">
                 <div class="grid md:grid-cols-2 gap-6">
                     <div>
@@ -196,30 +389,43 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Créée le</label>
                         <p class="text-lg text-gray-900">@selectedChip.CreatedAt.ToString("dd/MM/yyyy HH:mm:ss")</p>
                     </div>
-                    @if (!string.IsNullOrEmpty(selectedChip.PackagingCode))
+                    @if (!string.IsNullOrEmpty(selectedChip.EncryptionKey))
                     {
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Code Packaging</label>
-                            <p class="text-lg font-mono text-gray-900">@selectedChip.PackagingCode</p>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Clef créée le</label>
+                            <p class="text-lg text-gray-900">@selectedChip.KeyCreatedAt?.ToString("dd/MM/yyyy HH:mm:ss")</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">État programmation</label>
+                            <p class="text-lg">
+                                @if (selectedChip.IsKeyProgrammed)
+                                {
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-800 border border-green-200">
+                                        ✅ Programmée
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-50 text-yellow-800 border border-yellow-200">
+                                        ⏳ En attente
+                                    </span>
+                                }
+                            </p>
                         </div>
                     }
                 </div>
             </div>
-
-            <!-- Footer -->
             <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-between">
                 <div class="flex space-x-3">
                     @if (selectedChip.Status == "ACTIVE")
                     {
-                        <button @onclick="() => DeactivateChip(selectedChip.Id)"
-                                class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                        <button @onclick="() => DeactivateChip(selectedChip.Id)" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
                             Désactiver
                         </button>
                     }
                 </div>
                 <div class="flex space-x-3">
-                    <button @onclick="CloseDetailModal"
-                            class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                    <button @onclick="CloseDetailModal" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
                         Fermer
                     </button>
                 </div>
@@ -231,12 +437,26 @@
 @code {
     private List<RfidChipResponse> allChips = new();
     private List<RfidChipResponse> filteredChips = new();
+    private List<RfidChipResponse> workshopChips = new();
     private bool isLoading = true;
     private string selectedStatus = "";
     private string searchUid = "";
 
     private bool showDetailModal = false;
     private RfidChipResponse? selectedChip = null;
+
+    private bool showAddManualModal = false;
+    private string manualUid = "";
+    private string addManualError = "";
+    private bool isAddingManual = false;
+
+    private bool showCreateKeyModal = false;
+    private RfidChipResponse? selectedChipForKey = null;
+    private int keyCreationStep = 1;
+    private string generatedChipId = "";
+    private string generatedEncryptionKey = "";
+    private bool isProgrammationConfirmed = false;
+    private bool isValidatingKey = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -255,7 +475,8 @@
             if (response.IsSuccessStatusCode)
             {
                 allChips = await response.Content.ReadFromJsonAsync<List<RfidChipResponse>>() ?? new();
-                filteredChips = new List<RfidChipResponse>(allChips);
+                FilterData();
+                UpdateWorkshopChips();
             }
         }
         catch (Exception ex)
@@ -266,6 +487,11 @@
         {
             isLoading = false;
         }
+    }
+
+    private void UpdateWorkshopChips()
+    {
+        workshopChips = allChips.Where(c => c.Status == "IN_WORKSHOP").ToList();
     }
 
     private void FilterData()
@@ -302,6 +528,171 @@
         selectedChip = null;
     }
 
+    private void OpenAddManualModal()
+    {
+        showAddManualModal = true;
+        manualUid = "";
+        addManualError = "";
+    }
+
+    private void CloseAddManualModal()
+    {
+        showAddManualModal = false;
+        manualUid = "";
+        addManualError = "";
+    }
+
+    private async Task AddManualChip()
+    {
+        addManualError = "";
+        if (string.IsNullOrWhiteSpace(manualUid))
+        {
+            addManualError = "Veuillez entrer un UID";
+            return;
+        }
+
+        // Valider format UID (14 ou 20 caractères hex)
+        var cleanUid = manualUid.Replace(":", "").Replace(" ", "");
+        if ((cleanUid.Length != 14 && cleanUid.Length != 20) || !cleanUid.All(c => "0123456789ABCDEFabcdef".Contains(c)))
+        {
+            addManualError = "Format UID invalide. Utilisez 14 ou 20 caractères hexadécimaux (ex: 04ABCD1234567 ou 04ABCD123456789ABC)";
+            return;
+        }
+
+        isAddingManual = true;
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var request = new { uid = manualUid };
+            var response = await Http.PostAsJsonAsync("api/rfidchips/manual", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "✅ Puce ajoutée en atelier");
+                CloseAddManualModal();
+                await LoadChips();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                addManualError = errorContent.Contains("existe") ? "Cette puce existe déjà" : "Erreur lors de l'ajout";
+            }
+        }
+        catch (Exception ex)
+        {
+            addManualError = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            isAddingManual = false;
+        }
+    }
+
+    private void OpenCreateKeyModal(Guid chipId)
+    {
+        selectedChipForKey = allChips.FirstOrDefault(c => c.Id == chipId);
+        if (selectedChipForKey != null)
+        {
+            showCreateKeyModal = true;
+            keyCreationStep = 1;
+            GenerateKey();
+        }
+    }
+
+    private void CloseCreateKeyModal()
+    {
+        showCreateKeyModal = false;
+        selectedChipForKey = null;
+        keyCreationStep = 1;
+        isProgrammationConfirmed = false;
+        generatedChipId = "";
+        generatedEncryptionKey = "";
+    }
+
+    private void GenerateKey()
+    {
+        // Générer ChipId
+        generatedChipId = $"LC-{Guid.NewGuid().ToString().Substring(0, 6).ToUpper()}";
+
+        // Générer clef 32 bytes (64 caractères hex)
+        using (var rng = new RNGCryptoServiceProvider())
+        {
+            byte[] keyBytes = new byte[32];
+            rng.GetBytes(keyBytes);
+            generatedEncryptionKey = BitConverter.ToString(keyBytes).Replace("-", "");
+        }
+    }
+
+    private async Task CopyToClipboard()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", generatedEncryptionKey);
+        await JS.InvokeVoidAsync("showNotification", "✅ Clef copiée");
+    }
+
+    private void NextKeyStep()
+    {
+        if (keyCreationStep < 3)
+            keyCreationStep++;
+    }
+
+    private void PreviousKeyStep()
+    {
+        if (keyCreationStep > 1)
+            keyCreationStep--;
+    }
+
+    private async Task ValidateKeyCreation()
+    {
+        if (!isProgrammationConfirmed)
+            return;
+
+        isValidatingKey = true;
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var request = new
+            {
+                chipId = generatedChipId,
+                encryptionKey = generatedEncryptionKey,
+                keyHash = ComputeSHA256(generatedEncryptionKey)
+            };
+
+            var response = await Http.PostAsJsonAsync($"api/rfidchips/{selectedChipForKey.Id}/key", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "✅ Clef créée et puce mise en stock");
+                CloseCreateKeyModal();
+                await LoadChips();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Erreur lors de la création de la clef");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+        finally
+        {
+            isValidatingKey = false;
+        }
+    }
+
+    private string ComputeSHA256(string input)
+    {
+        using (var sha256 = SHA256.Create())
+        {
+            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
+            return BitConverter.ToString(hashedBytes).Replace("-", "");
+        }
+    }
+
     private async Task DeactivateChip(Guid chipId)
     {
         if (!await JS.InvokeAsync<bool>("confirm", "Êtes-vous sûr de vouloir désactiver cette puce?"))
@@ -334,7 +725,15 @@
 
     private void NavigateToDashboard()
     {
-        // Navigation via JS
+        Navigation.NavigateTo("/admin-lc/dashboard");
+    }
+
+    private async Task HandleManualUidKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await AddManualChip();
+        }
     }
 
     private string GetStatusBadgeClass(string status) => status switch
@@ -370,5 +769,4 @@
         "SAV_REPLACEMENT" => "🆕 Remplacée",
         _ => status
     };
-
 }
