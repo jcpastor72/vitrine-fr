@@ -29,16 +29,14 @@
 </nav>
 
 <div class="min-h-screen bg-gray-50 pt-24 pb-12">
-    <div class="max-w-7xl mx-auto px-6">
-        <!-- Header -->
-        <div class="text-center mb-12">
-            <h1 class="text-4xl font-bold text-gray-900 mb-4">
-                Catalogue Labor Control
-            </h1>
-            <p class="text-xl text-gray-600">
-                Choisissez les produits et services adaptés à vos besoins
-            </p>
+    <!-- Header bleu -->
+    <div class="bg-gradient-to-r from-cyan-400 to-blue-600 text-white py-12 mb-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <!-- Titre et sous-titre supprimés -->
         </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-6">
 
         @if (!string.IsNullOrEmpty(errorMessage))
         {
@@ -84,7 +82,7 @@
                         else if (product.ProductType == "pack_discovery")
                         {
                             <div class="bg-gradient-to-r from-green-500 to-green-600 text-white text-center py-2 text-sm font-semibold">
-                                🎁 OFFRE DE LANCEMENT
+                                PACK DECOUVERTE
                             </div>
                         }
 
@@ -121,17 +119,18 @@
                             @if (product.ProductType == "pack_discovery")
                             {
                                 <div class="mb-4 space-y-2">
+                                    <div class="text-sm font-semibold text-gray-900 mb-2">Pack comprenant :</div>
                                     <div class="flex items-center text-sm text-gray-700">
                                         <span class="mr-2">✓</span>
-                                        <span>Abonnement 10 points de contrôle</span>
+                                        <span>Abonnement Labor Control gratuit jusqu'à 10 points de contrôles</span>
                                     </div>
                                     <div class="flex items-center text-sm text-gray-700">
                                         <span class="mr-2">✓</span>
-                                        <span>Pack 10 puces NFC incluses</span>
+                                        <span>Pack de 10 puces NFC pour Points de contrôles gratuit</span>
                                     </div>
                                     <div class="flex items-center text-sm text-gray-700">
                                         <span class="mr-2">✓</span>
-                                        <span>Livraison sous 48h</span>
+                                        <span>Application mobile gratuite</span>
                                     </div>
                                 </div>
                             }
