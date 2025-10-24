@@ -3,6 +3,8 @@
 @using VitrineFr.Models
 @using VitrineFr.Services
 @inject NavigationManager Navigation
+@inject HttpClient Http
+@inject AuthService AuthService
 
 <div class="space-y-6">
     <!-- Header -->
@@ -38,83 +40,102 @@
         <!-- To Be Prepared -->
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-bold text-gray-900 mb-4">⏱️ À préparer</h3>
-            <div class="space-y-3">
-                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="font-bold text-gray-900">#CMD-2025-003</p>
-                            <p class="text-sm text-gray-600">Société DEF</p>
-                            <p class="text-xs text-gray-500 mt-1">📦 Quantité: 5 unités</p>
+            @if (isLoading)
+            {
+                <div class="text-center text-gray-500">Chargement...</div>
+            }
+            else if (toBePreppedOrders.Count == 0)
+            {
+                <div class="text-center text-gray-500">Aucune commande à préparer</div>
+            }
+            else
+            {
+                <div class="space-y-3">
+                    @foreach (var order in toBePreppedOrders)
+                    {
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="font-bold text-gray-900">@order.OrderNumber</p>
+                                    <p class="text-sm text-gray-600">@order.CustomerName</p>
+                                    <p class="text-xs text-gray-500 mt-1">📦 Quantité: @order.ChipsQuantity unités</p>
+                                </div>
+                                <button @onclick="() => StartPreparation(order)" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 font-medium">
+                                    Commencer
+                                </button>
+                            </div>
                         </div>
-                        <button class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 font-medium">
-                            Commencer
-                        </button>
-                    </div>
+                    }
                 </div>
-                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="font-bold text-gray-900">#CMD-2025-004</p>
-                            <p class="text-sm text-gray-600">Entreprise XYZ</p>
-                            <p class="text-xs text-gray-500 mt-1">📦 Quantité: 8 unités</p>
-                        </div>
-                        <button class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 font-medium">
-                            Commencer
-                        </button>
-                    </div>
-                </div>
-            </div>
+            }
         </div>
 
         <!-- In Preparation -->
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-bold text-gray-900 mb-4">🏗️ En préparation</h3>
-            <div class="space-y-3">
-                <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
-                    <div class="flex justify-between items-start mb-2">
-                        <div>
-                            <p class="font-bold text-gray-900">#CMD-2025-002</p>
-                            <p class="text-sm text-gray-600">Groupe XYZ</p>
+            @if (inPreparationOrders.Count == 0)
+            {
+                <div class="text-center text-gray-500">Aucune commande en préparation</div>
+            }
+            else
+            {
+                <div class="space-y-3">
+                    @foreach (var order in inPreparationOrders)
+                    {
+                        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <p class="font-bold text-gray-900">@order.OrderNumber</p>
+                                    <p class="text-sm text-gray-600">@order.CustomerName</p>
+                                </div>
+                                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">En cours</span>
+                            </div>
+                            <div class="flex justify-between items-center mt-3">
+                                <p class="text-xs text-gray-600">📦 @order.ChipsQuantity unités</p>
+                                <button @onclick="() => CompletePreparation(order)" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 font-medium">
+                                    Terminer
+                                </button>
+                            </div>
                         </div>
-                        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">40%</span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="bg-blue-600 h-2 rounded-full" style="width: 40%"></div>
-                    </div>
-                    <div class="flex justify-between items-center mt-3">
-                        <p class="text-xs text-gray-600">Sophie Leclerc</p>
-                        <button class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 font-medium">
-                            Terminer
-                        </button>
-                    </div>
+                    }
                 </div>
-            </div>
+            }
         </div>
     </div>
 
     <!-- Ready to Ship -->
     <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-bold text-gray-900 mb-4">✓ Prêtes à expédier</h3>
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Commande</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Client</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Préparée par</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Date</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    <tr class="hover:bg-gray-50 transition cursor-pointer" @onclick="() => ViewPreparationDetails(1)">
-                        <td class="px-6 py-4 font-mono font-semibold text-blue-600">#CMD-2025-001</td>
-                        <td class="px-6 py-4 font-medium text-gray-900">Entreprise ABC</td>
-                        <td class="px-6 py-4 text-sm text-gray-600">Marie Martin</td>
-                        <td class="px-6 py-4 text-sm text-gray-600">22/10/2025</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <h3 class="text-lg font-bold text-gray-900 mb-4">✓ Prêtes à expédier (@readyToShip)</h3>
+        @if (readyToShipOrders.Count == 0)
+        {
+            <div class="text-center text-gray-500 py-8">Aucune commande prête à expédier</div>
+        }
+        else
+        {
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Commande</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Client</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Quantité</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700">Date de préparation</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        @foreach (var order in readyToShipOrders)
+                        {
+                            <tr class="hover:bg-gray-50 transition cursor-pointer" @onclick="() => ViewPreparationDetails(order.Id)">
+                                <td class="px-6 py-4 font-mono font-semibold text-blue-600">@order.OrderNumber</td>
+                                <td class="px-6 py-4 font-medium text-gray-900">@order.CustomerName</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">@order.ChipsQuantity unités</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">@order.CreatedAt.ToString("dd/MM/yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
     </div>
 
     <!-- Quality Check -->
@@ -125,13 +146,138 @@
 </div>
 
 @code {
-    private int toBePrepped = 2;
-    private int inPreparation = 1;
-    private int readyToShip = 1;
-    private int todayPrepared = 3;
+    private int toBePrepped = 0;
+    private int inPreparation = 0;
+    private int readyToShip = 0;
+    private int todayPrepared = 0;
+    private List<OrderData> toBePreppedOrders = new();
+    private List<OrderData> inPreparationOrders = new();
+    private List<OrderData> readyToShipOrders = new();
+    private bool isLoading = true;
 
-    private void ViewPreparationDetails(int id)
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrdersByStatus();
+    }
+
+    private async Task LoadOrdersByStatus()
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            // Récupérer les commandes payées (à préparer)
+            var paidResponse = await Http.GetAsync("api/orders?status=PAID");
+            if (paidResponse.IsSuccessStatusCode)
+            {
+                var paidOrders = await paidResponse.Content.ReadFromJsonAsync<List<dynamic>>() ?? new();
+                toBePreppedOrders = paidOrders.Select(o => new OrderData
+                {
+                    OrderNumber = o["orderNumber"],
+                    CustomerName = o["customerName"],
+                    ChipsQuantity = o["chipsQuantity"],
+                    CreatedAt = o["createdAt"]
+                }).ToList();
+                toBePrepped = toBePreppedOrders.Count;
+            }
+
+            // Récupérer les commandes en préparation
+            var preparingResponse = await Http.GetAsync("api/orders?status=PREPARING");
+            if (preparingResponse.IsSuccessStatusCode)
+            {
+                var preparingOrders = await preparingResponse.Content.ReadFromJsonAsync<List<dynamic>>() ?? new();
+                inPreparationOrders = preparingOrders.Select(o => new OrderData
+                {
+                    OrderNumber = o["orderNumber"],
+                    CustomerName = o["customerName"],
+                    ChipsQuantity = o["chipsQuantity"],
+                    CreatedAt = o["createdAt"]
+                }).ToList();
+                inPreparation = inPreparationOrders.Count;
+            }
+
+            // Récupérer les commandes prêtes à expédier
+            var readyResponse = await Http.GetAsync("api/orders?status=READY_TO_SHIP");
+            if (readyResponse.IsSuccessStatusCode)
+            {
+                var readyOrders = await readyResponse.Content.ReadFromJsonAsync<List<dynamic>>() ?? new();
+                readyToShipOrders = readyOrders.Select(o => new OrderData
+                {
+                    OrderNumber = o["orderNumber"],
+                    CustomerName = o["customerName"],
+                    ChipsQuantity = o["chipsQuantity"],
+                    CreatedAt = o["createdAt"]
+                }).ToList();
+                readyToShip = readyToShipOrders.Count;
+            }
+
+            // Calculer le nombre de commandes préparées aujourd'hui
+            var today = DateTime.Now.Date;
+            todayPrepared = readyToShipOrders.Count(o => o.CreatedAt.Date == today);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur de chargement : {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task StartPreparation(OrderData order)
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.PostAsync($"api/orders/{order.Id}/start-preparation", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadOrdersByStatus();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur : {ex.Message}");
+        }
+    }
+
+    private async Task CompletePreparation(OrderData order)
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.PostAsync($"api/orders/{order.Id}/ready-to-ship", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadOrdersByStatus();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur : {ex.Message}");
+        }
+    }
+
+    private void ViewPreparationDetails(Guid id)
     {
         Navigation.NavigateTo($"/admin-lc/preparation/{id}");
+    }
+
+    private class OrderData
+    {
+        public Guid Id { get; set; }
+        public string OrderNumber { get; set; } = "";
+        public string CustomerName { get; set; } = "";
+        public int ChipsQuantity { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }
