@@ -80,11 +80,13 @@
         }
         else
         {
-            // Si pas de modal, rediriger selon le rôle
-            if (userRole == "SUPERADMIN" || userRole == "ADMIN" || userRole == "MANAGER")
+            // Pour SUPERADMIN, afficher le dashboard client (pas de redirection)
+            // Pour ADMIN/MANAGER, rediriger vers le dashboard admin
+            if (userRole == "ADMIN" || userRole == "MANAGER")
             {
                 Navigation.NavigateTo("/admin-lc/dashboard");
             }
+            // SUPERADMIN reste sur /dashboard (dashboard client)
         }
     }
 
