@@ -1,8 +1,11 @@
 # Build results
-
+bin/
+obj/
 *.dll
 *.pdb
 *.exe
+*.wasm
+*.wasm.gz
 
 # Temporary files
 *.temp
