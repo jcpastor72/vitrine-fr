@@ -48,6 +48,43 @@
             </div>
         </div>
 
+        <!-- Section Puces à configurer (sans statut) -->
+        @if (!isLoading && unconfiguredChips.Count > 0)
+        {
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border-l-4 border-red-500">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-900">
+                        ⚠️ Puces à configurer
+                        <span class="ml-2 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                            @unconfiguredChips.Count
+                        </span>
+                    </h2>
+                    <p class="text-sm text-gray-600">Ces puces n'ont pas de statut défini - Configuration temporaire</p>
+                </div>
+
+                <div class="space-y-3">
+                    @foreach (var chip in unconfiguredChips)
+                    {
+                        <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+                            <div class="flex-1">
+                                <div class="font-mono text-sm font-semibold text-gray-900">@chip.Uid</div>
+                                <div class="text-xs text-gray-600 mt-1">
+                                    ChipId: @chip.ChipId
+                                </div>
+                            </div>
+                            <button @onclick="() => MoveToWorkshop(chip.Id)"
+                                    class="ml-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition font-medium inline-flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                                Mettre en atelier
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
         <!-- Section Puces en atelier -->
         @if (!isLoading && workshopChips.Count > 0)
         {
@@ -438,6 +475,7 @@
     private List<RfidChipResponse> allChips = new();
     private List<RfidChipResponse> filteredChips = new();
     private List<RfidChipResponse> workshopChips = new();
+    private List<RfidChipResponse> unconfiguredChips = new();
     private bool isLoading = true;
     private string selectedStatus = "";
     private string searchUid = "";
@@ -492,6 +530,7 @@
     private void UpdateWorkshopChips()
     {
         workshopChips = allChips.Where(c => c.Status == "IN_WORKSHOP").ToList();
+        unconfiguredChips = allChips.Where(c => string.IsNullOrEmpty(c.Status)).ToList();
     }
 
     private void FilterData()
@@ -504,6 +543,32 @@
                 return false;
             return true;
         }).ToList();
+    }
+
+    private async Task MoveToWorkshop(Guid chipId)
+    {
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var request = new { status = "IN_WORKSHOP" };
+            var response = await Http.PutAsJsonAsync($"api/rfidchips/{chipId}/status", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "✅ Puce mise en atelier");
+                await LoadChips();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Erreur lors de la mise à jour du statut");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
     }
 
     private void ClearFilters()
