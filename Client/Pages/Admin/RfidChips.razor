@@ -48,6 +48,18 @@
             </div>
         </div>
 
+        <!-- Debug Info (temporaire) -->
+        @if (!isLoading)
+        {
+            <div class="bg-gray-100 rounded-lg p-4 mb-6 text-xs text-gray-600 border border-gray-300">
+                <p>🔍 DEBUG: Total puces: @allChips.Count | Sans statut: @unconfiguredChips.Count | En atelier: @workshopChips.Count</p>
+                @if (allChips.Count > 0)
+                {
+                    <p>Statuts uniques: @string.Join(", ", allChips.Select(c => $"\"{c.Status}\"").Distinct())</p>
+                }
+            </div>
+        }
+
         <!-- Section Puces à configurer (sans statut) -->
         @if (!isLoading && unconfiguredChips.Count > 0)
         {
