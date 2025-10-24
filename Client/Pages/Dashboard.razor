@@ -1,13 +1,49 @@
 @page "/dashboard"
-@using LaborControl.Web.Services
+@using VitrineFr.Services
 @inject AuthService AuthService
 @inject NavigationManager Navigation
-@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @inject HttpClient Http
 
 <PageTitle>Espace Client - LABOR CONTROL</PageTitle>
 
 <link href="css/professional.css" rel="stylesheet" />
+
+<!-- Modal de choix pour SUPERADMIN -->
+@if (isAuthenticated && showRoleModal && userRole == "SUPERADMIN")
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4">
+            <div class="p-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">Bienvenue SuperAdmin</h2>
+                <p class="text-gray-600 mb-8">Choisissez votre mode de fonctionnement :</p>
+
+                <div class="space-y-4">
+                    <button @onclick="() => NavigateToGestion()"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 hover:shadow-lg">
+                        <div class="flex items-center justify-center space-x-2">
+                            <span class="text-xl">⚙️</span>
+                            <div class="text-left">
+                                <div>Gestion</div>
+                                <div class="text-sm opacity-90">Interface d'administration</div>
+                            </div>
+                        </div>
+                    </button>
+
+                    <button @onclick="() => NavigateToAcces()"
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 hover:shadow-lg">
+                        <div class="flex items-center justify-center space-x-2">
+                            <span class="text-xl">👤</span>
+                            <div class="text-left">
+                                <div>Accès Client</div>
+                                <div class="text-sm opacity-90">Interface utilisateur</div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 <!-- Navigation Client -->
 <nav class="lc-nav fixed w-full z-50">
@@ -381,6 +417,9 @@
 </div>
 
 @code {
+    private bool isAuthenticated = false;
+    private bool showRoleModal = false;
+    private string userRole = "";
     private string userEmail = "";
     private string userFullName = "Utilisateur";
     private string companyName = "Ma Société Test";
@@ -396,18 +435,36 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+
         if (!isAuthenticated)
         {
             Navigation.NavigateTo("/login");
             return;
         }
 
-        // Récupérer l'email depuis localStorage
-        userEmail = await LocalStorage.GetItemAsync<string>("userEmail") ?? "utilisateur@example.com";
+        userRole = await AuthService.GetUserRoleAsync() ?? "";
+
+        // Vérifier si le paramètre showRoleModal est présent
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        if (uri.Query.Contains("showRoleModal=true"))
+        {
+            showRoleModal = true;
+        }
 
         // Charger toutes les données
         await LoadDashboardData();
+    }
+
+    private void NavigateToGestion()
+    {
+        Navigation.NavigateTo("/admin-lc/dashboard");
+    }
+
+    private void NavigateToAcces()
+    {
+        showRoleModal = false;
+        StateHasChanged();
     }
 
     private async Task LoadDashboardData()
