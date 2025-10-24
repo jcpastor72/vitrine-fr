@@ -1,0 +1,431 @@
+@page "/admin-lc/sav"
+@using VitrineFr.Services
+@using VitrineFr.Models
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject IJSRuntime JS
+
+<div class="min-h-screen bg-gray-50 py-8 px-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="NavigateToDashboard" class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h1 class="lc-heading-1">Gestion SAV</h1>
+                    <p class="lc-text-muted mt-1">Gérez les retours et remplacements de puces RFID</p>
+                </div>
+                <div class="flex gap-3 flex-wrap">
+                    <button @onclick="OpenCreateReturnModal" class="lc-btn lc-btn-primary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Nouveau retour
+                    </button>
+                    <button @onclick="RefreshData" class="lc-btn lc-btn-secondary inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Actualiser
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Onglets -->
+        <div class="bg-white rounded-xl shadow-sm mb-6 border-b border-gray-200">
+            <div class="flex">
+                <button @onclick="() => SetActiveTab('returns')"
+                        class="@(activeTab == "returns" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-600 hover:text-gray-900") px-6 py-4 font-medium transition">
+                    🔄 Retours (@returnsCount)
+                </button>
+                <button @onclick="() => SetActiveTab('repairs')"
+                        class="@(activeTab == "repairs" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-600 hover:text-gray-900") px-6 py-4 font-medium transition">
+                    🔨 Réparations (@repairsCount)
+                </button>
+                <button @onclick="() => SetActiveTab('replacements')"
+                        class="@(activeTab == "replacements" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-600 hover:text-gray-900") px-6 py-4 font-medium transition">
+                    🆕 Remplacements (@replacementsCount)
+                </button>
+            </div>
+        </div>
+
+        <!-- Contenu des onglets -->
+        @if (isLoading)
+        {
+            <div class="flex justify-center items-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        }
+        else if (activeTab == "returns")
+        {
+            <RenderReturnsTab />
+        }
+        else if (activeTab == "repairs")
+        {
+            <RenderRepairsTab />
+        }
+        else if (activeTab == "replacements")
+        {
+            <RenderReplacementsTab />
+        }
+    </div>
+</div>
+
+<!-- Modal Nouveau Retour -->
+@if (showCreateReturnModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseCreateReturnModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" @onclick:stopPropagation>
+            <!-- Header -->
+            <div class="bg-blue-50 border-b border-blue-200 p-6">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">Déclarer un retour SAV</h3>
+                        <p class="text-sm text-gray-600 mt-1">Enregistrez une puce défectueuse ou à remplacer</p>
+                    </div>
+                    <button @onclick="CloseCreateReturnModal" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                <div class="space-y-4">
+                    <!-- UID de la puce -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">UID de la puce</label>
+                        <input type="text" @bind="newReturn.ChipUid" placeholder="Ex: 04A1B2C3D4E5F6"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono uppercase" />
+                    </div>
+
+                    <!-- Type de problème -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Type de problème</label>
+                        <select @bind="newReturn.ReturnReason" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Sélectionner --</option>
+                            <option value="DEFECTIVE">Puce défectueuse</option>
+                            <option value="NOT_WORKING">Ne fonctionne pas</option>
+                            <option value="DAMAGED">Endommagée</option>
+                            <option value="LOST">Perdue</option>
+                            <option value="REPLACEMENT_REQUEST">Demande de remplacement</option>
+                        </select>
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Description du problème</label>
+                        <textarea @bind="newReturn.Description" placeholder="Décrivez le problème en détail..."
+                                  rows="4" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+
+                    <!-- Client -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
+                        <input type="text" @bind="newReturn.ClientName" placeholder="Nom du client"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    </div>
+
+                    <!-- Email client -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email client</label>
+                        <input type="email" @bind="newReturn.ClientEmail" placeholder="email@example.com"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-between">
+                <div></div>
+                <div class="flex space-x-3">
+                    <button @onclick="CloseCreateReturnModal" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                        Annuler
+                    </button>
+                    <button @onclick="CreateReturn" disabled="@(isCreatingReturn || string.IsNullOrEmpty(newReturn.ChipUid) || string.IsNullOrEmpty(newReturn.ReturnReason))"
+                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        @if (isCreatingReturn)
+                        {
+                            <span>Création en cours...</span>
+                        }
+                        else
+                        {
+                            <span>Créer le retour</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<SavReturn> returns = new();
+    private List<SavReturn> repairs = new();
+    private List<SavReturn> replacements = new();
+    private bool isLoading = true;
+    private string activeTab = "returns";
+
+    private bool showCreateReturnModal = false;
+    private SavReturnRequest newReturn = new();
+    private bool isCreatingReturn = false;
+
+    private int returnsCount => returns.Count;
+    private int repairsCount => repairs.Count;
+    private int replacementsCount => replacements.Count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSavData();
+    }
+
+    private async Task LoadSavData()
+    {
+        isLoading = true;
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync("api/sav/returns");
+            if (response.IsSuccessStatusCode)
+            {
+                var allReturns = await response.Content.ReadFromJsonAsync<List<SavReturn>>() ?? new();
+                returns = allReturns.Where(r => r.Status == "RETURN").ToList();
+                repairs = allReturns.Where(r => r.Status == "REPAIR").ToList();
+                replacements = allReturns.Where(r => r.Status == "REPLACEMENT").ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+    }
+
+    private void OpenCreateReturnModal()
+    {
+        newReturn = new();
+        showCreateReturnModal = true;
+    }
+
+    private void CloseCreateReturnModal()
+    {
+        showCreateReturnModal = false;
+        newReturn = new();
+    }
+
+    private async Task CreateReturn()
+    {
+        isCreatingReturn = true;
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.PostAsJsonAsync("api/sav/returns", newReturn);
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "✅ Retour créé avec succès");
+                CloseCreateReturnModal();
+                await LoadSavData();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Erreur lors de la création du retour");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+        finally
+        {
+            isCreatingReturn = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadSavData();
+        await JS.InvokeVoidAsync("showNotification", "✅ Données actualisées");
+    }
+
+    private void NavigateToDashboard()
+    {
+        // Navigation via JS
+    }
+
+    private void RenderReturnsTab()
+    {
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            @if (returns.Count == 0)
+            {
+                <div class="p-12 text-center">
+                    <div class="text-gray-400 text-5xl mb-4">📋</div>
+                    <p class="text-gray-600">Aucun retour en cours</p>
+                </div>
+            }
+            else
+            {
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">UID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Raison</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            @foreach (var ret in returns)
+                            {
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 font-mono text-sm">@ret.ChipUid</td>
+                                    <td class="px-6 py-4 text-sm">@ret.ReturnReason</td>
+                                    <td class="px-6 py-4 text-sm">@ret.ClientName</td>
+                                    <td class="px-6 py-4 text-sm">@ret.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                    <td class="px-6 py-4 text-sm">
+                                        <button class="text-blue-600 hover:text-blue-900">Détails</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+
+    private void RenderRepairsTab()
+    {
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            @if (repairs.Count == 0)
+            {
+                <div class="p-12 text-center">
+                    <div class="text-gray-400 text-5xl mb-4">🔨</div>
+                    <p class="text-gray-600">Aucune réparation en cours</p>
+                </div>
+            }
+            else
+            {
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">UID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Problème</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            @foreach (var repair in repairs)
+                            {
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 font-mono text-sm">@repair.ChipUid</td>
+                                    <td class="px-6 py-4 text-sm">@repair.Description</td>
+                                    <td class="px-6 py-4 text-sm">@repair.ClientName</td>
+                                    <td class="px-6 py-4 text-sm">
+                                        <span class="px-3 py-1 rounded-full text-sm font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                                            En réparation
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm">
+                                        <button class="text-blue-600 hover:text-blue-900">Détails</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+
+    private void RenderReplacementsTab()
+    {
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            @if (replacements.Count == 0)
+            {
+                <div class="p-12 text-center">
+                    <div class="text-gray-400 text-5xl mb-4">🆕</div>
+                    <p class="text-gray-600">Aucun remplacement en cours</p>
+                </div>
+            }
+            else
+            {
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">UID Original</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">UID Remplacement</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            @foreach (var replacement in replacements)
+                            {
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 font-mono text-sm">@replacement.ChipUid</td>
+                                    <td class="px-6 py-4 font-mono text-sm">@replacement.ReplacementChipUid</td>
+                                    <td class="px-6 py-4 text-sm">@replacement.ClientName</td>
+                                    <td class="px-6 py-4 text-sm">@replacement.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                    <td class="px-6 py-4 text-sm">
+                                        <button class="text-blue-600 hover:text-blue-900">Détails</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+
+    public class SavReturn
+    {
+        public Guid Id { get; set; }
+        public string ChipUid { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string ReturnReason { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string ClientName { get; set; } = "";
+        public string ClientEmail { get; set; } = "";
+        public string? ReplacementChipUid { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class SavReturnRequest
+    {
+        public string ChipUid { get; set; } = "";
+        public string ReturnReason { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string ClientName { get; set; } = "";
+        public string ClientEmail { get; set; } = "";
+    }
+}
