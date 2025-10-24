@@ -78,16 +78,7 @@
         {
             showRoleModal = true;
         }
-        else
-        {
-            // Pour SUPERADMIN, afficher le dashboard client (pas de redirection)
-            // Pour ADMIN/MANAGER, rediriger vers le dashboard admin
-            if (userRole == "ADMIN" || userRole == "MANAGER")
-            {
-                Navigation.NavigateTo("/admin-lc/dashboard");
-            }
-            // SUPERADMIN reste sur /dashboard (dashboard client)
-        }
+        // Tous les utilisateurs (sauf SUPERADMIN avec showRoleModal) restent sur /dashboard
     }
 
     private void NavigateToGestion()
