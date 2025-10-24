@@ -237,58 +237,58 @@
                     <div class="flex flex-wrap gap-2">
                         @if (selectedChip.Status == "EN_TRANSIT")
                         {
-                            <button @onclick="() => ExecuteAction('receive-from-supplier')" class="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
+                            <button @onclick="() => ExecuteAction(ActionReceiveFromSupplier)" class="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
                                 ✅ Recevoir du fournisseur
                             </button>
                         }
                         @if (selectedChip.Status == "EN_ATELIER")
                         {
-                            <button @onclick="() => ExecuteAction('encode')" class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+                            <button @onclick="() => ExecuteAction(ActionEncode)" class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
                                 🔧 Encoder la puce
                             </button>
                         }
                         @if (selectedChip.Status == "EN_STOCK")
                         {
-                            <button @onclick="() => ExecuteAction('ship-to-client')" class="px-3 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition">
+                            <button @onclick="() => ExecuteAction(ActionShipToClient)" class="px-3 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition">
                                 🚛 Expédier au client
                             </button>
                         }
                         @if (selectedChip.Status == "EN_LIVRAISON")
                         {
-                            <button @onclick="() => ExecuteAction('confirm-delivery')" class="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
+                            <button @onclick="() => ExecuteAction(ActionConfirmDelivery)" class="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
                                 ✅ Confirmer livraison
                             </button>
                         }
                         @if (selectedChip.Status == "LIVREE")
                         {
-                            <button @onclick="() => ExecuteAction('assign-to-controlpoint')" class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+                            <button @onclick="() => ExecuteAction(ActionAssignToControlPoint)" class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
                                 📍 Assigner à point de contrôle
                             </button>
                         }
                         @if (selectedChip.Status == "ACTIVE")
                         {
-                            <button @onclick="() => ExecuteAction('request-sav')" class="px-3 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition">
+                            <button @onclick="() => ExecuteAction(ActionRequestSav)" class="px-3 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition">
                                 🔄 Demander SAV
                             </button>
-                            <button @onclick="() => ExecuteAction('deactivate')" class="px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition">
+                            <button @onclick="() => ExecuteAction(ActionDeactivate)" class="px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition">
                                 ⚫ Désactiver
                             </button>
                         }
                         @if (selectedChip.Status == "RETOUR_SAV")
                         {
-                            <button @onclick="() => ExecuteAction('receive-sav')" class="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
+                            <button @onclick="() => ExecuteAction(ActionReceiveSav)" class="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
                                 📥 Confirmer réception SAV
                             </button>
                         }
                         @if (selectedChip.Status == "RECEPTION_SAV")
                         {
-                            <button @onclick="() => ExecuteAction('replace')" class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+                            <button @onclick="() => ExecuteAction(ActionReplace)" class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
                                 🔁 Remplacer par nouvelle puce
                             </button>
                         }
                         @if (selectedChip.Status != "ARCHIVEE")
                         {
-                            <button @onclick="() => ExecuteAction('delete')" class="px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition">
+                            <button @onclick="() => ExecuteAction(ActionDelete)" class="px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition">
                                 🗑️ Supprimer
                             </button>
                         }
@@ -305,6 +305,18 @@
 }
 
 @code {
+    // Constantes pour les actions
+    private const string ActionReceiveFromSupplier = "receive-from-supplier";
+    private const string ActionEncode = "encode";
+    private const string ActionShipToClient = "ship-to-client";
+    private const string ActionConfirmDelivery = "confirm-delivery";
+    private const string ActionAssignToControlPoint = "assign-to-controlpoint";
+    private const string ActionRequestSav = "request-sav";
+    private const string ActionDeactivate = "deactivate";
+    private const string ActionReceiveSav = "receive-sav";
+    private const string ActionReplace = "replace";
+    private const string ActionDelete = "delete";
+
     private List<RfidChipDto> allChips = new();
     private List<RfidChipDto> filteredChips = new();
     private bool isLoading = true;

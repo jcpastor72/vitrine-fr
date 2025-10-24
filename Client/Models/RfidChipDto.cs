@@ -10,5 +10,7 @@ namespace VitrineFr.Models
         public string? EncryptionKey { get; set; }
         public DateTime? KeyCreatedAt { get; set; }
         public bool IsKeyProgrammed { get; set; }
+        public string? PackagingCode { get; set; }
+        public Guid? ControlPointId { get; set; }
     }
 }
