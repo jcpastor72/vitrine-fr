@@ -27,3 +27,17 @@ Thumbs.db
 
 # Blazor
 wwwroot/_framework/
+Client/bin/Debug/net9.0/wwwroot/_framework/blazor.boot.json
+Client/bin/Debug/net9.0/wwwroot/_framework/blazor.boot.json.gz
+Client/obj/project.assets.json
+Client/obj/project.nuget.cache
+Client/obj/Debug/net9.0/blazor.boot.json
+Client/obj/Debug/net9.0/rbcswa.dswa.cache.json
+Client/obj/Debug/net9.0/rjimswa.dswa.cache.json
+Client/obj/Debug/net9.0/rjsmcshtml.dswa.cache.json
+Client/obj/Debug/net9.0/rjsmrazor.dswa.cache.json
+Client/obj/Debug/net9.0/rpswa.dswa.cache.json
+Client/obj/Debug/net9.0/staticwebassets.build.endpoints.json
+Client/obj/Debug/net9.0/staticwebassets.build.json
+Client/obj/Debug/net9.0/staticwebassets.build.json.cache
+Client/obj/Debug/net9.0/staticwebassets.development.json
