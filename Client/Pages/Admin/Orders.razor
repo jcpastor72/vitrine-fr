@@ -292,8 +292,8 @@
             Http.DefaultRequestHeaders.Clear();
             Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
 
-            // Récupérer toutes les commandes
-            var response = await Http.GetAsync("api/orders");
+            // Récupérer toutes les commandes (endpoint admin)
+            var response = await Http.GetAsync("api/orders/admin/all");
 
             if (response.IsSuccessStatusCode)
             {
