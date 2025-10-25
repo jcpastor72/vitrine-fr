@@ -1,0 +1,543 @@
+@page "/admin-lc/supplier-orders"
+@using VitrineFr.Services
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject IJSRuntime JS
+
+@code {
+    public class SupplierOrderResponse
+    {
+        public Guid Id { get; set; }
+        public Guid SupplierId { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
+        public DateTime OrderDate { get; set; }
+        public DateTime? SentDate { get; set; }
+        public DateTime? ExpectedDeliveryDate { get; set; }
+        public DateTime? ReceivedDate { get; set; }
+        public decimal TotalAmount { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? Notes { get; set; }
+        public List<SupplierOrderLineResponse> Lines { get; set; } = new();
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    public class SupplierOrderLineResponse
+    {
+        public Guid Id { get; set; }
+        public string ProductType { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public int ReceivedQuantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal TotalPrice { get; set; }
+    }
+
+    public class SupplierResponse
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+}
+
+<div class="min-h-screen bg-gray-50 py-8 px-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="NavigateToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h1 class="lc-heading-1">Commandes Fournisseurs</h1>
+                    <p class="lc-text-muted mt-1">Gérez vos commandes de puces RFID</p>
+                </div>
+                <button @onclick="OpenCreateModal"
+                        class="lc-btn lc-btn-primary inline-flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Nouvelle Commande
+                </button>
+            </div>
+        </div>
+
+        <!-- Filtres -->
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <div class="grid md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+                    <select @bind="selectedStatus" @bind:after="FilterOrders"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Tous</option>
+                        <option value="DRAFT">Brouillon</option>
+                        <option value="SENT">Envoyé</option>
+                        <option value="EN_TRANSIT">En transit</option>
+                        <option value="RECEIVED">Reçu</option>
+                        <option value="CANCELLED">Annulé</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
+                    <input type="text" @bind="searchTerm" @bind:after="FilterOrders"
+                           placeholder="N° commande..."
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fournisseur</label>
+                    <select @bind="selectedSupplierId" @bind:after="FilterOrders"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Tous</option>
+                        @foreach (var supplier in suppliers)
+                        {
+                            <option value="@supplier.Id">@supplier.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="flex items-end">
+                    <button @onclick="ClearFilters"
+                            class="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                        Réinitialiser
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste Commandes -->
+        @if (isLoading)
+        {
+            <div class="flex justify-center items-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        }
+        else if (filteredOrders.Count == 0)
+        {
+            <div class="bg-white rounded-xl shadow-sm p-12 text-center">
+                <div class="text-gray-400 text-5xl mb-4">📦</div>
+                <p class="text-gray-600">Aucune commande trouvée</p>
+            </div>
+        }
+        else
+        {
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-bold text-gray-900">
+                        Commandes (@filteredOrders.Count)
+                    </h2>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    N° Commande
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Date
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Montant
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Statut
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Livraison
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach (var order in filteredOrders)
+                            {
+                                <tr class="hover:bg-gray-50 cursor-pointer" @onclick="() => ViewOrderDetails(order.Id)">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm font-medium text-gray-900">@order.OrderNumber</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600">@order.OrderDate.ToString("dd/MM/yyyy")</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600">@order.TotalAmount.ToString("C")</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @{
+                                            var statusColor = order.Status switch
+                                            {
+                                                "DRAFT" => "bg-yellow-100 text-yellow-800",
+                                                "SENT" => "bg-blue-100 text-blue-800",
+                                                "EN_TRANSIT" => "bg-purple-100 text-purple-800",
+                                                "RECEIVED" => "bg-green-100 text-green-800",
+                                                "CANCELLED" => "bg-red-100 text-red-800",
+                                                _ => "bg-gray-100 text-gray-800"
+                                            };
+                                        }
+                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full @statusColor">
+                                            @order.Status
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600">
+                                            @if (order.ExpectedDeliveryDate.HasValue)
+                                            {
+                                                @order.ExpectedDeliveryDate.Value.ToString("dd/MM/yyyy")
+                                            }
+                                            else
+                                            {
+                                                <span>-</span>
+                                            }
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal Détail -->
+@if (showDetailModal && selectedOrder != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+         @onclick="CloseDetailModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+             @onclick:stopPropagation>
+
+            <!-- Header -->
+            <div class="bg-blue-50 border-b border-blue-200 p-6">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">Commande @selectedOrder.OrderNumber</h3>
+                        <p class="text-sm text-gray-600 mt-1">Statut: @selectedOrder.Status</p>
+                    </div>
+                    <button @onclick="CloseDetailModal"
+                            class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Date Commande</label>
+                        <p class="text-lg text-gray-900">@selectedOrder.OrderDate.ToString("dd/MM/yyyy HH:mm")</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Montant Total</label>
+                        <p class="text-lg text-gray-900">@selectedOrder.TotalAmount.ToString("C")</p>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Date Envoi</label>
+                        <p class="text-lg text-gray-900">
+                            @if (selectedOrder.SentDate.HasValue)
+                            {
+                                @selectedOrder.SentDate.Value.ToString("dd/MM/yyyy HH:mm")
+                            }
+                            else
+                            {
+                                <span class="text-gray-500">-</span>
+                            }
+                        </p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Date Livraison Prévue</label>
+                        <p class="text-lg text-gray-900">
+                            @if (selectedOrder.ExpectedDeliveryDate.HasValue)
+                            {
+                                @selectedOrder.ExpectedDeliveryDate.Value.ToString("dd/MM/yyyy")
+                            }
+                            else
+                            {
+                                <span class="text-gray-500">-</span>
+                            }
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Date Réception</label>
+                        <p class="text-lg text-gray-900">
+                            @if (selectedOrder.ReceivedDate.HasValue)
+                            {
+                                @selectedOrder.ReceivedDate.Value.ToString("dd/MM/yyyy HH:mm")
+                            }
+                            else
+                            {
+                                <span class="text-gray-500">-</span>
+                            }
+                        </p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                        <p class="text-lg text-gray-900">@(selectedOrder.Notes ?? "-")</p>
+                    </div>
+                </div>
+
+                <!-- Lignes de commande -->
+                <div class="mb-6">
+                    <h4 class="text-lg font-bold text-gray-900 mb-4">Lignes de Commande</h4>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 border border-gray-300">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Type Produit</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Quantité</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Reçue</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Prix Unitaire</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                @foreach (var line in selectedOrder.Lines)
+                                {
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm">@line.ProductType</td>
+                                        <td class="px-4 py-2 text-sm">@line.Quantity</td>
+                                        <td class="px-4 py-2 text-sm">@line.ReceivedQuantity</td>
+                                        <td class="px-4 py-2 text-sm">@line.UnitPrice.ToString("C")</td>
+                                        <td class="px-4 py-2 text-sm">@line.TotalPrice.ToString("C")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-between">
+                <div class="flex space-x-3">
+                    @if (selectedOrder.Status == "DRAFT")
+                    {
+                        <button @onclick="DeleteOrder"
+                                class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                            Annuler
+                        </button>
+                    }
+                </div>
+                <div class="flex space-x-3">
+                    <button @onclick="CloseDetailModal"
+                            class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                        Fermer
+                    </button>
+                    @if (selectedOrder.Status == "DRAFT")
+                    {
+                        <button @onclick="SendOrder"
+                                class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            Envoyer
+                        </button>
+                    }
+                    @if (selectedOrder.Status == "SENT" || selectedOrder.Status == "EN_TRANSIT")
+                    {
+                        <button @onclick="ReceiveOrder"
+                                class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                            Réceptionner
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<SupplierOrderResponse> allOrders = new();
+    private List<SupplierOrderResponse> filteredOrders = new();
+    private List<SupplierResponse> suppliers = new();
+    private bool isLoading = true;
+
+    // Filtres
+    private string selectedStatus = "";
+    private string searchTerm = "";
+    private string selectedSupplierId = "";
+
+    // Modal détail
+    private bool showDetailModal = false;
+    private SupplierOrderResponse? selectedOrder = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            // Charger commandes
+            var ordersResponse = await Http.GetAsync("api/supplier-orders");
+            if (ordersResponse.IsSuccessStatusCode)
+            {
+                allOrders = await ordersResponse.Content.ReadFromJsonAsync<List<SupplierOrderResponse>>() ?? new();
+                filteredOrders = new List<SupplierOrderResponse>(allOrders);
+            }
+
+            // Charger fournisseurs
+            var suppliersResponse = await Http.GetAsync("api/suppliers");
+            if (suppliersResponse.IsSuccessStatusCode)
+            {
+                suppliers = await suppliersResponse.Content.ReadFromJsonAsync<List<SupplierResponse>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void FilterOrders()
+    {
+        filteredOrders = allOrders.Where(o =>
+        {
+            if (!string.IsNullOrEmpty(selectedStatus) && o.Status != selectedStatus)
+                return false;
+
+            if (!string.IsNullOrEmpty(searchTerm) && !o.OrderNumber.ToLower().Contains(searchTerm.ToLower()))
+                return false;
+
+            if (!string.IsNullOrEmpty(selectedSupplierId) && o.SupplierId.ToString() != selectedSupplierId)
+                return false;
+
+            return true;
+        }).ToList();
+    }
+
+    private void ClearFilters()
+    {
+        selectedStatus = "";
+        searchTerm = "";
+        selectedSupplierId = "";
+        FilterOrders();
+    }
+
+    private void NavigateToDashboard()
+    {
+        // Navigation vers le dashboard admin
+    }
+
+    private void OpenCreateModal()
+    {
+        // À implémenter: modal de création
+    }
+
+    private void ViewOrderDetails(Guid orderId)
+    {
+        selectedOrder = allOrders.FirstOrDefault(o => o.Id == orderId);
+        if (selectedOrder != null)
+        {
+            showDetailModal = true;
+        }
+    }
+
+    private void CloseDetailModal()
+    {
+        showDetailModal = false;
+        selectedOrder = null;
+    }
+
+    private async Task SendOrder()
+    {
+        if (selectedOrder == null) return;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.PostAsJsonAsync($"api/supplier-orders/{selectedOrder.Id}/send", new { });
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Commande envoyée");
+                CloseDetailModal();
+                await LoadData();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+
+    private async Task ReceiveOrder()
+    {
+        if (selectedOrder == null) return;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            var lines = selectedOrder.Lines.Select(l => new { lineId = l.Id, receivedQuantity = l.Quantity }).ToList();
+            var request = new { lines };
+
+            var response = await Http.PostAsJsonAsync($"api/supplier-orders/{selectedOrder.Id}/receive", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Commande réceptionnée");
+                CloseDetailModal();
+                await LoadData();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteOrder()
+    {
+        if (selectedOrder == null) return;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.DeleteAsync($"api/supplier-orders/{selectedOrder.Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Commande annulée");
+                CloseDetailModal();
+                await LoadData();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+}

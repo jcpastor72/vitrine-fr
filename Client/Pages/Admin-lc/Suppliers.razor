@@ -1,0 +1,825 @@
+@page "/admin-lc/suppliers"
+@using VitrineFr.Services
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject IJSRuntime JS
+
+@code {
+    public class SupplierResponse
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string ContactName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string PostalCode { get; set; } = string.Empty;
+        public string Country { get; set; } = string.Empty;
+        public string Siret { get; set; } = string.Empty;
+        public string Website { get; set; } = string.Empty;
+        public string PaymentTerms { get; set; } = string.Empty;
+        public int LeadTimeDays { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+}
+
+<div class="min-h-screen bg-gray-50 py-8 px-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <button @onclick="NavigateToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h1 class="lc-heading-1">Gestion des Fournisseurs</h1>
+                    <p class="lc-text-muted mt-1">Gérez vos fournisseurs de puces RFID</p>
+                </div>
+                <button @onclick="OpenCreateModal"
+                        class="lc-btn lc-btn-primary inline-flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Nouveau Fournisseur
+                </button>
+            </div>
+        </div>
+
+        <!-- Filtres -->
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <div class="grid md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+                    <select @bind="selectedStatus" @bind:after="FilterSuppliers"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Tous</option>
+                        <option value="true">Actifs</option>
+                        <option value="false">Inactifs</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
+                    <input type="text" @bind="searchTerm" @bind:after="FilterSuppliers"
+                           placeholder="Nom, email, SIRET..."
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+
+                <div class="flex items-end">
+                    <button @onclick="ClearFilters"
+                            class="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                        Réinitialiser filtres
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste Fournisseurs -->
+        @if (isLoading)
+        {
+            <div class="flex justify-center items-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        }
+        else if (filteredSuppliers.Count == 0)
+        {
+            <div class="bg-white rounded-xl shadow-sm p-12 text-center">
+                <div class="text-gray-400 text-5xl mb-4">📋</div>
+                <p class="text-gray-600">Aucun fournisseur trouvé</p>
+            </div>
+        }
+        else
+        {
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-bold text-gray-900">
+                        Fournisseurs (@filteredSuppliers.Count)
+                    </h2>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Nom
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Contact
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    SIRET
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Email
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Statut
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach (var supplier in filteredSuppliers)
+                            {
+                                <tr class="hover:bg-gray-50 cursor-pointer" @onclick="() => ViewSupplierDetails(supplier.Id)">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm font-medium text-gray-900">@supplier.Name</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600">@supplier.ContactName</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600">@supplier.Siret</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600">@supplier.Email</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @if (supplier.IsActive)
+                                        {
+                                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                Actif
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                Inactif
+                                            </span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal Détail/Édition -->
+@if (showDetailModal && selectedSupplier != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+         @onclick="CloseDetailModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+             @onclick:stopPropagation>
+
+            <!-- Header -->
+            <div class="bg-blue-50 border-b border-blue-200 p-6">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">Détail Fournisseur</h3>
+                        <p class="text-sm text-gray-600 mt-1">@selectedSupplier.Name</p>
+                    </div>
+                    <button @onclick="CloseDetailModal"
+                            class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                @if (isEditMode)
+                {
+                    <!-- Mode Édition -->
+                    <div class="space-y-4">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                                <input type="text" @bind="editName"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Contact</label>
+                                <input type="text" @bind="editContactName"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                <input type="email" @bind="editEmail"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                                <input type="tel" @bind="editPhone"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
+                            <input type="text" @bind="editAddress"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        </div>
+
+                        <div class="grid md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Ville</label>
+                                <input type="text" @bind="editCity"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Code Postal</label>
+                                <input type="text" @bind="editPostalCode"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Pays</label>
+                                <input type="text" @bind="editCountry"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Conditions Paiement</label>
+                                <input type="text" @bind="editPaymentTerms"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Délai Livraison (jours)</label>
+                                <input type="number" @bind="editLeadTimeDays"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Site Web</label>
+                            <input type="url" @bind="editWebsite"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        </div>
+
+                        <div class="flex items-center">
+                            <input type="checkbox" @bind="editIsActive" id="isActive"
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                            <label for="isActive" class="ml-2 block text-sm text-gray-700">
+                                Fournisseur actif
+                            </label>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Mode Lecture -->
+                    <div class="space-y-4">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                                <p class="text-lg text-gray-900">@selectedSupplier.Name</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Contact</label>
+                                <p class="text-lg text-gray-900">@selectedSupplier.ContactName</p>
+                            </div>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                <p class="text-lg text-gray-900">@selectedSupplier.Email</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                                <p class="text-lg text-gray-900">@selectedSupplier.Phone</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">SIRET</label>
+                            <p class="text-lg text-gray-900">@selectedSupplier.Siret</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
+                            <p class="text-lg text-gray-900">@selectedSupplier.Address</p>
+                        </div>
+
+                        <div class="grid md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Ville</label>
+                                <p class="text-lg text-gray-900">@selectedSupplier.City</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Code Postal</label>
+                                <p class="text-lg text-gray-900">@selectedSupplier.PostalCode</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Pays</label>
+                                <p class="text-lg text-gray-900">@selectedSupplier.Country</p>
+                            </div>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Conditions Paiement</label>
+                                <p class="text-lg text-gray-900">@selectedSupplier.PaymentTerms</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Délai Livraison</label>
+                                <p class="text-lg text-gray-900">@selectedSupplier.LeadTimeDays jours</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Site Web</label>
+                            <p class="text-lg text-blue-600">
+                                <a href="@selectedSupplier.Website" target="_blank">@selectedSupplier.Website</a>
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+                            @if (selectedSupplier.IsActive)
+                            {
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                    Actif
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    Inactif
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-between">
+                <div class="flex space-x-3">
+                    @if (!isEditMode && selectedSupplier.IsActive)
+                    {
+                        <button @onclick="DeleteSupplier"
+                                class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                            Désactiver
+                        </button>
+                    }
+                </div>
+                <div class="flex space-x-3">
+                    <button @onclick="CloseDetailModal"
+                            class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                        Fermer
+                    </button>
+                    @if (!isEditMode)
+                    {
+                        <button @onclick="EditSupplier"
+                                class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            Modifier
+                        </button>
+                    }
+                    @if (isEditMode)
+                    {
+                        <button @onclick="CancelEdit"
+                                class="px-6 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition">
+                            Annuler
+                        </button>
+                        <button @onclick="SaveChanges"
+                                class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                            Enregistrer
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal Création -->
+@if (showCreateModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+         @onclick="CloseCreateModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+             @onclick:stopPropagation>
+
+            <!-- Header -->
+            <div class="bg-blue-50 border-b border-blue-200 p-6">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">Nouveau Fournisseur</h3>
+                        <p class="text-sm text-gray-600 mt-1">Ajouter un fournisseur de puces RFID</p>
+                    </div>
+                    <button @onclick="CloseCreateModal"
+                            class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
+                            <input type="text" @bind="newSupplierName"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Contact *</label>
+                            <input type="text" @bind="newSupplierContactName"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                            <input type="email" @bind="newSupplierEmail"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone *</label>
+                            <input type="tel" @bind="newSupplierPhone"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">SIRET (14 chiffres) *</label>
+                        <input type="text" @bind="newSupplierSiret" maxlength="14"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Adresse *</label>
+                        <input type="text" @bind="newSupplierAddress"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    </div>
+
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
+                            <input type="text" @bind="newSupplierCity"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Code Postal *</label>
+                            <input type="text" @bind="newSupplierPostalCode"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Pays</label>
+                            <input type="text" @bind="newSupplierCountry"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Conditions Paiement</label>
+                            <input type="text" @bind="newSupplierPaymentTerms"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Délai Livraison (jours)</label>
+                            <input type="number" @bind="newSupplierLeadTimeDays"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Site Web</label>
+                        <input type="url" @bind="newSupplierWebsite"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-end space-x-3">
+                <button @onclick="CloseCreateModal"
+                        class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                    Annuler
+                </button>
+                <button @onclick="CreateSupplier"
+                        class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                    Créer Fournisseur
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<SupplierResponse> allSuppliers = new();
+    private List<SupplierResponse> filteredSuppliers = new();
+    private bool isLoading = true;
+
+    // Filtres
+    private string selectedStatus = "";
+    private string searchTerm = "";
+
+    // Modal détail
+    private bool showDetailModal = false;
+    private SupplierResponse? selectedSupplier = null;
+    private bool isEditMode = false;
+
+    // Champs édition
+    private string editName = "";
+    private string editContactName = "";
+    private string editEmail = "";
+    private string editPhone = "";
+    private string editAddress = "";
+    private string editCity = "";
+    private string editPostalCode = "";
+    private string editCountry = "";
+    private string editWebsite = "";
+    private string editPaymentTerms = "";
+    private int editLeadTimeDays = 7;
+    private bool editIsActive = true;
+
+    // Modal création
+    private bool showCreateModal = false;
+    private string newSupplierName = "";
+    private string newSupplierContactName = "";
+    private string newSupplierEmail = "";
+    private string newSupplierPhone = "";
+    private string newSupplierAddress = "";
+    private string newSupplierCity = "";
+    private string newSupplierPostalCode = "";
+    private string newSupplierCountry = "France";
+    private string newSupplierSiret = "";
+    private string newSupplierWebsite = "";
+    private string newSupplierPaymentTerms = "NET 30";
+    private int newSupplierLeadTimeDays = 7;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSuppliers();
+    }
+
+    private async Task LoadSuppliers()
+    {
+        isLoading = true;
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync("api/suppliers");
+            if (response.IsSuccessStatusCode)
+            {
+                allSuppliers = await response.Content.ReadFromJsonAsync<List<SupplierResponse>>() ?? new();
+                filteredSuppliers = new List<SupplierResponse>(allSuppliers);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void FilterSuppliers()
+    {
+        filteredSuppliers = allSuppliers.Where(s =>
+        {
+            if (!string.IsNullOrEmpty(selectedStatus))
+            {
+                bool isActive = selectedStatus == "true";
+                if (s.IsActive != isActive) return false;
+            }
+
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                var search = searchTerm.ToLower();
+                return s.Name.ToLower().Contains(search) ||
+                       s.Email.ToLower().Contains(search) ||
+                       s.Siret.Contains(search);
+            }
+
+            return true;
+        }).ToList();
+    }
+
+    private void ClearFilters()
+    {
+        selectedStatus = "";
+        searchTerm = "";
+        FilterSuppliers();
+    }
+
+    private void NavigateToDashboard()
+    {
+        // Navigation vers le dashboard admin
+    }
+
+    private void OpenCreateModal()
+    {
+        showCreateModal = true;
+        ResetCreateForm();
+    }
+
+    private void CloseCreateModal()
+    {
+        showCreateModal = false;
+        ResetCreateForm();
+    }
+
+    private void ResetCreateForm()
+    {
+        newSupplierName = "";
+        newSupplierContactName = "";
+        newSupplierEmail = "";
+        newSupplierPhone = "";
+        newSupplierAddress = "";
+        newSupplierCity = "";
+        newSupplierPostalCode = "";
+        newSupplierCountry = "France";
+        newSupplierSiret = "";
+        newSupplierWebsite = "";
+        newSupplierPaymentTerms = "NET 30";
+        newSupplierLeadTimeDays = 7;
+    }
+
+    private async Task CreateSupplier()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(newSupplierName) || newSupplierSiret.Length != 14)
+            {
+                await JS.InvokeVoidAsync("alert", "Veuillez remplir tous les champs obligatoires");
+                return;
+            }
+
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            var request = new
+            {
+                name = newSupplierName,
+                contactName = newSupplierContactName,
+                email = newSupplierEmail,
+                phone = newSupplierPhone,
+                address = newSupplierAddress,
+                city = newSupplierCity,
+                postalCode = newSupplierPostalCode,
+                country = newSupplierCountry,
+                siret = newSupplierSiret,
+                website = newSupplierWebsite,
+                paymentTerms = newSupplierPaymentTerms,
+                leadTimeDays = newSupplierLeadTimeDays
+            };
+
+            var response = await Http.PostAsJsonAsync("api/suppliers", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Fournisseur créé avec succès");
+                CloseCreateModal();
+                await LoadSuppliers();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Erreur lors de la création du fournisseur");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+
+    private void ViewSupplierDetails(Guid supplierId)
+    {
+        selectedSupplier = allSuppliers.FirstOrDefault(s => s.Id == supplierId);
+        if (selectedSupplier != null)
+        {
+            showDetailModal = true;
+        }
+    }
+
+    private void CloseDetailModal()
+    {
+        showDetailModal = false;
+        selectedSupplier = null;
+        isEditMode = false;
+    }
+
+    private void EditSupplier()
+    {
+        if (selectedSupplier != null)
+        {
+            editName = selectedSupplier.Name;
+            editContactName = selectedSupplier.ContactName;
+            editEmail = selectedSupplier.Email;
+            editPhone = selectedSupplier.Phone;
+            editAddress = selectedSupplier.Address;
+            editCity = selectedSupplier.City;
+            editPostalCode = selectedSupplier.PostalCode;
+            editCountry = selectedSupplier.Country;
+            editWebsite = selectedSupplier.Website;
+            editPaymentTerms = selectedSupplier.PaymentTerms;
+            editLeadTimeDays = selectedSupplier.LeadTimeDays;
+            editIsActive = selectedSupplier.IsActive;
+            isEditMode = true;
+        }
+    }
+
+    private void CancelEdit()
+    {
+        isEditMode = false;
+    }
+
+    private async Task SaveChanges()
+    {
+        if (selectedSupplier == null) return;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            var updateRequest = new
+            {
+                name = editName,
+                contactName = editContactName,
+                email = editEmail,
+                phone = editPhone,
+                address = editAddress,
+                city = editCity,
+                postalCode = editPostalCode,
+                country = editCountry,
+                website = editWebsite,
+                paymentTerms = editPaymentTerms,
+                leadTimeDays = editLeadTimeDays,
+                isActive = editIsActive
+            };
+
+            var response = await Http.PutAsJsonAsync($"api/suppliers/{selectedSupplier.Id}", updateRequest);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Fournisseur modifié avec succès");
+                isEditMode = false;
+                CloseDetailModal();
+                await LoadSuppliers();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Erreur lors de la modification");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteSupplier()
+    {
+        if (selectedSupplier == null) return;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.DeleteAsync($"api/suppliers/{selectedSupplier.Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Fournisseur désactivé");
+                CloseDetailModal();
+                await LoadSuppliers();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Erreur lors de la désactivation");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+}

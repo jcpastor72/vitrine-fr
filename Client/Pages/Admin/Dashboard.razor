@@ -127,10 +127,10 @@
                                 </span>
                             </div>
                         </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                        <p class="text-lg text-gray-900">@selectedClient.ContactEmail</p>
-                    </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <p class="text-lg text-gray-900">@selectedClient.ContactEmail</p>
+                        </div>
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Date d'inscription</label>
                             <p class="text-lg text-gray-900">@selectedClient.CreatedAt.ToString("dd/MM/yyyy")</p>
@@ -167,7 +167,8 @@
                                 <div>
                                     <p class="font-medium text-gray-900">@order.OrderNumber</p>
                                     <p class="text-xs text-gray-600">@order.CustomerName</p>
-                                    <p class="text-xs text-gray-500 mt-1">@order.ChipsQuantity puces - @order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</p>
+                                    <p class="text-xs text-gray-500 mt-1">@order.ChipsQuantity puces -
+                                        @order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</p>
                                 </div>
                                 <span class="text-xs @GetOrderStatusColor(order.Status) px-2 py-1 rounded">
                                     @order.Status
@@ -203,7 +204,8 @@
                             <div class="flex justify-between items-start">
                                 <div>
                                     <p class="font-medium text-gray-900">@subscription.CustomerName</p>
-                                    <p class="text-xs text-gray-600">@GetSubscriptionPlanLabel(subscription.SubscriptionPlan)</p>
+                                    <p class="text-xs text-gray-600">@GetSubscriptionPlanLabel(subscription.SubscriptionPlan)
+                                    </p>
                                     <p class="text-xs text-gray-500 mt-1">@subscription.ActivatedAt?.ToString("dd/MM/yyyy")</p>
                                 </div>
                                 <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
@@ -292,6 +294,8 @@
     private void GoToOrders() => Navigation.NavigateTo("/admin-lc/orders");
     private void GoToRFIDChips() => Navigation.NavigateTo("/admin-lc/rfid-chips");
     private void GoToAudit() => Navigation.NavigateTo("/admin-lc/activity-log");
+    private void GoToSuppliers() => Navigation.NavigateTo("/admin-lc/suppliers");
+    private void GoToSupplierOrders() => Navigation.NavigateTo("/admin-lc/supplier-orders");
 
     private async Task LoadRecentClients()
     {

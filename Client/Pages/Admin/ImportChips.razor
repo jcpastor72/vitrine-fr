@@ -168,10 +168,17 @@
             var token = await AuthService.GetTokenAsync();
             Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            var response = await Http.GetAsync("api/orders?status=PENDING");
+            // Charger les commandes fournisseurs en statut DRAFT ou SENT
+            var response = await Http.GetAsync("api/supplier-orders?status=DRAFT");
             if (response.IsSuccessStatusCode)
             {
-                orders = await response.Content.ReadFromJsonAsync<List<OrderDto>>() ?? new();
+                var supplierOrders = await response.Content.ReadFromJsonAsync<List<SupplierOrderDto>>() ?? new();
+                orders = supplierOrders.Select(o => new OrderDto
+                {
+                    Id = o.Id,
+                    OrderNumber = o.OrderNumber,
+                    TotalAmount = o.TotalAmount
+                }).ToList();
             }
         }
         catch (Exception ex)
@@ -285,7 +292,7 @@
     {
         public Guid OrderId { get; set; }
         public List<string> Uids { get; set; } = new();
-        public string InitialStatus { get; set; } = "IN_TRANSIT_SUPPLIER";
+        public string InitialStatus { get; set; } = "EN_TRANSIT";
     }
 
     public class ImportChipsResult
@@ -301,5 +308,13 @@
         public Guid Id { get; set; }
         public string OrderNumber { get; set; } = "";
         public decimal TotalAmount { get; set; }
+    }
+
+    public class SupplierOrderDto
+    {
+        public Guid Id { get; set; }
+        public string OrderNumber { get; set; } = "";
+        public decimal TotalAmount { get; set; }
+        public string Status { get; set; } = "";
     }
 }
