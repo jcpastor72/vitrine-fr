@@ -1,18 +1,18 @@
 using VitrineFr.Models;
 using System.Net.Http.Json;
-using Blazored.LocalStorage;
+using Blazored.SessionStorage;
 
 namespace VitrineFr.Services;
 
 public class AuthService
 {
     private readonly HttpClient _httpClient;
-    private readonly ILocalStorageService _localStorage;
+    private readonly ISessionStorageService _sessionStorage;
 
-    public AuthService(HttpClient httpClient, ILocalStorageService localStorage)
+    public AuthService(HttpClient httpClient, ISessionStorageService sessionStorage)
     {
         _httpClient = httpClient;
-        _localStorage = localStorage;
+        _sessionStorage = sessionStorage;
     }
 
     public async Task<(bool Success, bool RequiresPasswordChange, string? UserId)> LoginAsync(string email, string password)
@@ -25,11 +25,11 @@ public class AuthService
             var loginResponse = await response.Content.ReadFromJsonAsync<LoginResponseDto>();
             if (loginResponse != null)
             {
-                await _localStorage.SetItemAsync("authToken", loginResponse.Token);
-                await _localStorage.SetItemAsync("userEmail", loginResponse.User.Email ?? "");
-                await _localStorage.SetItemAsync("userRole", loginResponse.User.Role);
-                await _localStorage.SetItemAsync("customerId", loginResponse.User.CustomerId.ToString());
-                await _localStorage.SetItemAsync("userId", loginResponse.User.Id.ToString());
+                await _sessionStorage.SetItemAsync("authToken", loginResponse.Token);
+                await _sessionStorage.SetItemAsync("userEmail", loginResponse.User.Email ?? "");
+                await _sessionStorage.SetItemAsync("userRole", loginResponse.User.Role);
+                await _sessionStorage.SetItemAsync("customerId", loginResponse.User.CustomerId.ToString());
+                await _sessionStorage.SetItemAsync("userId", loginResponse.User.Id.ToString());
 
                 return (true, loginResponse.RequiresPasswordChange, loginResponse.User.Id.ToString());
             }
@@ -112,29 +112,29 @@ public class AuthService
 
     public async Task LogoutAsync()
     {
-        await _localStorage.RemoveItemAsync("authToken");
-        await _localStorage.RemoveItemAsync("userEmail");
-        await _localStorage.RemoveItemAsync("userRole");
+        await _sessionStorage.RemoveItemAsync("authToken");
+        await _sessionStorage.RemoveItemAsync("userEmail");
+        await _sessionStorage.RemoveItemAsync("userRole");
     }
 
     public async Task<bool> IsAuthenticatedAsync()
     {
-        var token = await _localStorage.GetItemAsync<string>("authToken");
+        var token = await _sessionStorage.GetItemAsync<string>("authToken");
         return !string.IsNullOrEmpty(token);
     }
 
     public async Task<string?> GetTokenAsync()
     {
-        return await _localStorage.GetItemAsync<string>("authToken");
+        return await _sessionStorage.GetItemAsync<string>("authToken");
     }
 
     public async Task<string?> GetUserEmailAsync()
     {
-        return await _localStorage.GetItemAsync<string>("userEmail");
+        return await _sessionStorage.GetItemAsync<string>("userEmail");
     }
 
     public async Task<string?> GetUserRoleAsync()
     {
-        return await _localStorage.GetItemAsync<string>("userRole");
+        return await _sessionStorage.GetItemAsync<string>("userRole");
     }
 }

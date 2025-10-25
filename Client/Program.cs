@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using VitrineFr;
 using VitrineFr.Services;
-using Blazored.LocalStorage;
+using Blazored.SessionStorage;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -18,8 +18,8 @@ builder.Services.AddScoped(sp => new HttpClient
     BaseAddress = new Uri(apiBaseUrl)
 });
 
-// Ajouter Blazored LocalStorage
-builder.Services.AddBlazoredLocalStorage();
+// Ajouter Blazored SessionStorage (déconnexion automatique à la fermeture du navigateur)
+builder.Services.AddBlazoredSessionStorage();
 
 // Ajouter les services
 builder.Services.AddScoped<AuthService>();
