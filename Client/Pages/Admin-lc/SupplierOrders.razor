@@ -4,6 +4,7 @@
 @inject HttpClient Http
 @inject AuthService AuthService
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 @code {
     public class SupplierOrderResponse
@@ -37,6 +38,291 @@
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = string.Empty;
+    }
+
+    public class OrderLineItem
+    {
+        public string ProductType { get; set; } = "NFC_TAG213";
+        public int Quantity { get; set; } = 1;
+        public decimal UnitPrice { get; set; } = 0;
+    }
+
+    private List<SupplierOrderResponse> allOrders = new();
+    private List<SupplierOrderResponse> filteredOrders = new();
+    private List<SupplierResponse> suppliers = new();
+    private bool isLoading = true;
+
+    // Filtres
+    private string selectedStatus = "";
+    private string searchTerm = "";
+    private string selectedSupplierId = "";
+
+    // Modal détail
+    private bool showDetailModal = false;
+    private SupplierOrderResponse? selectedOrder = null;
+
+    // Modal création
+    private bool showCreateModal = false;
+    private string createSupplierId = "";
+    private List<OrderLineItem> createLines = new();
+    private string createNotes = "";
+    private DateTime? createExpectedDeliveryDate = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            // Charger commandes
+            var ordersResponse = await Http.GetAsync("api/supplier-orders");
+            if (ordersResponse.IsSuccessStatusCode)
+            {
+                allOrders = await ordersResponse.Content.ReadFromJsonAsync<List<SupplierOrderResponse>>() ?? new();
+                filteredOrders = new List<SupplierOrderResponse>(allOrders);
+            }
+
+            // Charger fournisseurs
+            var suppliersResponse = await Http.GetAsync("api/suppliers");
+            if (suppliersResponse.IsSuccessStatusCode)
+            {
+                suppliers = await suppliersResponse.Content.ReadFromJsonAsync<List<SupplierResponse>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void FilterOrders()
+    {
+        filteredOrders = allOrders.Where(o =>
+        {
+            if (!string.IsNullOrEmpty(selectedStatus) && o.Status != selectedStatus)
+                return false;
+
+            if (!string.IsNullOrEmpty(searchTerm) && !o.OrderNumber.ToLower().Contains(searchTerm.ToLower()))
+                return false;
+
+            if (!string.IsNullOrEmpty(selectedSupplierId) && o.SupplierId.ToString() != selectedSupplierId)
+                return false;
+
+            return true;
+        }).ToList();
+    }
+
+    private void ClearFilters()
+    {
+        selectedStatus = "";
+        searchTerm = "";
+        selectedSupplierId = "";
+        FilterOrders();
+    }
+
+    private void NavigateToDashboard()
+    {
+        Navigation.NavigateTo("/admin-lc/dashboard");
+    }
+
+    private void OpenCreateModal()
+    {
+        ResetCreateForm();
+        showCreateModal = true;
+    }
+
+    private void CloseCreateModal()
+    {
+        showCreateModal = false;
+        ResetCreateForm();
+    }
+
+    private void ResetCreateForm()
+    {
+        createSupplierId = "";
+        createLines = new List<OrderLineItem> { new OrderLineItem() };
+        createNotes = "";
+        createExpectedDeliveryDate = null;
+    }
+
+    private void AddOrderLine()
+    {
+        createLines.Add(new OrderLineItem());
+    }
+
+    private void RemoveOrderLine(int index)
+    {
+        if (createLines.Count > 1)
+        {
+            createLines.RemoveAt(index);
+        }
+    }
+
+    private decimal GetLineTotal(OrderLineItem line)
+    {
+        return line.Quantity * line.UnitPrice;
+    }
+
+    private decimal GetOrderTotal()
+    {
+        return createLines.Sum(l => GetLineTotal(l));
+    }
+
+    private async Task CreateOrder()
+    {
+        if (string.IsNullOrEmpty(createSupplierId))
+        {
+            await JS.InvokeVoidAsync("alert", "Veuillez sélectionner un fournisseur");
+            return;
+        }
+
+        if (createLines.Count == 0 || createLines.All(l => l.Quantity == 0))
+        {
+            await JS.InvokeVoidAsync("alert", "Veuillez ajouter au moins une ligne de commande");
+            return;
+        }
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var request = new
+            {
+                supplierId = createSupplierId,
+                lines = createLines.Select(l => new
+                {
+                    productType = l.ProductType,
+                    quantity = l.Quantity,
+                    unitPrice = l.UnitPrice
+                }).ToList(),
+                notes = createNotes,
+                expectedDeliveryDate = createExpectedDeliveryDate
+            };
+
+            var response = await Http.PostAsJsonAsync("api/supplier-orders", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Commande créée avec succès");
+                CloseCreateModal();
+                await LoadData();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("alert", $"Erreur: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+
+    private void ViewOrderDetails(Guid orderId)
+    {
+        selectedOrder = allOrders.FirstOrDefault(o => o.Id == orderId);
+        if (selectedOrder != null)
+        {
+            showDetailModal = true;
+        }
+    }
+
+    private void CloseDetailModal()
+    {
+        showDetailModal = false;
+        selectedOrder = null;
+    }
+
+    private async Task SendOrder()
+    {
+        if (selectedOrder == null) return;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.PostAsJsonAsync($"api/supplier-orders/{selectedOrder.Id}/send", new { });
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Commande envoyée");
+                CloseDetailModal();
+                await LoadData();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+
+    private async Task ReceiveOrder()
+    {
+        if (selectedOrder == null) return;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            var lines = selectedOrder.Lines.Select(l => new { lineId = l.Id, receivedQuantity = l.Quantity }).ToList();
+            var request = new { lines };
+
+            var response = await Http.PostAsJsonAsync($"api/supplier-orders/{selectedOrder.Id}/receive", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Commande réceptionnée");
+                CloseDetailModal();
+                await LoadData();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteOrder()
+    {
+        if (selectedOrder == null) return;
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.DeleteAsync($"api/supplier-orders/{selectedOrder.Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Commande annulée");
+                CloseDetailModal();
+                await LoadData();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
     }
 }
 
@@ -359,185 +645,113 @@
     </div>
 }
 
-@code {
-    private List<SupplierOrderResponse> allOrders = new();
-    private List<SupplierOrderResponse> filteredOrders = new();
-    private List<SupplierResponse> suppliers = new();
-    private bool isLoading = true;
+<!-- Modal Création Commande -->
+@if (showCreateModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseCreateModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" @onclick:stopPropagation>
+            <div class="bg-green-50 border-b border-green-200 p-6">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">Nouvelle Commande</h3>
+                        <p class="text-sm text-gray-600 mt-1">Créez une nouvelle commande fournisseur</p>
+                    </div>
+                    <button @onclick="CloseCreateModal" class="text-gray-400 hover:text-gray-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Fournisseur *</label>
+                            <select @bind="createSupplierId" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                <option value="">-- Sélectionner un fournisseur --</option>
+                                @foreach (var supplier in suppliers)
+                                {
+                                    <option value="@supplier.Id">@supplier.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Date Livraison Prévue</label>
+                            <input type="date" @bind="createExpectedDeliveryDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                    </div>
 
-    // Filtres
-    private string selectedStatus = "";
-    private string searchTerm = "";
-    private string selectedSupplierId = "";
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                        <textarea @bind="createNotes" placeholder="Notes supplémentaires..." class="w-full px-4 py-2 border border-gray-300 rounded-lg" rows="3"></textarea>
+                    </div>
 
-    // Modal détail
-    private bool showDetailModal = false;
-    private SupplierOrderResponse? selectedOrder = null;
+                    <!-- Lignes de commande -->
+                    <div>
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-lg font-bold text-gray-900">Lignes de Commande</h4>
+                            <button @onclick="AddOrderLine" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                                + Ajouter une ligne
+                            </button>
+                        </div>
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadData();
-    }
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 border border-gray-300">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Type Produit</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Quantité</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Prix Unitaire</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Total</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    @for (int i = 0; i < createLines.Count; i++)
+                                    {
+                                        var line = createLines[i];
+                                        <tr>
+                                            <td class="px-4 py-2">
+                                                <input type="text" @bind="line.ProductType" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                                            </td>
+                                            <td class="px-4 py-2">
+                                                <input type="number" @bind="line.Quantity" min="1" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                                            </td>
+                                            <td class="px-4 py-2">
+                                                <input type="number" @bind="line.UnitPrice" step="0.01" min="0" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                                            </td>
+                                            <td class="px-4 py-2 text-sm font-medium">
+                                                @GetLineTotal(line).ToString("C")
+                                            </td>
+                                            <td class="px-4 py-2">
+                                                @if (createLines.Count > 1)
+                                                {
+                                                    <button @onclick="() => RemoveOrderLine(i)" class="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">
+                                                        Supprimer
+                                                    </button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-    private async Task LoadData()
-    {
-        isLoading = true;
-        try
-        {
-            var token = await AuthService.GetTokenAsync();
-            Http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
-
-            // Charger commandes
-            var ordersResponse = await Http.GetAsync("api/supplier-orders");
-            if (ordersResponse.IsSuccessStatusCode)
-            {
-                allOrders = await ordersResponse.Content.ReadFromJsonAsync<List<SupplierOrderResponse>>() ?? new();
-                filteredOrders = new List<SupplierOrderResponse>(allOrders);
-            }
-
-            // Charger fournisseurs
-            var suppliersResponse = await Http.GetAsync("api/suppliers");
-            if (suppliersResponse.IsSuccessStatusCode)
-            {
-                suppliers = await suppliersResponse.Content.ReadFromJsonAsync<List<SupplierResponse>>() ?? new();
-            }
-        }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
-
-    private void FilterOrders()
-    {
-        filteredOrders = allOrders.Where(o =>
-        {
-            if (!string.IsNullOrEmpty(selectedStatus) && o.Status != selectedStatus)
-                return false;
-
-            if (!string.IsNullOrEmpty(searchTerm) && !o.OrderNumber.ToLower().Contains(searchTerm.ToLower()))
-                return false;
-
-            if (!string.IsNullOrEmpty(selectedSupplierId) && o.SupplierId.ToString() != selectedSupplierId)
-                return false;
-
-            return true;
-        }).ToList();
-    }
-
-    private void ClearFilters()
-    {
-        selectedStatus = "";
-        searchTerm = "";
-        selectedSupplierId = "";
-        FilterOrders();
-    }
-
-    private void NavigateToDashboard()
-    {
-        // Navigation vers le dashboard admin
-    }
-
-    private void OpenCreateModal()
-    {
-        // À implémenter: modal de création
-    }
-
-    private void ViewOrderDetails(Guid orderId)
-    {
-        selectedOrder = allOrders.FirstOrDefault(o => o.Id == orderId);
-        if (selectedOrder != null)
-        {
-            showDetailModal = true;
-        }
-    }
-
-    private void CloseDetailModal()
-    {
-        showDetailModal = false;
-        selectedOrder = null;
-    }
-
-    private async Task SendOrder()
-    {
-        if (selectedOrder == null) return;
-
-        try
-        {
-            var token = await AuthService.GetTokenAsync();
-            Http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
-
-            var response = await Http.PostAsJsonAsync($"api/supplier-orders/{selectedOrder.Id}/send", new { });
-
-            if (response.IsSuccessStatusCode)
-            {
-                await JS.InvokeVoidAsync("showNotification", "Commande envoyée");
-                CloseDetailModal();
-                await LoadData();
-            }
-        }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
-        }
-    }
-
-    private async Task ReceiveOrder()
-    {
-        if (selectedOrder == null) return;
-
-        try
-        {
-            var token = await AuthService.GetTokenAsync();
-            Http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
-
-            var lines = selectedOrder.Lines.Select(l => new { lineId = l.Id, receivedQuantity = l.Quantity }).ToList();
-            var request = new { lines };
-
-            var response = await Http.PostAsJsonAsync($"api/supplier-orders/{selectedOrder.Id}/receive", request);
-
-            if (response.IsSuccessStatusCode)
-            {
-                await JS.InvokeVoidAsync("showNotification", "Commande réceptionnée");
-                CloseDetailModal();
-                await LoadData();
-            }
-        }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
-        }
-    }
-
-    private async Task DeleteOrder()
-    {
-        if (selectedOrder == null) return;
-
-        try
-        {
-            var token = await AuthService.GetTokenAsync();
-            Http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
-
-            var response = await Http.DeleteAsync($"api/supplier-orders/{selectedOrder.Id}");
-
-            if (response.IsSuccessStatusCode)
-            {
-                await JS.InvokeVoidAsync("showNotification", "Commande annulée");
-                CloseDetailModal();
-                await LoadData();
-            }
-        }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
-        }
-    }
+                    <!-- Total -->
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-bold text-gray-900">Total Commande :</span>
+                            <span class="text-2xl font-bold text-blue-600">@GetOrderTotal().ToString("C")</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-end gap-3">
+                <button @onclick="CloseCreateModal" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Annuler</button>
+                <button @onclick="CreateOrder" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Créer Commande</button>
+            </div>
+        </div>
+    </div>
 }

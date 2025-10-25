@@ -4,6 +4,7 @@
 @inject HttpClient Http
 @inject AuthService AuthService
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 @code {
     public class SupplierResponse
@@ -35,6 +36,24 @@
     private bool showDetailModal = false;
     private SupplierResponse? selectedSupplier = null;
     private bool isEditMode = false;
+
+    // Modal création
+    private bool showCreateModal = false;
+    private string createName = "";
+    private string createContact = "";
+    private string createEmail = "";
+    private string createPhone = "";
+    private string createAddress = "";
+    private string createCity = "";
+    private string createPostalCode = "";
+    private string createCountry = "FR";
+    private string createSiret = "";
+    private string createVatNumber = "";
+    private string createTaxId = "";
+    private bool createIsEuSupplier = false;
+    private string createWebsite = "";
+    private string createPaymentTerms = "NET 30";
+    private int createLeadTimeDays = 7;
 
     protected override async Task OnInitializedAsync()
     {
@@ -105,16 +124,120 @@
         selectedSupplier = null;
         isEditMode = false;
     }
+
+    private void NavigateToDashboard()
+    {
+        Navigation.NavigateTo("/admin-lc/dashboard");
+    }
+
+    private void OpenCreateModal()
+    {
+        ResetCreateForm();
+        showCreateModal = true;
+    }
+
+    private void CloseCreateModal()
+    {
+        showCreateModal = false;
+        ResetCreateForm();
+    }
+
+    private void ResetCreateForm()
+    {
+        createName = "";
+        createContact = "";
+        createEmail = "";
+        createPhone = "";
+        createAddress = "";
+        createCity = "";
+        createPostalCode = "";
+        createCountry = "FR";
+        createSiret = "";
+        createVatNumber = "";
+        createTaxId = "";
+        createIsEuSupplier = false;
+        createWebsite = "";
+        createPaymentTerms = "NET 30";
+        createLeadTimeDays = 7;
+    }
+
+    private async Task CreateSupplier()
+    {
+        if (string.IsNullOrEmpty(createName))
+        {
+            await JS.InvokeVoidAsync("alert", "Le nom du fournisseur est requis");
+            return;
+        }
+
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var request = new
+            {
+                name = createName,
+                contactName = createContact,
+                email = createEmail,
+                phone = createPhone,
+                address = createAddress,
+                city = createCity,
+                postalCode = createPostalCode,
+                country = createCountry,
+                siret = string.IsNullOrEmpty(createSiret) ? null : createSiret,
+                vatNumber = string.IsNullOrEmpty(createVatNumber) ? null : createVatNumber,
+                taxId = string.IsNullOrEmpty(createTaxId) ? null : createTaxId,
+                isEuSupplier = createIsEuSupplier,
+                website = createWebsite,
+                paymentTerms = createPaymentTerms,
+                leadTimeDays = createLeadTimeDays,
+                isActive = true
+            };
+
+            var response = await Http.PostAsJsonAsync("api/suppliers", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showNotification", "Fournisseur créé avec succès");
+                CloseCreateModal();
+                await LoadSuppliers();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("alert", $"Erreur: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
 }
 
 <div class="min-h-screen bg-gray-50 py-8 px-4">
     <div class="max-w-7xl mx-auto">
         <div class="mb-8">
+            <button @onclick="NavigateToDashboard"
+                    class="lc-btn lc-btn-secondary inline-flex items-center mb-4">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Retour
+            </button>
+
             <div class="flex justify-between items-center flex-wrap gap-4">
                 <div>
                     <h1 class="lc-heading-1">Gestion des Fournisseurs</h1>
                     <p class="lc-text-muted mt-1">Gérez vos fournisseurs de puces RFID</p>
                 </div>
+                <button @onclick="OpenCreateModal"
+                        class="lc-btn lc-btn-primary inline-flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Nouveau Fournisseur
+                </button>
             </div>
         </div>
 
@@ -195,6 +318,7 @@
     </div>
 </div>
 
+<!-- Modal Détail -->
 @if (showDetailModal && selectedSupplier != null)
 {
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseDetailModal">
@@ -301,6 +425,120 @@
             </div>
             <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-end gap-3">
                 <button @onclick="CloseDetailModal" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Fermer</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal Création Fournisseur -->
+@if (showCreateModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" @onclick="CloseCreateModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" @onclick:stopPropagation>
+            <div class="bg-green-50 border-b border-green-200 p-6">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">Nouveau Fournisseur</h3>
+                        <p class="text-sm text-gray-600 mt-1">Créez un nouveau fournisseur</p>
+                    </div>
+                    <button @onclick="CloseCreateModal" class="text-gray-400 hover:text-gray-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
+                            <input type="text" @bind="createName" placeholder="Nom du fournisseur" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Contact</label>
+                            <input type="text" @bind="createContact" placeholder="Nom du contact" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" @bind="createEmail" placeholder="email@example.com" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                            <input type="tel" @bind="createPhone" placeholder="+33..." class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
+                        <input type="text" @bind="createAddress" placeholder="Adresse" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                    </div>
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ville</label>
+                            <input type="text" @bind="createCity" placeholder="Ville" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Code Postal</label>
+                            <input type="text" @bind="createPostalCode" placeholder="Code postal" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Pays</label>
+                            <select @bind="createCountry" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                <option value="FR">France</option>
+                                <option value="DE">Allemagne</option>
+                                <option value="IT">Italie</option>
+                                <option value="ES">Espagne</option>
+                                <option value="BE">Belgique</option>
+                                <option value="NL">Pays-Bas</option>
+                                <option value="CH">Suisse</option>
+                                <option value="GB">Royaume-Uni</option>
+                                <option value="US">États-Unis</option>
+                                <option value="CN">Chine</option>
+                                <option value="OTHER">Autre</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">SIRET</label>
+                            <input type="text" @bind="createSiret" placeholder="SIRET (FR)" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">TVA</label>
+                            <input type="text" @bind="createVatNumber" placeholder="Numéro TVA" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">TaxId</label>
+                            <input type="text" @bind="createTaxId" placeholder="Tax ID" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Site Web</label>
+                            <input type="url" @bind="createWebsite" placeholder="https://..." class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Conditions Paiement</label>
+                            <input type="text" @bind="createPaymentTerms" placeholder="NET 30" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Délai Livraison (jours)</label>
+                        <input type="number" @bind="createLeadTimeDays" min="1" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                    </div>
+                    <div>
+                        <label class="flex items-center">
+                            <input type="checkbox" @bind="createIsEuSupplier" class="rounded border-gray-300" />
+                            <span class="ml-2 text-sm text-gray-700">Fournisseur UE</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 border-t border-gray-200 p-6 flex justify-end gap-3">
+                <button @onclick="CloseCreateModal" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Annuler</button>
+                <button @onclick="CreateSupplier" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Créer</button>
             </div>
         </div>
     </div>
